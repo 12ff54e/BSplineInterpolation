@@ -54,7 +54,9 @@ class InterpolationFunction {
             } else if (i <= order / 2 || i >= n - order / 2 - 1) {
                 // there are floor(order/2) point(s) in first (last) segment
                 if (order % 2 == 0 && i == n - order / 2 - 1) { knots_iter++; }
-                spline.base_spline_value(knots_iter, x_range.first + i * dx);
+                spline.base_spline_value(
+                    knots_iter,
+                    (i <= order ? 2 * i : order + 3 - 2 * (n - i)) * .5 * dx);
                 for (int j = 0; j < order + 1; ++j) {
                     coef_mat(i, i <= order / 2 ? j : j + n - order - 1) =
                         weights[j];
@@ -64,8 +66,8 @@ class InterpolationFunction {
                 ++knots_iter;
                 if (i <= 1 + 3 * order / 2 || i >= n - (2 + 3 * order / 2)) {
                     // base spline function near boundary has different shape
-                    spline.base_spline_value(
-                        knots_iter, *knots_iter + (1 - order % 2) * 0.5 * dx);
+                    spline.base_spline_value(knots_iter,
+                                             (1 - order % 2) * 0.5 * dx);
                 }
                 for (int j = i - order / 2; j < i + order / 2 + 1; ++j) {
                     coef_mat(i, j) = weights[j - i + order / 2];

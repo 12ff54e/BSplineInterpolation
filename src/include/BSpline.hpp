@@ -129,7 +129,7 @@ class BSpline {
 
     inline const std::vector<knot_type>& base_spline_value(
         KnotContainer::const_iterator seg_idx_iter,
-        knot_type x) const {
+        knot_type x_offset) const {
         if (*seg_idx_iter == knots.back()) {
             // Special case, only used when calculating control point in
             // constructing interpolation function.
@@ -141,22 +141,19 @@ class BSpline {
                 // Each iteration will expand buffer zone by one, from back to
                 // front.
                 const size_type idx_begin = order - i;
-
                 for (size_type j = 0; j <= i; ++j) {
-                    const auto left_min_iter = seg_idx_iter - (i - j);
-                    const auto right_max_iter = seg_idx_iter + (j + 1);
-                    const double left_span =
-                        *(seg_idx_iter + j) - *left_min_iter;
-                    const double right_span =
-                        *right_max_iter - *(seg_idx_iter - i + j + 1);
+                    const auto left_iter = seg_idx_iter - (i - j);
+                    const auto right_iter = seg_idx_iter + (j + 1);
                     buf[idx_begin + j] =
                         (j == 0 ? 0
-                                : buf[idx_begin + j] * (x - *left_min_iter) /
-                                      left_span) +
+                                : buf[idx_begin + j] *
+                                      (*seg_idx_iter - *left_iter + x_offset) /
+                                      (*(right_iter - 1) - *left_iter)) +
                         (idx_begin + j == order
                              ? 0
-                             : buf[idx_begin + j + 1] * (*right_max_iter - x) /
-                                   right_span);
+                             : buf[idx_begin + j + 1] *
+                                   (*right_iter - *seg_idx_iter - x_offset) /
+                                   (*right_iter - *(left_iter + 1)));
                 }
             }
         }
@@ -191,7 +188,8 @@ class BSpline {
                      : temp_iter);
         const size_type seg_idx = distance(knots.begin(), seg_idx_iter);
 
-        base_spline_value(seg_idx_iter, x);  // This method modifies buf
+        base_spline_value(seg_idx_iter,
+                          x - *seg_idx_iter);  // This method modifies buf
 
         val_type v{};
         for (size_type i = 0; i <= order; ++i) {
@@ -213,7 +211,7 @@ class BSpline {
         std::cout << order << " base spline value on knot point:\n";
         for (auto iter = knots.begin() + order; iter != end; ++iter) {
             std::cout << "Index@" << *iter << " knot point: ";
-            base_spline_value(iter, *iter);
+            base_spline_value(iter, 0);
             std::copy(buf.begin(), buf.end(),
                       std::ostream_iterator<knot_type>(std::cout, " "));
             std::cout << '\n';
