@@ -31,8 +31,9 @@ int main() {
     double d = 0;
     auto iter = val.begin();
     for (double x = 0.; x < (double)(f.size() - 1); x += 0.2, ++iter) {
-        d += (interp(x) - *iter) * (interp(x) - *iter);
-        cout << x << " " << interp(x) << '\n';
+        const double f = interp(x);
+        d += (f - *iter) * (f - *iter);
+        cout << x << " " << f << '\n';
     }
     return std::sqrt(d / val.size()) < 1e-6 ? 0 : 1;
 }

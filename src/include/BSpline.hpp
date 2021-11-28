@@ -90,6 +90,7 @@ class BSpline {
     ControlPointContainer control_points;
 
     mutable std::vector<double> buf;
+    std::pair<knot_type, knot_type> _range;
 
    public:
     BSpline(size_type order = 3) : order(order), buf(order + 1, 0){};
@@ -102,7 +103,8 @@ class BSpline {
         : order(order),
           buf(order + 1, 0),
           knots(knot_begin, knot_end),
-          control_points(ctrl_pt_begin, ctrl_pt_end) {
+          control_points(ctrl_pt_begin, ctrl_pt_end),
+          _range(knots.front(), knots.back()) {
         if (knots.size() - control_points.size() != order + 1) {
             throw std::range_error(
                 "Inconsistency between knots number and control point number.");
@@ -116,6 +118,8 @@ class BSpline {
         void>::type
     load_knots(C&& _knots) {
         knots = std::forward<C>(_knots);
+        _range.first = knots.front();
+        _range.second = knots.back();
     }
 
     template <typename C>
@@ -180,13 +184,13 @@ class BSpline {
             return control_points.back();
         }
 
-        const auto temp_iter =
-            std::upper_bound(knots.begin() + pos_hint, knots.end(), x);
+        const auto temp_iter = knots_begin() + pos_hint;
         const auto seg_idx_iter =
-            prev(temp_iter == knots.end()
-                     ? std::upper_bound(knots.begin(), knots.end(), x)
-                     : temp_iter);
-        const size_type seg_idx = distance(knots.begin(), seg_idx_iter);
+            (*temp_iter <= x) && (*(temp_iter + 1) >= x)
+                ? temp_iter
+                : prev(std::upper_bound(knots_begin() + order,
+                                        knots_end() - order, x));
+        const size_type seg_idx = distance(knots_begin(), seg_idx_iter);
 
         base_spline_value(seg_idx_iter,
                           x - *seg_idx_iter);  // This method modifies buf
@@ -198,12 +202,22 @@ class BSpline {
         return v;
     }
 
-    val_type operator()(val_type x) const { return operator()(x, 0); }
+    val_type operator()(val_type x) const { return operator()(x, order); }
 
     // iterators
 
-    KnotContainer::const_iterator knots_begin() const { return knots.cbegin(); }
-    KnotContainer::const_iterator knots_end() const { return knots.cend(); }
+    inline KnotContainer::const_iterator knots_begin() const {
+        return knots.cbegin();
+    }
+    inline KnotContainer::const_iterator knots_end() const {
+        return knots.cend();
+    }
+
+    // properties
+
+    const std::pair<knot_type, knot_type>& range() const { return _range; }
+
+    size_type knots_num() const { return knots.size(); }
 
     void __debug_output() {
         auto end = knots.end() - order;
