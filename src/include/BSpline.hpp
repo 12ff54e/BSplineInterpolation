@@ -1,12 +1,10 @@
 #pragma once
 
-#include <algorithm>
+#include <algorithm>  // upper_bound
 #include <array>
-#include <initializer_list>
-#include <iterator>
-#include <stdexcept>
-#include <type_traits>
-#include <utility>
+#include <iterator>     // advance, distance, etc.
+#include <stdexcept>    // range_error
+#include <type_traits>  // is_same, is_arithmatic
 #include <vector>
 
 // Debug
@@ -42,7 +40,8 @@ class Mesh {
     // auxilary methods
 
     /**
-     * @brief Set the __dim_acc_size object. Check the variable description.
+     * @brief Set the __dim_acc_size object. Check the variable description for
+     * details.
      *
      * @tparam DimSizes
      * @param dimSize
@@ -83,6 +82,12 @@ class Mesh {
 
     constexpr size_type indexing() const { return 0; }
 
+    template <typename U, unsigned DD>
+    friend class InterpolationFunction;  // friend class forward declaration,
+                                         // InterpolationFunction need access
+                                         // to indexing function in
+                                         // interpolation procedure
+
    public:
     Mesh() = delete;
 
@@ -94,13 +99,14 @@ class Mesh {
         storage.resize(__dim_acc_size.back(), val_type{});
     }
 
-    template <typename Array>
+    template <typename Array,
+              typename = typename std::enable_if<
+                  dim == 1u && !std::is_scalar<Array>::value,
+                  int>::type>
     Mesh(const Array& array)
         : storage(array.begin(), array.end()),
           __dim_size{(size_type)storage.size()},
-          __dim_acc_size{1u, (size_type)storage.size()} {
-        static_assert(dim == 1u, "Wrong Dimension");
-    }
+          __dim_acc_size{1u, (size_type)storage.size()} {}
 
     // properties
 
@@ -202,6 +208,8 @@ class BSpline {
         return base_spline_buf;
     }
 
+    std::vector<knot_type> composite_spline_value() const {}
+
    private:
     std::array<KnotContainer, dim> knots;
     ControlPointContainer control_points;
@@ -266,7 +274,10 @@ class BSpline {
 
    public:
     BSpline(size_type order = 3)
-        : order(order), base_spline_buf(order + 1, 0){};
+        : order(order),
+          base_spline_buf(order + 1, 0),
+          control_points(size_type{}),
+          buf_size(util::pow(order + 1, dim)){};
 
     template <typename... KnotIterPairs>
     BSpline(size_type order,
@@ -296,8 +307,8 @@ class BSpline {
         void>::type
     load_knots(size_type dim_ind, C&& _knots) {
         knots[dim_ind] = std::forward<C>(_knots);
-        _range[dim_ind].first = knots.front();
-        _range[dim_ind].second = knots.back();
+        _range[dim_ind].first = knots[dim_ind].front();
+        _range[dim_ind].second = knots[dim_ind].back();
     }
 
     template <typename C>
@@ -308,43 +319,6 @@ class BSpline {
     load_ctrlPts(C&& _control_points) {
         control_points = std::forward<C>(_control_points);
     }
-
-    // /**
-    //  * @brief Calculate spline value at x, use a position hint indicating a
-    //  * knot being left of the segment where x might located at.
-    //  *
-    //  * @param x
-    //  * @param pos_hint
-    //  * @return val_type
-    //  */
-    // val_type operator()(val_type x, size_type pos_hint) const {
-    //     // TODO: Change to higher order extrapolation
-    //     if (x < knots.front()) {
-    //         return control_points.front();
-    //     } else if (x >= knots.back()) {
-    //         return control_points.back();
-    //     }
-
-    //     const auto temp_iter = knots_begin() + pos_hint;
-    //     const auto seg_idx_iter =
-    //         (*temp_iter <= x) && (*(temp_iter + 1) >= x)
-    //             ? temp_iter
-    //             : prev(std::upper_bound(knots_begin() + order,
-    //                                     knots_end() - order, x));
-    //     const size_type seg_idx = distance(knots_begin(), seg_idx_iter);
-
-    //     base_spline_value(seg_idx_iter,
-    //                       x - *seg_idx_iter);  // This method modifies
-    //                       base_spline_buf
-
-    //     val_type v{};
-    //     for (size_type i = 0; i <= order; ++i) {
-    //         v += control_points[seg_idx - order + i] * base_spline_buf[i];
-    //     }
-    //     return v;
-    // }
-
-    // val_type operator()(val_type x) const { return operator()(x, order); }
 
     /**
      * @brief Get spline value at given pairs of coordinate and position hint

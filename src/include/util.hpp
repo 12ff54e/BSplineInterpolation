@@ -29,12 +29,11 @@ template <typename... T>
 using make_index_sequence_for = make_index_sequence<sizeof...(T)>;
 
 /**
- * @brief Compile time power for unsigned
+ * @brief Compile time power for unsigned exponent
  *
- * @tparam T
  * @param base
  * @param exp
- * @return constexpr std::
+ * @return base^exp in type of base
  */
 template <typename T1, typename T2>
 constexpr typename std::enable_if<std::is_unsigned<T2>::value, T1>::type pow(
