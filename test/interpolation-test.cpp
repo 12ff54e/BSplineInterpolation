@@ -10,8 +10,9 @@ int main() {
     vector<double> f{{0.905515, 0.894638, -0.433134, 0.43131, -0.131052,
                       0.262974, 0.423888, -0.562671, -0.915567, -0.261017,
                       -0.47915, -0.00939326, -0.445962}};
-    InterpolationFunction<double> interp(
-        3, std::make_pair(0., (double)(f.size() - 1)), f.begin(), f.end());
+    InterpolationFunction<double, 1> interp(
+        3, std::make_pair(f.begin(), f.end()),
+        std::make_pair(0., (double)(f.size() - 1)));
 
     // Values pre-computed by MMA
     auto val = {0.905515,

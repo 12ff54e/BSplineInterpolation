@@ -1,39 +1,59 @@
-#include <cmath>
+#include <cmath>  // ceil
 
 #include "BSpline.hpp"
 #include "BandMatrix.hpp"
 
-template <typename T>
+template <typename T, unsigned D>
 class InterpolationFunction {
    private:
     using val_type = T;
-    using spline_type = BSpline<T>;
+    using spline_type = BSpline<T, D>;
     using size_type = typename spline_type::size_type;
+
     const size_type order;
+    const static size_type dim = D;
 
     spline_type spline;
     bool _uniform;
     val_type _dx;
 
+    // auxiliary methods
+
+    template <typename... Coords, unsigned... indices>
+    val_type call_op_helper(util::index_sequence<indices...>,
+                            Coords... coords) {
+        return _uniform
+                   ? spline(std::make_pair(
+                         coords,
+                         std::min(
+                             spline.knots_num(indices) - order - 2,
+                             (size_type)std::ceil(std::max(
+                                 0., (coords - range(indices).first) / _dx -
+                                         .5 * (order + 1))) +
+                                 order))...)
+                   : spline(coords...);
+    }
+
    public:
     /**
      * @brief Construct a new Interpolation Function object, mimicking
-     * Mathematica's Interpolation function.
+     * Mathematica's `Interpolation` function, with option `Method->"Spline"`.
      *
      * @tparam InputIter
-     * @param order order of interpolation, the interpolated function is
+     * @param order order of interpolation, the interpolated function is of
      * $C^{order-1}$
+     * @param f_range a pair of iterators defining to-be-interpolated data
      * @param x_range a pair of x_min and x_max
-     * @param f_begin iterator points to first value of to-be-interpolated data
-     * @param f_end iterator points to one-past-end of to-be-interpolated data
      */
     template <typename InputIter>
     InterpolationFunction(size_type order,
-                          std::pair<double, double> x_range,
-                          InputIter f_begin,
-                          InputIter f_end)
+                          std::pair<InputIter, InputIter> f_range,
+                          std::pair<double, double> x_range)
         : order(order), _uniform(true), spline(order) {
-        const size_type n = std::distance(f_begin, f_end);
+        static_assert(dim == 1u,
+                      "This constructor can only be used in 1D interpolation");
+
+        const size_type n = std::distance(f_range.first, f_range.second);
         if (n < order + 1) { throw "Requested order is too high!"; }
 
         _dx = (x_range.second - x_range.first) / (n - 1);
@@ -47,10 +67,10 @@ class InterpolationFunction {
             xs[i] = x_range.second;
         }
 
-        spline.load_knots(std::move(xs));
+        spline.load_knots(0, std::move(xs));
         BandMatrix<typename spline_type::knot_type> coef_mat{n, order - 1,
                                                              order - 1};
-        auto knots_iter = spline.knots_begin() + order;
+        auto knots_iter = spline.knots_begin(0) + order;
         auto& weights = spline.base_spline_value();
         for (int i = 0; i < n; ++i) {
             if (i == 0 || i == n - 1) {
@@ -61,9 +81,11 @@ class InterpolationFunction {
                 // there are floor(order/2) point(s) in first (last) segment
                 if (order % 2 == 0 && i == n - order / 2 - 1) { knots_iter++; }
                 spline.base_spline_value(
-                    knots_iter,
-                    (i <= order ? (double)i : .5 * (order + 3 - 2 * (n - i))) *
-                        _dx);
+                    0, knots_iter,
+                    *knots_iter + (i <= order
+                                       ? (double)i
+                                       : .5 * (order + 3 - 2 * (n - i))) *
+                                      _dx);
                 for (int j = 0; j < order + 1; ++j) {
                     coef_mat(i, i <= order / 2 ? j : j + n - order - 1) =
                         weights[j];
@@ -73,8 +95,9 @@ class InterpolationFunction {
                 ++knots_iter;
                 if (i <= 1 + 3 * order / 2 || i >= n - (2 + 3 * order / 2)) {
                     // base spline function near boundary has different shape
-                    spline.base_spline_value(knots_iter,
-                                             (1 - order % 2) * 0.5 * _dx);
+                    spline.base_spline_value(
+                        0, knots_iter,
+                        *knots_iter + (1 - order % 2) * 0.5 * _dx);
                 }
                 for (int j = i - order / 2; j < i + order / 2 + 1; ++j) {
                     coef_mat(i, j) = weights[j - i + order / 2];
@@ -82,28 +105,19 @@ class InterpolationFunction {
             }
         }
 
-        spline.load_ctrlPts(std::move(coef_mat).linear_solve(
-            std::vector<val_type>{f_begin, f_end}));
-    }
-    template <typename InputIterX, typename InputIterF>
-    InterpolationFunction(InputIterX x_begin,
-                          InputIterX x_end,
-                          InputIterF f_begin,
-                          InputIterF f_end)
-        : _uniform(false) {}
-
-    const std::pair<typename BSpline<T>::knot_type,
-                    typename BSpline<T>::knot_type>&
-    range() const {
-        return spline.range();
+        spline.load_ctrlPts(Mesh<val_type, 1>{std::move(coef_mat).linear_solve(
+            std::vector<val_type>{f_range.first, f_range.second})});
     }
 
-    val_type operator()(double x) {
-        return _uniform ? spline(x, std::min(spline.knots_num() - order - 2,
-                                             (size_type)std::ceil(std::max(
-                                                 0., (x - range().first) / _dx -
-                                                         .5 * (order + 1))) +
-                                                 order))
-                        : spline(x);
+    const std::pair<typename BSpline<T, dim>::knot_type,
+                    typename BSpline<T, dim>::knot_type>&
+    range(size_type dim_ind) const {
+        return spline.range(dim_ind);
+    }
+
+    template <typename... Coords,
+              typename Indices = util::make_index_sequence_for<Coords...>>
+    val_type operator()(Coords... x) {
+        return call_op_helper(Indices{}, x...);
     }
 };
