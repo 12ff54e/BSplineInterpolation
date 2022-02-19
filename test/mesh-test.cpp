@@ -1,4 +1,4 @@
-#include <utility>
+#include <iterator>
 
 #include "../src/include/BSpline.hpp"
 
@@ -21,5 +21,14 @@ int main() {
 
     mesh(3, 4, 5) = 1;
     err = err == 0 && *(mesh.data() + 3 * 600 + 4 * 30 + 5) == 1. ? 0 : 1;
+
+    auto it = mesh.begin();
+    advance(it, 3 * 600 + 4 * 30 + 5);
+    auto indices = mesh.iter_indices(it);
+
+    err = err == 0 && indices[0] == 3 ? 0 : 1;
+    err = err == 0 && indices[1] == 4 ? 0 : 1;
+    err = err == 0 && indices[2] == 5 ? 0 : 1;
+
     return err;
 }

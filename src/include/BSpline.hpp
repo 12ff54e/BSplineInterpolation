@@ -24,6 +24,7 @@ class Mesh {
     using size_type = unsigned int;
     using val_type = T;
     const static size_type dim = D;
+    using Indices = std::array<size_type, dim>;
 
    private:
     /**
@@ -40,12 +41,8 @@ class Mesh {
     // auxilary methods
 
     /**
-     * @brief Set the __dim_acc_size object. Check the variable description for
-     * details.
-     *
-     * @tparam DimSizes
-     * @param dimSize
-     * @param dimSizes
+     * @brief Set the __dim_acc_size object. Check description of __dim_acc_size
+     * for details.
      */
     template <typename... DimSizes>
     void set_dim_acc_size(size_type dimSize, DimSizes&... dimSizes) {
@@ -62,17 +59,16 @@ class Mesh {
      * @brief Convert multi-dimesion index to one dimension index in storage
      * vector.
      *
-     * @tparam Indices
      * @param ind
      * @param indices
      * @return size_type
      */
-    template <typename... Indices>
-    size_type indexing(size_type ind, Indices... indices) const {
+    template <typename... _Indices>
+    size_type indexing(size_type ind, _Indices... indices) const {
         return ind * __dim_acc_size[sizeof...(indices)] + indexing(indices...);
     }
 
-    size_type indexing(std::array<size_type, dim> ind_arr) const {
+    size_type indexing(Indices ind_arr) const {
         size_type ind{};
         for (size_type i = 0; i < dim; ++i) {
             ind += ind_arr[i] * __dim_acc_size[dim - i - 1];
@@ -80,12 +76,30 @@ class Mesh {
         return ind;
     }
 
+    /**
+     * @brief Convert one dimension index in storage vector to multi-dimension
+     * indices
+     *
+     * @param total_ind
+     * @return std::array<size_type, dim>
+     */
+    Indices dimwise_indices(size_type total_ind) {
+        Indices indices;
+
+        for (unsigned i = 0; i < dim; ++i) {
+            indices[i] = total_ind / __dim_acc_size[dim - i - 1];
+            total_ind %= __dim_acc_size[dim - i - 1];
+        }
+
+        return indices;
+    }
+
     constexpr size_type indexing() const { return 0; }
 
     template <typename U, unsigned DD>
     friend class InterpolationFunction;  // friend class forward declaration,
                                          // InterpolationFunction need access
-                                         // to indexing function in
+                                         // to indexing function during
                                          // interpolation procedure
 
    public:
@@ -99,15 +113,24 @@ class Mesh {
         storage.resize(__dim_acc_size.back(), val_type{});
     }
 
+    template <typename InputIter,
+              typename = typename std::enable_if<
+                  dim == 1u &&
+                  std::is_convertible<typename std::iterator_traits<
+                                          InputIter>::iterator_category,
+                                      std::input_iterator_tag>::value>::type>
+    Mesh(InputIter iter_begin, InputIter iter_end)
+        : storage(iter_begin, iter_end),
+          __dim_size{(size_type)storage.size()},
+          __dim_acc_size{1u, (size_type)storage.size()} {}
+
     template <typename Array,
               typename = typename std::enable_if<
                   dim == 1u && !std::is_scalar<Array>::value,
                   int>::type>
-    Mesh(const Array& array)
-        : storage(array.begin(), array.end()),
-          __dim_size{(size_type)storage.size()},
-          __dim_acc_size{1u, (size_type)storage.size()} {}
+    Mesh(const Array& array) : Mesh(array.begin(), array.end()) {}
 
+   public:
     // properties
 
     size_type size() const { return storage.size(); }
@@ -116,19 +139,32 @@ class Mesh {
 
     // element access
 
-    template <typename... Indices>
-    val_type& operator()(Indices... indices) {
+    template <typename... _Indices>
+    val_type& operator()(_Indices... indices) {
         return storage[indexing(indices...)];
     }
 
-    template <typename... Indices>
-    val_type operator()(Indices... indices) const {
+    template <typename... _Indices>
+    val_type operator()(_Indices... indices) const {
         return storage[indexing(indices...)];
     }
 
     const val_type* data() const { return storage.data(); }
 
     // iterator
+
+    struct iterator : public std::vector<val_type>::iterator {
+        using base = typename std::vector<val_type>::iterator;
+        using base::iterator;
+    };
+
+    iterator begin() { return iterator(storage.begin()); }
+    iterator end() { return iterator(storage.end()); }
+
+    Indices iter_indices(iterator iter) {
+        return dimwise_indices(std::distance(
+            storage.begin(), static_cast<typename iterator::base>(iter)));
+    }
 
     // debug
 
@@ -153,6 +189,8 @@ class BSpline {
     using KnotContainer = std::vector<knot_type>;
     using ControlPointContainer = Mesh<val_type, D>;
 
+    using BaseSpline = std::vector<knot_type>;
+
     const static size_type dim = D;
     const size_type order;
 
@@ -164,7 +202,7 @@ class BSpline {
      * @param x
      * @return a reference to local buffer
      */
-    inline const std::vector<knot_type>& base_spline_value(
+    inline const BaseSpline& base_spline_value(
         size_type dim_ind,
         KnotContainer::const_iterator seg_idx_iter,
         knot_type x) const {
@@ -214,7 +252,7 @@ class BSpline {
     std::array<KnotContainer, dim> knots;
     ControlPointContainer control_points;
 
-    mutable std::vector<double> base_spline_buf;
+    mutable BaseSpline base_spline_buf;
     std::array<std::pair<knot_type, knot_type>, dim> _range;
 
     const size_type buf_size;

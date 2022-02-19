@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.0.0)
 project(mct VERSION 0.1.0)
 
 add_compile_options(-std=c++11)
+# add_compile_options(-Wall)
+include_directories($ENV{HOME}/software/install/include)
 
 add_executable(mct src/main.cpp)
 add_executable(bmt_test test/band-matrix-test.cpp)
