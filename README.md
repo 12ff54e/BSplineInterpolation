@@ -1,3 +1,7 @@
-# **M**agnetic **C**oordinate **T**ransformer
+# BSpline Interpolation Lib
 
-Given poloidal magnetic flux $\psi_{p}$ (analytic or numeric), calculate its Boozer coordinate representation.
+This library use B-spline to interpolate given data of any dimension on a mesh grid.
+
+## How to use
+
+Since the library is header only, include BSplineInterpolation and one can use all its functionality.

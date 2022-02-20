@@ -3,7 +3,6 @@
 #include <Eigen/Sparse>
 
 #include "BSpline.hpp"
-#include "BandMatrix.hpp"
 
 template <typename T, unsigned D>
 class InterpolationFunction {
