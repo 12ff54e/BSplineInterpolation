@@ -137,6 +137,19 @@ class Mesh {
 
     size_type dim_size(size_type dim_ind) const { return __dim_size[dim_ind]; }
 
+    // modifiers
+
+    void resize(Indices sizes) {
+        __dim_size = sizes;
+        for (size_type i = 0; i <= dim; ++i) {
+            __dim_acc_size[i] = 1;
+            for (size_type j = 0; j < i; ++j) {
+                __dim_acc_size[i] *= sizes[dim - j - 1];
+            }
+        }
+        storage.resize(__dim_acc_size.back());
+    }
+
     // element access
 
     template <typename... _Indices>
