@@ -1,4 +1,5 @@
 #include "../src/include/BSpline.hpp"
+#include "Assertion.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -7,7 +8,7 @@
 using namespace std;
 
 int main() {
-    int err = 0;
+    Assertion assertion;
 
     // 1D B-Spline
 
@@ -48,8 +49,9 @@ int main() {
         std::cout << x << " " << f << '\n';
     }
 
-    err = err == 0 && std::sqrt(d / vals_1d.size()) < 1e-14 ? 0 : 1;
-    std::cout << "\n1D test " << (err == 0 ? "succeed" : "failed") << '\n';
+    assertion(std::sqrt(d / vals_1d.size()) < 1e-14);
+    std::cout << "\n1D test "
+              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
 
     // 2D B-Spline
 
@@ -98,8 +100,9 @@ int main() {
         std::cout << coords_2d[i].first << " " << coords_2d[i].second << " "
                   << f << '\n';
     }
-    err = err == 0 && std::sqrt(d / vals_2d.size()) < 1e-14 ? 0 : 1;
-    std::cout << "\n2D test " << (err == 0 ? "succeed" : "failed") << '\n';
+    assertion(std::sqrt(d / vals_2d.size()) < 1e-14);
+    std::cout << "\n2D test "
+              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
 
     // 3D Spline
 
@@ -186,8 +189,36 @@ int main() {
                   << coords_3d[i][2] << " " << f << '\n';
     }
 
-    err = err == 0 && std::sqrt(d / vals_3d.size()) < 1e-14 ? 0 : 1;
-    std::cout << "\n3D test " << (err == 0 ? "succeed" : "failed") << '\n';
+    assertion(std::sqrt(d / vals_3d.size()) < 1e-14);
+    std::cout << "\n3D test "
+              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
 
-    return err;
+    // 2D with one dimension being periodic
+
+    std::cout << "\n2D B-Spline with periodic boundary Test:\n";
+
+    auto knots2 = {-0.6, -0.4, -0.2, 0., 0.2, 0.4, 0.6, 0.8, 1., 1.2, 1.4, 1.6};
+    BSpline<double, 2> spline_2d_3_periodic(
+        3, {false, true}, cp2d, make_pair(knots.begin(), knots.end()),
+        make_pair(knots2.begin(), knots2.end()));
+
+    constexpr array<double, 10> vals_2d_periodic{
+        -2.4226917831367354, -1.6666970964438268, 1.292431192225407,
+        0.7418964927133986,  -1.6357978631810504, 0.32021767652671507,
+        -0.0198531979338478, -1.6728476167273418, -2.414215484638793,
+        0.7421859678077125};
+
+    d = 0;
+    for (unsigned i = 0; i < coords_2d.size(); ++i) {
+        const double f =
+            spline_2d_3_periodic(coords_2d[i].first, coords_2d[i].second);
+        d += (f - vals_2d_periodic[i]) * (f - vals_2d_periodic[i]);
+        std::cout << coords_2d[i].first << " " << coords_2d[i].second << " "
+                  << f << '\n';
+    }
+    assertion(std::sqrt(d / coords_2d.size()) < 1e-14);
+    std::cout << "\n2D test with periodic boundary "
+              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
+
+    return assertion.status();
 }

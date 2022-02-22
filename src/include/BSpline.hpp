@@ -106,7 +106,7 @@ class Mesh {
     Mesh() = delete;
 
     template <typename... DimSizes>
-    Mesh(DimSizes... dimSizes) : __dim_size{(size_type)dimSizes...} {
+    explicit Mesh(DimSizes... dimSizes) : __dim_size{(size_type)dimSizes...} {
         __dim_acc_size.fill(1u);
         set_dim_acc_size(dimSizes...);
 
@@ -119,7 +119,7 @@ class Mesh {
                   std::is_convertible<typename std::iterator_traits<
                                           InputIter>::iterator_category,
                                       std::input_iterator_tag>::value>::type>
-    Mesh(InputIter iter_begin, InputIter iter_end)
+    explicit Mesh(InputIter iter_begin, InputIter iter_end)
         : storage(iter_begin, iter_end),
           __dim_size{(size_type)storage.size()},
           __dim_acc_size{1u, (size_type)storage.size()} {}
@@ -128,7 +128,7 @@ class Mesh {
               typename = typename std::enable_if<
                   dim == 1u && !std::is_scalar<Array>::value,
                   int>::type>
-    Mesh(const Array& array) : Mesh(array.begin(), array.end()) {}
+    explicit Mesh(const Array& array) : Mesh(array.begin(), array.end()) {}
 
    public:
     // properties
@@ -268,6 +268,8 @@ class BSpline {
     mutable BaseSpline base_spline_buf;
     std::array<std::pair<knot_type, knot_type>, dim> _range;
 
+    std::array<bool, dim> _periodicity;
+
     const size_type buf_size;
     // auxiliary methods
 
@@ -324,32 +326,47 @@ class BSpline {
     }
 
    public:
-    BSpline(size_type order = 3)
+    BSpline(std::array<bool, dim> periodicity, size_type order = 3)
         : order(order),
           base_spline_buf(order + 1, 0),
           control_points(size_type{}),
-          buf_size(util::pow(order + 1, dim)){};
+          buf_size(util::pow(order + 1, dim)),
+          _periodicity(periodicity){};
 
-    template <typename... KnotIterPairs>
+    BSpline(size_type order = 3) : BSpline(std::array<bool, dim>{}, order){};
+
+    template <typename... InputIters>
     BSpline(size_type order,
+            std::array<bool, dim> periodicity,
             ControlPointContainer ctrl_points,
-            KnotIterPairs... knot_iter_pairs)
+            std::pair<InputIters, InputIters>... knot_iter_pairs)
         : order(order),
           base_spline_buf(order + 1, 0),
           control_points(std::move(ctrl_points)),
           knots{
               KnotContainer(knot_iter_pairs.first, knot_iter_pairs.second)...},
           buf_size(util::pow(order + 1, dim)),
+          _periodicity(periodicity),
           _range{std::make_pair(*(knot_iter_pairs.first),
                                 *(knot_iter_pairs.second - 1))...} {
         for (int i = 0; i < dim; ++i) {
-            if (knots[i].size() - control_points.dim_size(i) != order + 1) {
+            if (knots[i].size() - control_points.dim_size(i) !=
+                (_periodicity[i] ? 2 * order + 1 : order + 1)) {
                 throw std::range_error(
                     "Inconsistency between knot number and control point "
                     "number.");
             }
         }
     }
+
+    template <typename... InputIters>
+    BSpline(size_type order,
+            ControlPointContainer ctrl_points,
+            std::pair<InputIters, InputIters>... knot_iter_pairs)
+        : BSpline(order,
+                  std::array<bool, dim>{},
+                  ctrl_points,
+                  knot_iter_pairs...) {}
 
     template <typename C>
     typename std::enable_if<
@@ -387,6 +404,7 @@ class BSpline {
                                 CoordWithHints...>::type>::value,
                             val_type>::type
     operator()(CoordWithHints... coord_with_hints) const {
+        // TODO: take care of periodicity
         // get knot point iter
         const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints...);
 
@@ -417,6 +435,11 @@ class BSpline {
                     : knot_iters[j] == knots_end(j)
                         ? control_points.dim_size(j) - order - 1
                         : distance(knots_begin(j), knot_iters[j]) - order;
+
+                // check periodicity
+                if (_periodicity[j]) {
+                    ind_arr[j] %= (knots_num(j) - 2 * order - 1);
+                }
             }
 
             v += coef * control_points(ind_arr);
@@ -470,6 +493,8 @@ class BSpline {
     size_type knots_num(size_type dim_ind) const {
         return knots[dim_ind].size();
     }
+
+    bool periodicity(size_type dim_ind) const { return _periodicity[dim_ind]; }
 
     void __debug_output() {
         std::cout << order << " base spline value on knot point:\n";
