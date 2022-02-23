@@ -26,9 +26,9 @@ int main() {
 
     // 1D interpolation test
 
-    constexpr array<double, 13> f{
-        {0.905515, 0.894638, -0.433134, 0.43131, -0.131052, 0.262974, 0.423888,
-         -0.562671, -0.915567, -0.261017, -0.47915, -0.00939326, -0.445962}};
+    array<double, 13> f{{0.905515, 0.894638, -0.433134, 0.43131, -0.131052,
+                         0.262974, 0.423888, -0.562671, -0.915567, -0.261017,
+                         -0.47915, -0.00939326, -0.445962}};
     InterpolationFunction<double, 1> interp(
         3, std::make_pair(f.begin(), f.end()),
         std::make_pair(0., (double)(f.size() - 1)));
@@ -268,8 +268,9 @@ int main() {
     }
 
     InterpolationFunction<double, 3> interp3(
-        3, f3d, make_pair(0, f3d.dim_size(0) - 1.),
-        make_pair(0, f3d.dim_size(1) - 1.), make_pair(0, f3d.dim_size(2) - 1.));
+        3, f3d, make_pair(0., f3d.dim_size(0) - 1.),
+        make_pair(0., f3d.dim_size(1) - 1.),
+        make_pair(0., f3d.dim_size(2) - 1.));
 
     // some random points
     constexpr array<array<double, 3>, 10> coords_3d{
@@ -300,7 +301,54 @@ int main() {
               << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << rel_err3 << '\n';
 
-    // 2D interplation test with one dimension being periodic
+    assertion(!interp3.periodicity(0) && !interp3.periodicity(1) &&
+              !interp3.periodicity(2));
+
+    // 1D interplation test with periodic boundary
+
+    std::cout << "\n1D Interpolation with Periodic Boundary Test:\n";
+
+    f.back() = f.front();
+    InterpolationFunction<double, 1> interp_periodic(
+        3, {true}, std::make_pair(f.begin(), f.end()),
+        std::make_pair(0., (double)(f.size() - 1)));
+
+    auto vals_1d_periodic = {
+        0.9055149999999998,   1.0370292777747692,    1.1201414050104614,
+        1.136408693358769,    1.0673884544713845,    0.894638,
+        0.6136140623827689,   0.27537105720369215,   -0.05513717916676927,
+        -0.31295681035815387, -0.43313399999999996,  -0.37369643930584595,
+        -0.1845979298252301,  0.06122619930830787,   0.2908406189612311,
+        0.4313099999999999,   0.4307006388406153,    0.32108533409723045,
+        0.1555385099335384,   -0.012865409486769452, -0.13105200000000006,
+        -0.15895408405661543, -0.10853347056369214,  -0.0047592150424612956,
+        0.12739962698584661,  0.26297399999999993,   0.3794406573858462,
+        0.4640595881575386,   0.5065365902363076,    0.4965774615433845,
+        0.4238879999999999,   0.28359912651323055,   0.09254225393353795,
+        -0.1270260819027699,  -0.35284934515938554,  -0.5626710000000001,
+        -0.7368168354387695,  -0.8659419398916928,   -0.9432837266252309,
+        -0.9620796089058463,  -0.9155670000000001,   -0.8033379607581531,
+        -0.650403142366769,   -0.4881278435963081,   -0.34787736321723034,
+        -0.26101699999999994, -0.24894243352861545,  -0.29317086664123093,
+        -0.36524988298953903, -0.43672706622523094,  -0.47914999999999996,
+        -0.47006448320738436, -0.4110091757083075,   -0.3095209526055376,
+        -0.1731366890018456,  -0.009393259999999987, 0.1737692133981548,
+        0.3667976265944619,   0.5597356290916936,    0.7426268703926159,
+        0.9055149999999998};
+
+    rel_err1 = 0;
+    iter = vals_1d_periodic.begin();
+    for (double x = 0.; x < (double)(f.size() - 1); x += 0.2, ++iter) {
+        const double f = interp_periodic(x);
+        rel_err1 += (f - *iter) * (f - *iter);
+    }
+    rel_err1 = std::sqrt(rel_err1 / vals_1d_periodic.size());
+    assertion(rel_err1 < 1e-14);
+    std::cout << "\n1D test "
+              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << rel_err1 << '\n';
+
+    // 2D interplation test with one dimension being periodic boundary
 
     return assertion.status();
 }

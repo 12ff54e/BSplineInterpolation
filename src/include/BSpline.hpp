@@ -404,7 +404,6 @@ class BSpline {
                                 CoordWithHints...>::type>::value,
                             val_type>::type
     operator()(CoordWithHints... coord_with_hints) const {
-        // TODO: take care of periodicity
         // get knot point iter
         const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints...);
 
@@ -436,7 +435,7 @@ class BSpline {
                         ? control_points.dim_size(j) - order - 1
                         : distance(knots_begin(j), knot_iters[j]) - order;
 
-                // check periodicity
+                // check periodicity, wrap the boundary
                 if (_periodicity[j]) {
                     ind_arr[j] %= (knots_num(j) - 2 * order - 1);
                 }

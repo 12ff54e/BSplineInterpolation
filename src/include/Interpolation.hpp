@@ -17,6 +17,7 @@ class InterpolationFunction {
     spline_type spline;
     bool _uniform;
     std::array<val_type, dim> _dx;
+    std::array<bool, dim> _periodicity;
 
     // auxiliary methods
 
@@ -59,28 +60,49 @@ class InterpolationFunction {
                                              std::input_iterator_tag>::value,
             int>::type>
     InterpolationFunction(size_type order,
+                          bool periodic,
                           std::pair<InputIter, InputIter> f_range,
                           std::pair<double, double> x_range)
         : InterpolationFunction(
               order,
+              {periodic},
               Mesh<val_type, 1u>{f_range.first, f_range.second},
               x_range) {}
+
+    template <
+        typename InputIter,
+        typename = typename std::enable_if<
+            dim == 1u && std::is_convertible<typename std::iterator_traits<
+                                                 InputIter>::iterator_category,
+                                             std::input_iterator_tag>::value,
+            int>::type>
+    InterpolationFunction(size_type order,
+                          std::pair<InputIter, InputIter> f_range,
+                          std::pair<double, double> x_range)
+        : InterpolationFunction(order, false, f_range, x_range) {}
 
     /**
      * @brief Construct a new nD Interpolation Function object, mimicking
      * Mathematica's `Interpolation` function, with option `Method->"Spline"`.
+     * Notice: last value of periodic dimension will be discarded since it is
+     * considered same of the first value. Thus inconsistency input data for
+     * periodic interpolation will be accepted.
      *
-     * @tparam RangePairs
      * @param order order of interpolation, the interpolated function is of
      * $C^{order-1}$
+     * @param periodicity an array describing periodicity of each dimension
      * @param f_mesh a mesh containing data to be interpolated
      * @param x_ranges pairs of x_min and x_max
      */
-    template <typename... RangePairs>
+    template <typename... Ts>
     InterpolationFunction(size_type order,
+                          std::array<bool, dim> periodicity,
                           Mesh<val_type, dim> f_mesh,
-                          RangePairs... x_ranges)
-        : order(order), _uniform(true), spline(order) {
+                          std::pair<Ts, Ts>... x_ranges)
+        : order(order),
+          _uniform(true),
+          spline(periodicity, order),
+          _periodicity(periodicity) {
         // load knots into spline
         util::dispatch_indexed(
             [&](size_type dim_ind,
@@ -89,23 +111,41 @@ class InterpolationFunction {
                 const size_type n = f_mesh.dim_size(dim_ind);
                 _dx[dim_ind] = (x_range.second - x_range.first) / (n - 1);
 
-                std::vector<typename spline_type::knot_type> xs(n + order + 1,
-                                                                x_range.first);
+                std::vector<typename spline_type::knot_type> xs(
+                    _periodicity[dim_ind] ? n + 2 * order : n + order + 1,
+                    x_range.first);
 
-                for (int i = order + 1; i < xs.size() - order - 1; ++i) {
-                    xs[i] =
-                        x_range.first + .5 * (2 * i - order - 1) * _dx[dim_ind];
-                }
-                for (int i = xs.size() - order - 1; i < xs.size(); ++i) {
-                    xs[i] = x_range.second;
+                if (_periodicity[dim_ind]) {
+                    for (int i = 0; i < xs.size(); ++i) {
+                        xs[i] = x_range.first + (i - (int)order) * _dx[dim_ind];
+                    }
+                } else {
+                    for (int i = order + 1; i < xs.size() - order - 1; ++i) {
+                        xs[i] = x_range.first +
+                                .5 * (2 * i - order - 1) * _dx[dim_ind];
+                    }
+                    for (int i = xs.size() - order - 1; i < xs.size(); ++i) {
+                        xs[i] = x_range.second;
+                    }
                 }
 
                 spline.load_knots(dim_ind, std::move(xs));
             },
             x_ranges...);
 
-        Eigen::SparseMatrix<double, Eigen::RowMajor> coef(f_mesh.size(),
-                                                          f_mesh.size());
+        // initialize mesh storing weights of spline, adjust dimension according
+        // to periodicity
+        Mesh<val_type, dim> weights{f_mesh};
+        std::array<size_type, dim> dim_size_tmp;
+        bool p_flag = false;
+        for (size_type i = 0; i < dim; ++i) {
+            dim_size_tmp[i] = weights.dim_size(i) -
+                              (_periodicity[i] ? ((p_flag = true), 1) : 0);
+        }
+        if (p_flag) { weights.resize(dim_size_tmp); }
+
+        Eigen::SparseMatrix<double, Eigen::RowMajor> coef(weights.size(),
+                                                          weights.size());
         // numbers of base spline covering
         std::vector<size_type> entry_per_row(f_mesh.size());
         for (size_type total_ind = 0; total_ind < f_mesh.size(); ++total_ind) {
@@ -113,7 +153,8 @@ class InterpolationFunction {
             size_type c = 1;
             for (size_type d = 0; d < dim; ++d) {
                 auto ind = indices[d];
-                c *= ind == 0 || ind == f_mesh.dim_size(d) - 1 ? 1
+                c *= _periodicity[d]                             ? order
+                     : ind == 0 || ind == f_mesh.dim_size(d) - 1 ? 1
                      : ind <= order / 2 ||
                              ind >= f_mesh.dim_size(d) - 1 - order / 2
                          ? order + 1
@@ -122,56 +163,95 @@ class InterpolationFunction {
             entry_per_row[total_ind] = c;
         }
         coef.reserve(entry_per_row);
-        Eigen::VectorXd mesh_val(f_mesh.size());
+        Eigen::VectorXd mesh_val(weights.size());
 
-        std::array<typename spline_type::BaseSpline, dim> weights_per_dim;
+        std::array<typename spline_type::BaseSpline, dim>
+            base_spline_vals_per_dim;
 
+        // pre-calculate base spline of periodic dimension, since it never
+        // changes due to its even-spaced knots
+        for (size_type d = 0; d < dim; ++d) {
+            if (_periodicity[d]) {
+                base_spline_vals_per_dim[d] = spline.base_spline_value(
+                    d, spline.knots_begin(d) + order, 0.);
+            }
+        }
+
+        size_type actual_ind = 0;
         // loop over dimension to calculate 1D base spline for each dim
         for (auto it = f_mesh.begin(); it != f_mesh.end(); ++it) {
-            size_type f_total_ind = std::distance(f_mesh.begin(), it);
+            // size_type f_total_ind = std::distance(f_mesh.begin(), it);
             auto f_indices = f_mesh.iter_indices(it);
+
+            // first base spline index (also the index of weights) in each
+            // dimension
             decltype(f_indices) base_spline_anchor;
 
+            // This flag indicates the current point is redundent due to
+            // periodicity
+            bool skip_flag = false;
             for (int i = 0; i < dim; ++i) {
                 const auto knot_num = spline.knots_num(i);
-                // knot points has a larger gap in both ends
-                const auto knot_ind = std::min(
-                    knot_num - order - 2, f_indices[i] > order / 2
-                                              ? f_indices[i] + (order + 1) / 2
-                                              : order);
-
-                if (knot_ind <= 2 * order + 1 ||
-                    knot_ind >= knot_num - 2 * order - 2) {
-                    // update base spline
-                    const auto iter = spline.knots_begin(i) + knot_ind;
-                    const double x =
-                        spline.range(i).first + f_indices[i] * _dx[i];
-                    weights_per_dim[i] = spline.base_spline_value(i, iter, x);
+                // This is the index of i-th dimension knot vector to the left
+                // of current f_indices[i] position, notice that knot points has
+                // a larger gap in both ends in non-periodic case.
+                const auto knot_ind =
+                    _periodicity[i]
+                        ? f_indices[i] + order
+                        : std::min(knot_num - order - 2,
+                                   f_indices[i] > order / 2
+                                       ? f_indices[i] + (order + 1) / 2
+                                       : order);
+                if (!_periodicity[i]) {
+                    if (knot_ind <= 2 * order + 1 ||
+                        knot_ind >= knot_num - 2 * order - 2) {
+                        // update base spline
+                        const auto iter = spline.knots_begin(i) + knot_ind;
+                        const double x =
+                            spline.range(i).first + f_indices[i] * _dx[i];
+                        base_spline_vals_per_dim[i] =
+                            spline.base_spline_value(i, iter, x);
+                    }
+                } else {
+                    if (f_indices[i] == f_mesh.dim_size(i) - 1) {
+                        skip_flag = true;
+                        break;
+                    }
                 }
-
                 base_spline_anchor[i] = knot_ind - order;
             }
+            if (skip_flag) { continue; }
 
             // loop over nD base splines that contributes to current f_mesh
             // point, fill matrix
             for (int i = 0; i < util::pow(order + 1, dim); ++i) {
-                std::array<unsigned, dim> ind_arr;
+                std::array<size_type, dim> ind_arr;
                 val_type spline_val = 1;
-                for (size_type j = 0, local_ind = i; j < dim; ++j) {
+                for (int j = dim - 1, local_ind = i; j >= 0; --j) {
                     ind_arr[j] = local_ind % (order + 1);
                     local_ind /= (order + 1);
 
-                    spline_val *= weights_per_dim[j][ind_arr[j]];
+                    spline_val *= base_spline_vals_per_dim[j][ind_arr[j]];
                     ind_arr[j] += base_spline_anchor[j];
+
+                    if (_periodicity[j]) {
+                        ind_arr[j] %= (spline.knots_num(j) - 2 * order - 1);
+                    }
                 }
                 if (spline_val != val_type{0}) {
-                    coef.insert(f_total_ind, f_mesh.indexing(ind_arr)) =
+#ifdef DEBUG
+                    std::cout << '(' << actual_ind << ','
+                              << f_mesh.indexing(ind_arr) << ") => "
+                              << spline_val << '\n';
+#endif
+
+                    coef.insert(actual_ind, f_mesh.indexing(ind_arr)) =
                         spline_val;
                 }
             }
 
             // fill rhs vector
-            mesh_val(f_total_ind) = *it;
+            mesh_val(actual_ind++) = *it;
         }
 
         Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>>
@@ -181,12 +261,17 @@ class InterpolationFunction {
         Eigen::VectorXd weights_vec;
         weights_vec = solver.solve(mesh_val);
 
-        Mesh<val_type, dim> weights{f_mesh};
         weights.storage =
             std::vector<val_type>(weights_vec.begin(), weights_vec.end());
 
         spline.load_ctrlPts(std::move(weights));
     }
+
+    template <typename... Ts>
+    InterpolationFunction(size_type order,
+                          Mesh<val_type, dim> f_mesh,
+                          std::pair<Ts, Ts>... x_ranges)
+        : InterpolationFunction(order, {}, f_mesh, x_ranges...) {}
 
     const std::pair<typename spline_type::knot_type,
                     typename spline_type::knot_type>&
@@ -209,4 +294,6 @@ class InterpolationFunction {
         using Indices = util::make_index_sequence<dim>;
         return call_op_arr_helper(Indices{}, x);
     }
+
+    bool periodicity(size_type dim_ind) const { return _periodicity[dim_ind]; }
 };
