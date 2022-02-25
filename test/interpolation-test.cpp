@@ -10,10 +10,17 @@ double rel_err(Func& interp,
                std::pair<InputIterPt, InputIterPt> pts,
                std::pair<InputIterVal, InputIterVal> vals) {
     double err{};
+#ifdef DEBUG
+    std::cout.precision(17);
+    std::cout << "\n[DEBUG] Spline Value           \tExpected\n";
+#endif
     for (auto pt_it = pts.first, val_it = vals.first;
          pt_it != pts.second && val_it != vals.second; ++pt_it, ++val_it) {
         double f = interp(*pt_it);
         err += (f - *val_it) * (f - *val_it);
+#ifdef DEBUG
+        std::cout << "[DEBUG] " << f << ",\t\t" << *val_it << '\n';
+#endif
     }
     return std::sqrt(err / std::distance(pts.first, pts.second));
 }
@@ -344,11 +351,34 @@ int main() {
     }
     rel_err1 = std::sqrt(rel_err1 / vals_1d_periodic.size());
     assertion(rel_err1 < 1e-14);
-    std::cout << "\n1D test "
+    std::cout << "\n1D test with periodic boundary "
               << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << rel_err1 << '\n';
 
     // 2D interplation test with one dimension being periodic boundary
+    std::cout << "\n2D Interpolation with Periodic Boundary Test:\n";
+
+    InterpolationFunction<double, 2> interp2_periodic(
+        3, {false, true}, f2d, make_pair(0., f2d.dim_size(0) - 1.),
+        make_pair(0., f2d.dim_size(1) - 1.));
+
+    auto vals_2d_periodic = {-0.5456439415470818, 0.7261218483070795,
+                             0.21577722210958022, -1.6499933881987376,
+                             1.224021619908732,   0.34969937176489274,
+                             0.5845798304532657,  0.2875923130734858,
+                             -1.4740569960870218, 0.258215214830246};
+
+    rel_err2 =
+        rel_err(interp2_periodic, make_pair(coords_2d.begin(), coords_2d.end()),
+                make_pair(vals_2d_periodic.begin(), vals_2d_periodic.end()));
+    assertion(rel_err2 < 1e-14);
+    std::cout << "\n2D test with periodic boundary "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << rel_err2 << '\n';
+
+    if (assertion.last_status() != 0) {
+        interp2_periodic.spline().__debug_output();
+    }
 
     return assertion.status();
 }
