@@ -7,7 +7,7 @@
 #include <type_traits>  // is_same, is_arithmatic
 #include <vector>
 
-#ifdef DEBUG
+#ifdef _DEBUG
 #include <iostream>
 #endif
 
@@ -460,6 +460,8 @@ class BSpline {
         return operator()(std::make_pair((knot_type)coords, order)...);
     }
 
+    // val_type derivative_at
+
     // iterators
 
     inline KnotContainer::const_iterator knots_begin(size_type dim_ind) const {
@@ -495,7 +497,7 @@ class BSpline {
 
     bool uniform(size_type dim_ind) const { return _uniform[dim_ind]; }
 
-#ifdef DEBUG
+#ifdef _DEBUG
     void __debug_output() const {
         std::cout << "\n[DEBUG] Control points (raw data):\n";
 

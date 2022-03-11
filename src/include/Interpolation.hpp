@@ -239,7 +239,7 @@ class InterpolationFunction {
                     }
                 }
                 if (spline_val != val_type{0}) {
-#ifdef DEBUG
+#ifdef _DEBUG
                     std::cout << "[DEBUG] {" << actual_ind << ','
                               << weights.indexing(ind_arr) << "} -> "
                               << spline_val << '\n';

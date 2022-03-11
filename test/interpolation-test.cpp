@@ -10,7 +10,7 @@ double rel_err(Func& interp,
                std::pair<InputIterPt, InputIterPt> pts,
                std::pair<InputIterVal, InputIterVal> vals) {
     double err{};
-#ifdef DEBUG
+#ifdef _DEBUG
     std::cout.precision(17);
     std::cout << "\n[DEBUG] Spline Value           \tExpected\n";
 #endif
@@ -18,7 +18,7 @@ double rel_err(Func& interp,
          pt_it != pts.second && val_it != vals.second; ++pt_it, ++val_it) {
         double f = interp(*pt_it);
         err += (f - *val_it) * (f - *val_it);
-#ifdef DEBUG
+#ifdef _DEBUG
         std::cout << "[DEBUG] " << f << ",\t\t" << *val_it << '\n';
 #endif
     }
@@ -36,9 +36,8 @@ int main() {
     array<double, 13> f{{0.905515, 0.894638, -0.433134, 0.43131, -0.131052,
                          0.262974, 0.423888, -0.562671, -0.915567, -0.261017,
                          -0.47915, -0.00939326, -0.445962}};
-    InterpolationFunction<double, 1> interp(
-        3, std::make_pair(f.begin(), f.end()),
-        std::make_pair(0., (double)(f.size() - 1)));
+    InterpolationFunction<double, 1> interp{
+        3, make_pair(f.begin(), f.end()), {0., (double)(f.size() - 1)}};
 
     // Values pre-computed by MMA
     auto val = {0.905515,
@@ -376,9 +375,11 @@ int main() {
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << rel_err2 << '\n';
 
+#ifdef _DEBUG
     if (assertion.last_status() != 0) {
         interp2_periodic.spline().__debug_output();
     }
+#endif
 
     return assertion.status();
 }
