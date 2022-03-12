@@ -215,7 +215,8 @@ class BSpline {
     inline const BaseSpline& base_spline_value(
         size_type dim_ind,
         KnotContainer::const_iterator seg_idx_iter,
-        knot_type x) const {
+        knot_type x,
+        size_type spline_order = order) const {
         std::fill(base_spline_buf.begin(), base_spline_buf.end(), 0);
         // out of boundary check
         if (seg_idx_iter == knots_begin(dim_ind)) {
@@ -358,6 +359,7 @@ class BSpline {
                     "number.");
             }
         }
+        _uniform.fill(true);
     }
 
     template <typename... InputIters>
@@ -371,10 +373,11 @@ class BSpline {
         std::is_same<typename std::remove_reference<C>::type,
                      KnotContainer>::value,
         void>::type
-    load_knots(size_type dim_ind, C&& _knots) {
+    load_knots(size_type dim_ind, C&& _knots, bool is_uniform = false) {
         knots[dim_ind] = std::forward<C>(_knots);
         _range[dim_ind].first = knots[dim_ind].front();
         _range[dim_ind].second = knots[dim_ind].back();
+        _uniform[dim_ind] = is_uniform;
     }
 
     template <typename C>
@@ -425,7 +428,7 @@ class BSpline {
                 // Shift index array according to knot iter of each dimension.
                 // When the coordinate is out of range in some dimensions, the
                 // corresponding iterator was set to be begin or end iterator of
-                // knot vector in `get_knot_iters` method and it will treated
+                // knot vector in `get_knot_iters` method and it will be treated
                 // seperately.
                 ind_arr[j] +=
                     knot_iters[j] == knots_begin(j) ? 0
@@ -433,7 +436,7 @@ class BSpline {
                         ? control_points.dim_size(j) - order - 1
                         : distance(knots_begin(j), knot_iters[j]) - order;
 
-                // check periodicity, wrap the boundary
+                // check periodicity, put out-of-right-boundary index to left
                 if (_periodicity[j]) {
                     ind_arr[j] %= (knots_num(j) - 2 * order - 1);
                 }
@@ -464,9 +467,21 @@ class BSpline {
 
     // iterators
 
+    /**
+     * @brief Returns a read-only (constant) iterator that points to the
+     *  first element in the knot vector of one dimension.
+     *
+     * @param dim_ind dimension index
+     */
     inline KnotContainer::const_iterator knots_begin(size_type dim_ind) const {
         return knots[dim_ind].cbegin();
     }
+    /**
+     * @brief Returns a read-only (constant) iterator that points to the
+     *  first element in the knot vector of one dimension.
+     *
+     * @param dim_ind dimension index
+     */
     inline KnotContainer::const_iterator knots_end(size_type dim_ind) const {
         return knots[dim_ind].cend();
     }
@@ -493,8 +508,20 @@ class BSpline {
         return knots[dim_ind].size();
     }
 
+    /**
+     * @brief Get periodicity of one dimension
+     *
+     * @param dim_ind dimension index
+     * @return a bool
+     */
     bool periodicity(size_type dim_ind) const { return _periodicity[dim_ind]; }
 
+    /**
+     * @brief Get uniformity of one dimension
+     *
+     * @param dim_ind dimension index
+     * @return a bool
+     */
     bool uniform(size_type dim_ind) const { return _uniform[dim_ind]; }
 
 #ifdef _DEBUG
