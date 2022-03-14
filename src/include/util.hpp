@@ -147,4 +147,32 @@ bool operator!=(const stack_allocator<T, N>& lhs,
     return !(lhs == rhs);
 }
 
+/**
+ * @brief Check if a type has begin() and end() method that returns iterator
+ *
+ * @tparam T a type to check
+ */
+template <typename T>
+struct is_iteratable {
+    struct _is_iteratable_impl {
+        template <
+            typename _T,
+            typename = std::enable_if<std::is_convertible<
+                typename std::iterator_traits<
+                    decltype(std::declval<_T&>().begin())>::iterator_category,
+                std::input_iterator_tag>::value>,
+            typename = std::enable_if<std::is_convertible<
+                typename std::iterator_traits<
+                    decltype(std::declval<_T&>().end())>::iterator_category,
+                std::input_iterator_tag>::value>>
+        static std::true_type __test(int);
+
+        template <typename>
+        static std::false_type __test(...);
+    };
+
+    static constexpr bool value =
+        decltype(_is_iteratable_impl::__test<T>(0))::value;
+};
+
 }  // namespace util

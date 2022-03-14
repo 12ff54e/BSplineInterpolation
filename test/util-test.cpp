@@ -47,5 +47,8 @@ int main() {
     assertion(exception_thrown,
               "No exception is thrown when allocator capacity is execeed.\n");
 
+    assertion(util::is_iteratable<std::vector<int>>::value);
+    assertion(!util::is_iteratable<double>::value);
+
     return assertion.status();
 }
