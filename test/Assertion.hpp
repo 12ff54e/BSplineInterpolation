@@ -1,3 +1,6 @@
+#include <iostream>
+#include <string>
+
 class Assertion {
    private:
     int err;
@@ -7,7 +10,12 @@ class Assertion {
     Assertion() : err(0) {}
 
     void operator()(bool t) {
-        err = err == 0 && t ? (last_err = 0) : (last_err = 1);
+        last_err = t ? 0 : 1;
+        err = err == 0 && last_err == 0 ? 0 : 1;
+    }
+    void operator()(bool t, std::string msg) {
+        operator()(t);
+        if (last_status() != 0) { std::cout << msg << '\n'; }
     }
     int last_status() const { return last_err; }
     int status() const { return err; }
