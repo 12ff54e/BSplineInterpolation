@@ -7,7 +7,7 @@ using namespace std;
 
 int main() {
     Assertion assertion;
-    Mesh<int, 3> mesh(10, 20, 30);
+    Mesh<int, 3> mesh{10, 20, 30};
 
     assertion(mesh.dim_acc_size()[0] == 1);
     assertion(mesh.dim_acc_size()[1] == 30);
@@ -94,6 +94,11 @@ int main() {
             std::cout << "Mesh 1D from container test failed.\n";
         }
     }
+
+    // test equal-length-on-each-dimension constructor
+
+    Mesh<int, 4> mesh_4d(5);
+    assertion(mesh_4d.size() == util::pow(5, 4u));
 
     return assertion.status();
 }

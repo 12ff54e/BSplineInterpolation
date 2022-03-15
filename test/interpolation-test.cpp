@@ -130,7 +130,7 @@ int main() {
           -0.961602882417603, 0.9016008505150341},
          {-0.7763245335851283, 0.729592963642911, -0.5861424925445622,
           -0.3508132480272552, 0.7075736670162986}}};
-    Mesh<double, 2> f2d(f2.size(), f2[0].size());
+    Mesh<double, 2> f2d{f2.size(), f2[0].size()};
     for (int i = 0; i < f2d.dim_size(0); ++i) {
         for (int j = 0; j < f2d.dim_size(1); ++j) { f2d(i, j) = f2[i][j]; }
     }
@@ -264,7 +264,7 @@ int main() {
             0.6460148816650522, -0.463700457054959, 0.7497559992824492,
             -0.6604977204100679}}}}};
 
-    Mesh<double, 3> f3d(f3.size(), f3[0].size(), f3[0][0].size());
+    Mesh<double, 3> f3d{f3.size(), f3[0].size(), f3[0][0].size()};
     for (int i = 0; i < f3d.dim_size(0); ++i) {
         for (int j = 0; j < f3d.dim_size(1); ++j) {
             for (int k = 0; k < f3d.dim_size(2); ++k) {

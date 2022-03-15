@@ -62,7 +62,7 @@ int main() {
                                               {-2, 4, 2, 2, -3},
                                               {1, 0, 5, -3, 5}}};
 
-    Mesh<double, 2> cp2d(5, 5);
+    Mesh<double, 2> cp2d{5, 5};
     for (unsigned i = 0; i < 5; ++i) {
         for (unsigned j = 0; j < 5; ++j) { cp2d(i, j) = cp2[i][j]; }
     }
@@ -133,7 +133,7 @@ int main() {
                                                           {1, 2, -1, 1, -1},
                                                           {0, -1, 5, 5, 4}}}}};
 
-    Mesh<double, 3> cp3d(5, 5, 5);
+    Mesh<double, 3> cp3d{5, 5, 5};
     for (unsigned i = 0; i < 5; ++i) {
         for (unsigned j = 0; j < 5; ++j) {
             for (unsigned k = 0; k < 5; ++k) { cp3d(i, j, k) = cp3[i][j][k]; }

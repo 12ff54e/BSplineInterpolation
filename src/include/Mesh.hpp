@@ -193,20 +193,16 @@ class Mesh {
                                          // interpolation procedure
 
    public:
-    Mesh() = delete;
-
-    template <typename... DimSizes>
-    explicit Mesh(DimSizes... dimSizes) : __dim_size{(size_type)dimSizes...} {
-        set_dim_acc_size();
-
-        storage.resize(__dim_acc_size.back(), val_type{});
-    }
-
     explicit Mesh(std::initializer_list<size_type> il,
                   const allocator_type& alloc = allocator_type()) {
         std::copy(il.begin(), il.end(), __dim_size.begin());
         set_dim_acc_size();
+        storage.resize(__dim_acc_size.back(), val_type{});
+    }
 
+    explicit Mesh(size_type n, const allocator_type& alloc = allocator_type()) {
+        std::fill(__dim_size.begin(), __dim_size.end(), n);
+        set_dim_acc_size();
         storage.resize(__dim_acc_size.back(), val_type{});
     }
 
