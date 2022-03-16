@@ -22,7 +22,8 @@ class Mesh {
     using allocator_type = Alloc;
 
    private:
-    using iterator = typename std::vector<val_type>::const_iterator;
+    using container_type = std::vector<val_type, allocator_type>;
+    using const_iterator = typename container_type::const_iterator;
 
     template <typename U>
     class skip_iterator {
@@ -53,7 +54,7 @@ class Mesh {
         // forward iterator requirement
 
         reference operator*() { return *ptr; }
-        reference operator->() { return *ptr; }
+        reference operator->() { return ptr; }
 
         bool operator==(skip_iterator other) {
             return this->ptr == other.ptr &&
@@ -85,23 +86,23 @@ class Mesh {
 
         // random access iterator requirement
 
-        skip_iterator& operator+=(size_type n) {
+        skip_iterator& operator+=(difference_type n) {
             ptr += n * step_length;
             return *this;
         }
-        skip_iterator operator+(size_type n) {
+        skip_iterator operator+(difference_type n) {
             skip_iterator tmp(*this);
             return tmp += n;
         }
-        friend skip_iterator operator+(size_type n, skip_iterator it) {
+        friend skip_iterator operator+(difference_type n, skip_iterator it) {
             return it += n;
         }
 
-        skip_iterator& operator-=(size_type n) {
+        skip_iterator& operator-=(difference_type n) {
             ptr -= n * step_length;
             return *this;
         }
-        skip_iterator operator-(size_type n) {
+        skip_iterator operator-(difference_type n) {
             skip_iterator tmp(*this);
             return tmp -= n;
         }
@@ -110,7 +111,9 @@ class Mesh {
             return (ptr - other.ptr) / step_length;
         }
 
-        reference operator[](size_type n) { return *(ptr + n * step_length); }
+        reference operator[](difference_type n) {
+            return *(ptr + n * step_length);
+        }
 
         bool operator<(skip_iterator other) { return other - *this > 0; }
         bool operator>(skip_iterator other) { return other < *this; }
@@ -121,7 +124,7 @@ class Mesh {
     /**
      * @brief Stores the mesh content in row-major format.
      */
-    std::vector<val_type, allocator_type> storage;
+    container_type storage;
     /**
      * @brief The i-th element stores the sub-mesh size when the first (dim-i)
      * coordinates are specified.
@@ -194,13 +197,15 @@ class Mesh {
 
    public:
     explicit Mesh(std::initializer_list<size_type> il,
-                  const allocator_type& alloc = allocator_type()) {
+                  const allocator_type& alloc = allocator_type())
+        : storage(alloc) {
         std::copy(il.begin(), il.end(), __dim_size.begin());
         set_dim_acc_size();
         storage.resize(__dim_acc_size.back(), val_type{});
     }
 
-    explicit Mesh(size_type n, const allocator_type& alloc = allocator_type()) {
+    explicit Mesh(size_type n, const allocator_type& alloc = allocator_type())
+        : storage(alloc) {
         std::fill(__dim_size.begin(), __dim_size.end(), n);
         set_dim_acc_size();
         storage.resize(__dim_acc_size.back(), val_type{});
@@ -262,13 +267,13 @@ class Mesh {
      *
      * @return iterator
      */
-    iterator begin() const { return storage.cbegin(); }
+    const_iterator begin() const { return storage.cbegin(); }
     /**
      * @brief End const_iterator to underlying container.
      *
      * @return iterator
      */
-    iterator end() const { return storage.cend(); }
+    const_iterator end() const { return storage.cend(); }
 
     skip_iterator<val_type> begin(size_type dim_ind, Indices indices) {
         indices[dim_ind] = 0;
@@ -293,7 +298,7 @@ class Mesh {
                                              __dim_acc_size[dim - dim_ind - 1]);
     }
 
-    Indices iter_indices(iterator iter) {
+    Indices iter_indices(const_iterator iter) {
         return dimwise_indices(std::distance(begin(), iter));
     }
 

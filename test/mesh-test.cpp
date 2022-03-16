@@ -80,6 +80,7 @@ int main() {
     assertion(*(iter2 + 4) == 9, "Dimension-wise iterator operator+(it, n)");
     assertion(*(4 + iter2) == 9, "Dimension-wise iterator operator+(n, it)");
     assertion(iter2[2] == 7, "Dimension-wise iterator operator[]");
+    assertion(iter2[-3] == 2, "Dimension-wise iterator operator[]");
 
     // test special constructor for 1D case
 
