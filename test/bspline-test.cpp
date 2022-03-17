@@ -5,10 +5,37 @@
 #include <iostream>
 #include <iterator>
 
+#ifdef _DEBUG
+#include <iomanip>
+#endif
+
 using namespace std;
+
+template <typename Func, typename InputIterPt, typename InputIterVal>
+double rel_err(const Func& interp,
+               std::pair<InputIterPt, InputIterPt> pts,
+               std::pair<InputIterVal, InputIterVal> vals) {
+    double err{}, l2{};
+#ifdef _DEBUG
+    std::cout.precision(17);
+    std::cout << "\n[DEBUG] Spline Value           \tExpected\n";
+#endif
+    for (auto pt_it = pts.first, val_it = vals.first;
+         pt_it != pts.second && val_it != vals.second; ++pt_it, ++val_it) {
+        double f = interp(*pt_it);
+        err += (f - *val_it) * (f - *val_it);
+        l2 += (*val_it) * (*val_it);
+#ifdef _DEBUG
+        std::cout << "[DEBUG] " << std::setw(20) << f << ",\t" << std::setw(20)
+                  << *val_it << '\n';
+#endif
+    }
+    return std::sqrt(err / l2);
+}
 
 int main() {
     Assertion assertion;
+    constexpr double tol = 1e-15;
 
     // 1D B-Spline
 
@@ -18,40 +45,28 @@ int main() {
     BSpline<double, 1> spline_1d_3(3, Mesh<double, 1>(cp),
                                    std::make_pair(knots.begin(), knots.end()));
 
+    // some random points
+    auto coords_1d = {0.4560373422725581,  0.8888069703323336,
+                      0.04461098353789361, 0.5439456019541871,
+                      0.532230619202863,   0.5153105562793239,
+                      0.21346152704976218, 0.08993837286502737,
+                      0.20928777742014026, 0.11139302362905723};
     // Values pre-computed by MMA
-    auto vals_1d = {1.,
-                    2.0239999999999996,
-                    2.552,
-                    2.6679999999999997,
-                    2.4560000000000004,
-                    2.,
-                    1.3839999999999995,
-                    0.6920000000000003,
-                    0.00799999999999973,
-                    -0.5839999999999992,
-                    -1.,
-                    -1.176,
-                    -1.1279999999999997,
-                    -0.8919999999999999,
-                    -0.5040000000000004,
-                    0.,
-                    0.5840000000000004,
-                    1.212000000000001,
-                    1.847999999999999,
-                    2.4559999999999995};
+    auto vals_1d = {-0.6452391969741351, 1.706781268175239,
+                    1.9389729439006869,  -1.1673240687437252,
+                    -1.1409725647301816, -1.079846126512429,
+                    2.3537378042387784,  2.4815644189239574,
+                    2.387237177311428,   2.6116510526724888};
 
     std::cout << "\n1D B-Spline Test:\n";
-    double d = 0;
-    auto iter = vals_1d.begin();
-    for (double x = 0.; x < 1.; x += 0.05, ++iter) {
-        const double f = spline_1d_3(x);
-        d += (f - *iter) * (f - *iter);
-        std::cout << x << " " << f << '\n';
-    }
+    double d =
+        rel_err(spline_1d_3, std::make_pair(coords_1d.begin(), coords_1d.end()),
+                std::make_pair(vals_1d.begin(), vals_1d.end()));
 
-    assertion(std::sqrt(d / vals_1d.size()) < 1e-14);
+    assertion(d < tol);
     std::cout << "\n1D test "
-              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
     // 2D B-Spline
 
@@ -93,16 +108,16 @@ int main() {
          1.3459399154210203, -0.7670721516764836, 1.495128187689829,
          1.5162241194068322}};
 
-    d = 0;
-    for (unsigned i = 0; i < vals_2d.size(); ++i) {
-        const double f = spline_2d_3(coords_2d[i].first, coords_2d[i].second);
-        d += (f - vals_2d[i]) * (f - vals_2d[i]);
-        std::cout << coords_2d[i].first << " " << coords_2d[i].second << " "
-                  << f << '\n';
-    }
-    assertion(std::sqrt(d / vals_2d.size()) < 1e-14);
+    d = rel_err(
+        [&](const std::pair<double, double>& coord) {
+            return spline_2d_3(coord.first, coord.second);
+        },
+        std::make_pair(coords_2d.begin(), coords_2d.end()),
+        std::make_pair(vals_2d.begin(), vals_2d.end()));
+    assertion(d < tol);
     std::cout << "\n2D test "
-              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
     // 3D Spline
 
@@ -180,18 +195,16 @@ int main() {
          -0.16274434441451202, -0.04873351906943385, 0.11126350145310085,
          -0.24228756896767534, -0.35239496660939207}};
 
-    d = 0;
-    for (unsigned i = 0; i < vals_3d.size(); ++i) {
-        const double f =
-            spline_3d_3(coords_3d[i][0], coords_3d[i][1], coords_3d[i][2]);
-        d += (f - vals_3d[i]) * (f - vals_3d[i]);
-        std::cout << coords_3d[i][0] << " " << coords_3d[i][1] << " "
-                  << coords_3d[i][2] << " " << f << '\n';
-    }
-
-    assertion(std::sqrt(d / vals_3d.size()) < 1e-14);
+    d = rel_err(
+        [&](const std::array<double, 3>& coord) {
+            return spline_3d_3(coord[0], coord[1], coord[2]);
+        },
+        std::make_pair(coords_3d.begin(), coords_3d.end()),
+        std::make_pair(vals_3d.begin(), vals_3d.end()));
+    assertion(d < tol);
     std::cout << "\n3D test "
-              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
     // 2D with one dimension being periodic
 
@@ -208,17 +221,132 @@ int main() {
         -0.0198531979338478, -1.6728476167273418, -2.414215484638793,
         0.7421859678077125};
 
-    d = 0;
-    for (unsigned i = 0; i < coords_2d.size(); ++i) {
-        const double f =
-            spline_2d_3_periodic(coords_2d[i].first, coords_2d[i].second);
-        d += (f - vals_2d_periodic[i]) * (f - vals_2d_periodic[i]);
-        std::cout << coords_2d[i].first << " " << coords_2d[i].second << " "
-                  << f << '\n';
-    }
-    assertion(std::sqrt(d / coords_2d.size()) < 1e-14);
+    d = rel_err(
+        [&](const std::pair<double, double>& coord) {
+            return spline_2d_3_periodic(coord.first, coord.second);
+        },
+        std::make_pair(coords_2d.begin(), coords_2d.end()),
+        std::make_pair(vals_2d_periodic.begin(), vals_2d_periodic.end()));
+    assertion(d < tol);
     std::cout << "\n2D test with periodic boundary "
-              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    // 1D derivative
+
+    std::cout << "\n1D B-Spline derivative Test:\n";
+
+    auto vals_1d_derivative_1 = {-9.92272407143533,   12.667321048785523,
+                                 16.318938809554005,  -1.7077524908452282,
+                                 -2.7976046481470465, -4.4414576381861774,
+                                 -8.212957569324931,  7.852171562286172,
+                                 -7.837502772245249,  4.326042837701884};
+    auto vals_1d_derivative_2 = {74.45709400715904,   -7.976407455712078,
+                                 -202.02141906253547, 91.34366663719412,
+                                 94.71758166957548,   99.59055979155474,
+                                 -88.5538538225598,   -171.56141343470156,
+                                 -91.35861357366572,  -157.14388812127353};
+    d = rel_err(
+        [&](double x) {
+            return spline_1d_3.derivative_at(std::make_pair(x, 0));
+        },
+        std::make_pair(coords_1d.begin(), coords_1d.end()),
+        std::make_pair(vals_1d.begin(), vals_1d.end()));
+
+    assertion(d < tol);
+    std::cout << "\n1D test of derivative 0 (fallback to spline value) "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    d = rel_err(
+        [&](double x) {
+            return spline_1d_3.derivative_at(std::make_pair(x, 1));
+        },
+        std::make_pair(coords_1d.begin(), coords_1d.end()),
+        std::make_pair(vals_1d_derivative_1.begin(),
+                       vals_1d_derivative_1.end()));
+    assertion(d < tol);
+    std::cout << "\n1D test of derivative 1 "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    d = rel_err(
+        [&](double x) {
+            return spline_1d_3.derivative_at(std::make_pair(x, 2));
+        },
+        std::make_pair(coords_1d.begin(), coords_1d.end()),
+        std::make_pair(vals_1d_derivative_2.begin(),
+                       vals_1d_derivative_2.end()));
+    assertion(d < tol);
+    std::cout << "\n1D test of derivative 2 "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    // 2D partial derivative
+
+    std::cout << "\n2D B-Spline derivative Test:\n";
+
+    auto vals_2d_derivative_x2_y0 = {-64.18140090609639,  33.606993827386646,
+                                     -97.40128619523041,  40.27561307446061,
+                                     9.28340750029671,    -7.934058734360374,
+                                     -24.125345223515264, 14.846578817272864,
+                                     -113.9333016161396,  30.79197201901215};
+    auto vals_2d_derivative_x1_y1 = {88.74503910110498,  -4.238681068935503,
+                                     -81.71582304860588, -7.40376361081399,
+                                     -8.066246965615212, 47.312250959237815,
+                                     91.39055060903914,  -10.267520769902886,
+                                     106.54723295116875, 253.25136807731457};
+
+    d = rel_err(
+        [&](std::pair<double, double> coord) {
+            return spline_2d_3.derivative_at(std::make_pair(coord.first, 2),
+                                             std::make_pair(coord.second, 0));
+        },
+        std::make_pair(coords_2d.begin(), coords_2d.end()),
+        std::make_pair(vals_2d_derivative_x2_y0.begin(),
+                       vals_2d_derivative_x2_y0.end()));
+
+    assertion(d < tol);
+    std::cout << "\n2D test of derivative 2,0 "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    d = rel_err(
+        [&](std::pair<double, double> coord) {
+            return spline_2d_3.derivative_at(std::make_pair(coord.first, 1),
+                                             std::make_pair(coord.second, 1));
+        },
+        std::make_pair(coords_2d.begin(), coords_2d.end()),
+        std::make_pair(vals_2d_derivative_x1_y1.begin(),
+                       vals_2d_derivative_x1_y1.end()));
+
+    assertion(d < tol);
+    std::cout << "\n2D test of derivative 1,1 "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    std::cout << "\n2D B-Spline with periodic boundary derivative Test:\n";
+
+    auto vals_2d_periodic_derivative_x1_y1 = {
+        10.419194997422988, -44.893624896638144, -67.96918096244443,
+        64.25725539946846,  -24.772206659332948, -5.667565671444081,
+        39.05723974033617,  -5.748203566140304,  -36.99426057331604,
+        -104.22161375710107};
+
+    d = rel_err(
+        [&](std::pair<double, double> coord) {
+            return spline_2d_3_periodic.derivative_at(
+                std::make_pair(coord.first, 1),
+                std::make_pair(coord.second, 1));
+        },
+        std::make_pair(coords_2d.begin(), coords_2d.end()),
+        std::make_pair(vals_2d_periodic_derivative_x1_y1.begin(),
+                       vals_2d_periodic_derivative_x1_y1.end()));
+
+    assertion(d < tol);
+    std::cout << "\n2D test of derivative 1,1 with periodic boundary "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
     return assertion.status();
 }

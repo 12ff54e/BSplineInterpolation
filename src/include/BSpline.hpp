@@ -37,16 +37,20 @@ class BSpline {
 
     /**
      * @brief Calculate values on base spline function. This is the core of
-     * B-Spline.
+     * B-Spline. Note: when the given order is smaller than order of spline
+     * (used in calculating derivative), spline value is aligned at right in
+     * result vector.
      *
      * @param seg_idx_iter the iterator points to left knot point of a segment
      * @param x
+     * @param spline_order order of base spline
      * @return a reference to local buffer
      */
     inline const BaseSpline& base_spline_value(
         size_type dim_ind,
         KnotContainer::const_iterator seg_idx_iter,
-        knot_type x) const {
+        knot_type x,
+        size_type spline_order) const {
         std::fill(base_spline_buf.begin(), base_spline_buf.end(), 0);
         // out of boundary check
         if (seg_idx_iter == knots_begin(dim_ind)) {
@@ -55,7 +59,7 @@ class BSpline {
             base_spline_buf[order] = 1.;
         } else {
             base_spline_buf[order] = 1;
-            for (size_type i = 1; i <= order; ++i) {
+            for (size_type i = 1; i <= spline_order; ++i) {
                 // Each iteration will expand buffer zone by one, from back
                 // to front.
                 const size_type idx_begin = order - i;
@@ -76,6 +80,13 @@ class BSpline {
             }
         }
         return base_spline_buf;
+    }
+
+    inline const BaseSpline& base_spline_value(
+        size_type dim_ind,
+        KnotContainer::const_iterator seg_idx_iter,
+        knot_type x) const {
+        return base_spline_value(dim_ind, seg_idx_iter, x, order);
     }
 
     /**
@@ -103,6 +114,12 @@ class BSpline {
     DimArray<bool> _uniform;
 
     const size_type buf_size;
+
+    // maximun stack buffer size
+    // This buffer is for storing weights when calculating spline derivative
+    // value.
+    constexpr static size_type MAX_BUF_SIZE = 2000;
+
     // auxiliary methods
 
     /**
@@ -143,9 +160,10 @@ class BSpline {
     /**
      * @brief Calculate base spline value of each dimension
      *
-     * @tparam Coords std::pair<knot_type, size_type>, ...
+     * @tparam Coords knot_type ...
      * @tparam indices 0, 1, ...
      * @param knot_iters an array of knot iters
+     * @param spline_order an array of spline order
      * @param coords a bunch of coordinates
      * @return std::array<decltype(base_spline_buf), dim>
      */
@@ -153,8 +171,10 @@ class BSpline {
     inline DimArray<decltype(base_spline_buf)> calc_base_spline_vals(
         util::index_sequence<indices...>,
         const DimArray<KnotContainer::const_iterator>& knot_iters,
+        const DimArray<size_type>& spline_order,
         Coords... coords) const {
-        return {base_spline_value(indices, knot_iters[indices], coords)...};
+        return {base_spline_value(indices, knot_iters[indices], coords,
+                                  spline_order[indices])...};
     }
 
    public:
@@ -225,22 +245,27 @@ class BSpline {
      * locates, dimension wise).
      *
      * @tparam CoordWithHints std::pair<knot_type, size_type>, ...
-     * @param coords a bunch of (coordinate, position hint) pairs
+     * @param coord_with_hints a bunch of (coordinate, position hint) pairs
      * @return val_type
      */
     template <
         typename... CoordWithHints,
         typename Indices = util::make_index_sequence_for<CoordWithHints...>>
-    typename std::enable_if<!std::is_arithmetic<typename std::common_type<
-                                CoordWithHints...>::type>::value,
-                            val_type>::type
+    typename std::enable_if<
+        std::is_arithmetic<typename std::common_type<
+            typename CoordWithHints::first_type...>::type>::value &&
+            std::is_integral<typename std::common_type<
+                typename CoordWithHints::second_type...>::type>::value,
+        val_type>::type
     operator()(CoordWithHints... coord_with_hints) const {
         // get knot point iter
         const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints...);
 
+        DimArray<size_type> spline_order;
+        spline_order.fill(order);
         // calculate basic spline (out of boundary check also conducted here)
         const auto base_spline_values_1d = calc_base_spline_vals(
-            Indices{}, knot_iters, coord_with_hints.first...);
+            Indices{}, knot_iters, spline_order, coord_with_hints.first...);
 
         // combine control points and basic spline values to get spline value
         val_type v{};
@@ -293,7 +318,148 @@ class BSpline {
         return operator()(std::make_pair((knot_type)coords, order)...);
     }
 
-    // val_type derivative_at
+    /**
+     * @brief Get derivative value at given pairs of coordinate and position
+     * hint (possiblily lower knot point index of the segment where coordinate
+     * locates, dimension wise).
+     *
+     * @tparam CoordDeriOrderHintTuple std::tuple<knot_type, size_type,
+     * size_type>, ...
+     * @param coord_deriOrder_hint_tuple a bunch of (coordinate, derivative
+     * order, position hint) tuple
+     * @return val_type
+     */
+    template <typename... CoordDeriOrderHintTuple,
+              typename Indices =
+                  util::make_index_sequence_for<CoordDeriOrderHintTuple...>>
+    typename std::enable_if<
+        std::is_arithmetic<typename std::common_type<
+            typename std::tuple_element<0, CoordDeriOrderHintTuple>::type...>::
+                               type>::value &&
+            std::is_integral<typename std::common_type<
+                typename std::tuple_element<1, CoordDeriOrderHintTuple>::
+                    type...>::type>::value &&
+            std::is_integral<typename std::common_type<
+                typename std::tuple_element<2, CoordDeriOrderHintTuple>::
+                    type...>::type>::value,
+        val_type>::type
+    derivative_at(CoordDeriOrderHintTuple... coord_deriOrder_hint_tuple) const {
+        // get knot point iter
+        const auto knot_iters = get_knot_iters(
+            Indices{},
+            std::make_pair(std::get<0>(coord_deriOrder_hint_tuple),
+                           std::get<2>(coord_deriOrder_hint_tuple))...);
+
+        // get spline order
+        DimArray<size_type> spline_order{
+            (order >= std::get<1>(coord_deriOrder_hint_tuple)
+                 ? order - std::get<1>(coord_deriOrder_hint_tuple)
+                 : 0)...};
+
+        // calculate basic spline (out of boundary check also conducted here)
+        const auto base_spline_values_1d =
+            calc_base_spline_vals(Indices{}, knot_iters, spline_order,
+                                  std::get<0>(coord_deriOrder_hint_tuple)...);
+
+        // create local buffer
+        val_type buffer[MAX_BUF_SIZE];
+        util::stack_allocator<val_type, MAX_BUF_SIZE> alloc(buffer);
+
+        Mesh<val_type, dim, util::stack_allocator<val_type, MAX_BUF_SIZE>>
+            local_control_points(order + 1, alloc);
+        auto local_spline_val = local_control_points;
+
+        // get local control points and basic spline values
+        for (size_type i = 0; i < buf_size; ++i) {
+            DimArray<unsigned> local_ind_arr;
+            for (size_type j = 0, combined_ind = i; j < dim; ++j) {
+                local_ind_arr[j] = combined_ind % (order + 1);
+                combined_ind /= (order + 1);
+            }
+
+            val_type coef = 1;
+            DimArray<unsigned> ind_arr;
+            for (size_type d = 0; d < dim; ++d) {
+                coef *= base_spline_values_1d[d][local_ind_arr[d]];
+
+                ind_arr[d] =
+                    local_ind_arr[d] +
+                    (knot_iters[d] == knots_begin(d) ? 0
+                     : knot_iters[d] == knots_end(d)
+                         ? control_points.dim_size(d) - order - 1
+                         : distance(knots_begin(d), knot_iters[d]) - order);
+
+                // check periodicity, put out-of-right-boundary index to left
+                if (_periodicity[d]) {
+                    ind_arr[d] %= (knots_num(d) - 2 * order - 1);
+                }
+            }
+
+            local_spline_val(local_ind_arr) = coef;
+            local_control_points(local_ind_arr) = control_points(ind_arr);
+        }
+
+        for (int d = 0; d < dim; ++d) {
+            if (spline_order[d] == order) { continue; }
+            // calculate control points for derivative along this dimension
+
+            const size_type hyper_surface_size =
+                local_control_points.size() / local_control_points.dim_size(d);
+            // tranverse the hyper surface of fixing dimension d
+            for (size_type i = 0; i < hyper_surface_size; ++i) {
+                DimArray<unsigned> local_ind_arr;
+                for (size_type j = 0, combined_ind = i; j < dim; ++j) {
+                    if (j == d) { continue; }
+                    local_ind_arr[j] = combined_ind % (order + 1);
+                    combined_ind /= (order + 1);
+                }
+
+                auto iter = local_control_points.begin(d, local_ind_arr);
+                // Taking derivative is effectively computing new control
+                // points. Number of iteration is order of derivative.
+                for (int k = order; k > spline_order[d]; --k) {
+                    // Each reduction reduce control points number by one.
+                    // Reduce backward to match pattern of local_spline_val.
+                    for (int j = k; j > 0; --j) {
+                        iter[order + j - k] =
+                            k *
+                            (iter[order + j - k] - iter[order + j - k - 1]) /
+                            (knot_iters[d][j] - knot_iters[d][j - k]);
+                    }
+                }
+            }
+        }
+
+        // combine spline value and control points to get spline derivative
+        // value
+        val_type v{};
+        for (auto s_it = local_spline_val.begin(),
+                  c_it = local_control_points.begin();
+             s_it != local_spline_val.end(); ++s_it, ++c_it) {
+            v += (*s_it) * (*c_it);
+        }
+
+        return v;
+    }
+
+    /**
+     * @brief Get derivative value at given coordinates
+     *
+     * @tparam CoordDeriOrderPair std::pair<knot_type, size_type>, ...
+     * @param coords a bunch of (coordinate, derivative order) tuple
+     * @return val_type
+     */
+    template <typename... CoordDeriOrderPair>
+    typename std::enable_if<
+        std::is_arithmetic<typename std::common_type<
+            typename CoordDeriOrderPair::first_type...>::type>::value &&
+            std::is_integral<typename std::common_type<
+                typename CoordDeriOrderPair::second_type...>::type>::value,
+        val_type>::type
+    derivative_at(CoordDeriOrderPair... coords) const {
+        return derivative_at(std::make_tuple(
+            (knot_type)coords.first, (size_type)coords.second, order)...);
+    }
 
     // iterators
 

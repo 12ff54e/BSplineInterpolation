@@ -5,11 +5,15 @@
 #include <iostream>
 #include <iterator>
 
+#ifdef _DEBUG
+#include <iomanip>
+#endif
+
 template <typename Func, typename InputIterPt, typename InputIterVal>
-double rel_err(Func& interp,
+double rel_err(const Func& interp,
                std::pair<InputIterPt, InputIterPt> pts,
                std::pair<InputIterVal, InputIterVal> vals) {
-    double err{};
+    double err{}, l2{};
 #ifdef _DEBUG
     std::cout.precision(17);
     std::cout << "\n[DEBUG] Spline Value           \tExpected\n";
@@ -18,11 +22,13 @@ double rel_err(Func& interp,
          pt_it != pts.second && val_it != vals.second; ++pt_it, ++val_it) {
         double f = interp(*pt_it);
         err += (f - *val_it) * (f - *val_it);
+        l2 += (*val_it) * (*val_it);
 #ifdef _DEBUG
-        std::cout << "[DEBUG] " << f << ",\t\t" << *val_it << '\n';
+        std::cout << "[DEBUG] " << std::setw(20) << f << ",\t" << std::setw(20)
+                  << *val_it << '\n';
 #endif
     }
-    return std::sqrt(err / std::distance(pts.first, pts.second));
+    return std::sqrt(err / l2);
 }
 
 int main() {
@@ -30,6 +36,7 @@ int main() {
     // These tests are done by comparing interplation results with that from MM.
 
     Assertion assertion;
+    constexpr double tol = 1e-14;
 
     // 1D interpolation test
 
@@ -111,9 +118,9 @@ int main() {
         rel_err1 += (f - *iter) * (f - *iter);
     }
     rel_err1 = std::sqrt(rel_err1 / val.size());
-    assertion(rel_err1 < 1e-14);
+    assertion(rel_err1 < tol);
     std::cout << "\n1D test "
-              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << rel_err1 << '\n';
 
     // 2D interpolation test
@@ -164,9 +171,9 @@ int main() {
     double rel_err2 =
         rel_err(interp2, std::make_pair(coords_2d.begin(), coords_2d.end()),
                 std::make_pair(vals_2d.begin(), vals_2d.end()));
-    assertion(rel_err2 < 1e-14);
+    assertion(rel_err2 < tol);
     std::cout << "\n2D test "
-              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << rel_err2 << '\n';
 
     // 3D interpolation test
@@ -302,9 +309,9 @@ int main() {
     double rel_err3 =
         rel_err(interp3, std::make_pair(coords_3d.begin(), coords_3d.end()),
                 std::make_pair(vals_3d.begin(), vals_3d.end()));
-    assertion(rel_err3 < 1e-14);
+    assertion(rel_err3 < tol);
     std::cout << "\n3D test "
-              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << rel_err3 << '\n';
 
     assertion(!interp3.periodicity(0) && !interp3.periodicity(1) &&
@@ -349,9 +356,9 @@ int main() {
         rel_err1 += (f - *iter) * (f - *iter);
     }
     rel_err1 = std::sqrt(rel_err1 / vals_1d_periodic.size());
-    assertion(rel_err1 < 1e-14);
+    assertion(rel_err1 < tol);
     std::cout << "\n1D test with periodic boundary "
-              << (assertion.status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << rel_err1 << '\n';
 
     // 2D interplation test with one dimension being periodic boundary
@@ -370,7 +377,7 @@ int main() {
     rel_err2 =
         rel_err(interp2_periodic, make_pair(coords_2d.begin(), coords_2d.end()),
                 make_pair(vals_2d_periodic.begin(), vals_2d_periodic.end()));
-    assertion(rel_err2 < 1e-14);
+    assertion(rel_err2 < tol);
     std::cout << "\n2D test with periodic boundary "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << rel_err2 << '\n';
