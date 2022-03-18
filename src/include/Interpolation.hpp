@@ -136,18 +136,18 @@ class InterpolationFunction {
         // initialize mesh storing weights of spline, adjust dimension according
         // to periodicity
         Mesh<val_type, dim> weights{f_mesh};
-        std::array<size_type, dim> dim_size_tmp;
-        bool p_flag = false;
-        for (size_type i = 0; i < dim; ++i) {
-            dim_size_tmp[i] = weights.dim_size(i) -
-                              (_periodicity[i] ? ((p_flag = true), 1) : 0);
+        {
+            std::array<size_type, dim> dim_size_tmp;
+            bool p_flag = false;
+            for (size_type i = 0; i < dim; ++i) {
+                dim_size_tmp[i] = weights.dim_size(i) -
+                                  (_periodicity[i] ? ((p_flag = true), 1) : 0);
+            }
+            if (p_flag) { weights.resize(dim_size_tmp); }
         }
-        if (p_flag) { weights.resize(dim_size_tmp); }
 
-        Eigen::SparseMatrix<double, Eigen::RowMajor> coef(weights.size(),
-                                                          weights.size());
         // numbers of base spline covering
-        std::vector<size_type> entry_per_row(f_mesh.size());
+        size_type entry_count{};
         for (size_type total_ind = 0; total_ind < f_mesh.size(); ++total_ind) {
             auto indices = f_mesh.dimwise_indices(total_ind);
             size_type c = 1;
@@ -160,9 +160,8 @@ class InterpolationFunction {
                          ? order + 1
                          : order | 1;
             }
-            entry_per_row[total_ind] = c;
+            entry_count += c;
         }
-        coef.reserve(entry_per_row);
         Eigen::VectorXd mesh_val(weights.size());
 
         std::array<typename spline_type::BaseSpline, dim>
@@ -176,6 +175,9 @@ class InterpolationFunction {
                     d, _spline.knots_begin(d) + order, 0.);
             }
         }
+
+        std::vector<Eigen::Triplet<val_type>> coef_list;
+        coef_list.reserve(entry_count);
 
         size_type actual_ind = 0;
         // loop over dimension to calculate 1D base spline for each dim
@@ -245,8 +247,8 @@ class InterpolationFunction {
                               << spline_val << '\n';
 #endif
 
-                    coef.insert(actual_ind, weights.indexing(ind_arr)) =
-                        spline_val;
+                    coef_list.emplace_back(
+                        actual_ind, weights.indexing(ind_arr), spline_val);
                 }
             }
 
@@ -254,15 +256,19 @@ class InterpolationFunction {
             mesh_val(actual_ind++) = *it;
         }
 
+        // fill coefficient matrix
+        Eigen::SparseMatrix<double> coef(weights.size(), weights.size());
+        coef.setFromTriplets(coef_list.begin(), coef_list.end());
+
         Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>>
             solver;
         solver.compute(coef);
 
-        Eigen::VectorXd weights_vec;
-        weights_vec = solver.solve(mesh_val);
+        Eigen::VectorXd weights_eigen_vec;
+        weights_eigen_vec = solver.solve(mesh_val);
 
-        weights.storage =
-            std::vector<val_type>(weights_vec.begin(), weights_vec.end());
+        weights.storage = std::vector<val_type>(weights_eigen_vec.begin(),
+                                                weights_eigen_vec.end());
 
         _spline.load_ctrlPts(std::move(weights));
     }
