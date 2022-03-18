@@ -157,14 +157,14 @@ struct is_iteratable {
     struct _is_iteratable_impl {
         template <
             typename _T,
-            typename = std::enable_if<std::is_convertible<
+            typename = typename std::enable_if<std::is_convertible<
                 typename std::iterator_traits<
                     decltype(std::declval<_T&>().begin())>::iterator_category,
-                std::input_iterator_tag>::value>,
-            typename = std::enable_if<std::is_convertible<
+                std::input_iterator_tag>::value>::type,
+            typename = typename std::enable_if<std::is_convertible<
                 typename std::iterator_traits<
                     decltype(std::declval<_T&>().end())>::iterator_category,
-                std::input_iterator_tag>::value>>
+                std::input_iterator_tag>::value>::type>
         static std::true_type __test(int);
 
         template <typename>
@@ -173,6 +173,21 @@ struct is_iteratable {
 
     static constexpr bool value =
         decltype(_is_iteratable_impl::__test<T>(0))::value;
+};
+
+template <typename T>
+struct is_indexed {
+    struct _is_indexed_impl {
+        template <typename _T,
+                  typename = decltype(std::declval<const _T&>().operator[](0))>
+        static std::true_type __test(int);
+
+        template <typename>
+        static std::false_type __test(...);
+    };
+
+    static constexpr bool value =
+        decltype(_is_indexed_impl::__test<T>(0))::value;
 };
 
 }  // namespace util

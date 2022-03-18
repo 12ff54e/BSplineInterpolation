@@ -50,5 +50,8 @@ int main() {
     assertion(util::is_iteratable<std::vector<int>>::value);
     assertion(!util::is_iteratable<double>::value);
 
+    assertion(util::is_indexed<std::vector<int>>::value);
+    assertion(!util::is_indexed<std::initializer_list<int>>::value);
+
     return assertion.status();
 }
