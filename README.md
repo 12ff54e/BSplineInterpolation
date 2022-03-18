@@ -1,6 +1,10 @@
 # BSpline Interpolation Lib
 
-This library use B-spline to interpolate given data of any dimension on a mesh grid.
+This library use B-spline to interpolate given data of any dimension on a Cartesian mesh grid.
+
+## Perquisite
+
+This library is standard C++11 and relies on [Eigen3](https://eigen.tuxfamily.org/).
 
 ## How to use
 

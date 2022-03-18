@@ -56,7 +56,7 @@ int main() {
     }
 
     for (int dim_ind = 0; dim_ind < 3; ++dim_ind) {
-        for (int i = 0; i < mesh.dim_size(dim_ind); ++i) {
+        for (unsigned i = 0; i < mesh.dim_size(dim_ind); ++i) {
             int val;
             if (dim_ind == 0) {
                 assertion((val = mesh(i, 6, 2)) == i);
@@ -88,7 +88,7 @@ int main() {
     Mesh<double, 1> mesh_1d_from_container(vec);
     Mesh<double, 1> mesh_1d_from_iterator(vec.begin(), vec.end());
 
-    for (int i = 0; i < vec.size(); ++i) {
+    for (unsigned i = 0; i < vec.size(); ++i) {
         assertion(mesh_1d_from_container(i) == vec[i] &&
                   mesh_1d_from_iterator(i) == vec[i]);
         if (assertion.last_status() != 0) {

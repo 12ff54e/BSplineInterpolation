@@ -125,12 +125,12 @@ class Mesh {
      * @brief Stores the mesh content in row-major format.
      */
     container_type storage;
+    std::array<size_type, dim> __dim_size;
     /**
      * @brief The i-th element stores the sub-mesh size when the first (dim-i)
      * coordinates are specified.
      */
     std::array<size_type, dim + 1> __dim_acc_size;
-    std::array<size_type, dim> __dim_size;
 
     // auxilary methods
 
@@ -139,10 +139,10 @@ class Mesh {
      * for details.
      */
     void set_dim_acc_size() {
-        for (size_type i = 0; i <= dim; ++i) {
-            __dim_acc_size[i] = 1;
-            for (size_type j = 0; j < i; ++j) {
-                __dim_acc_size[i] *= __dim_size[dim - j - 1];
+        for (size_type d = 0; d <= dim; ++d) {
+            __dim_acc_size[d] = 1;
+            for (size_type i = 0; i < d; ++i) {
+                __dim_acc_size[d] *= __dim_size[dim - i - 1];
             }
         }
         return;
@@ -163,8 +163,8 @@ class Mesh {
 
     size_type indexing(Indices ind_arr) const {
         size_type ind{};
-        for (size_type i = 0; i < dim; ++i) {
-            ind += ind_arr[i] * __dim_acc_size[dim - i - 1];
+        for (size_type d = 0; d < dim; ++d) {
+            ind += ind_arr[d] * __dim_acc_size[dim - d - 1];
         }
         return ind;
     }
@@ -179,9 +179,9 @@ class Mesh {
     Indices dimwise_indices(size_type total_ind) {
         Indices indices;
 
-        for (unsigned i = 0; i < dim; ++i) {
-            indices[i] = total_ind / __dim_acc_size[dim - i - 1];
-            total_ind %= __dim_acc_size[dim - i - 1];
+        for (unsigned d = 0; d < dim; ++d) {
+            indices[d] = total_ind / __dim_acc_size[dim - d - 1];
+            total_ind %= __dim_acc_size[dim - d - 1];
         }
 
         return indices;
