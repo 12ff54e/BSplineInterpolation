@@ -9,8 +9,6 @@
 #include <iomanip>
 #endif
 
-using namespace std;
-
 template <typename Func, typename InputIterPt, typename InputIterVal>
 double rel_err(const Func& interp,
                std::pair<InputIterPt, InputIterPt> pts,
@@ -34,6 +32,9 @@ double rel_err(const Func& interp,
 }
 
 int main() {
+    using namespace std;
+    using namespace intp;
+
     Assertion assertion;
     constexpr double tol = 1e-15;
 

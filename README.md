@@ -8,4 +8,4 @@ This library is standard C++11 and relies on [Eigen3](https://eigen.tuxfamily.or
 
 ## How to use
 
-Since the library is header only, include BSplineInterpolation and one can use all its functionality.
+Since the library is header only, include BSplineInterpolation and one can use all its functionality under namespace intp. 

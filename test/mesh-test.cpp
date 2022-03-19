@@ -3,9 +3,10 @@
 #include "../src/include/Mesh.hpp"
 #include "Assertion.hpp"
 
-using namespace std;
-
 int main() {
+    using namespace std;
+    using namespace intp;
+
     Assertion assertion;
     Mesh<int, 3> mesh{10, 20, 30};
 

@@ -5,6 +5,8 @@
 
 #include "util.hpp"
 
+namespace intp {
+
 /**
  * @brief A multi dimension mesh storing data on each mesh point
  *
@@ -308,3 +310,5 @@ class Mesh {
         return __dim_acc_size;
     }
 };
+
+}  // namespace intp

@@ -14,6 +14,8 @@
 #include "Mesh.hpp"
 #include "util.hpp"
 
+namespace intp {
+
 /**
  * @brief B-Spline function
  *
@@ -357,17 +359,21 @@ class BSpline {
                     type...>::type>::value,
         val_type>::type
     derivative_at(CoordDeriOrderHintTuple... coord_deriOrder_hint_tuple) const {
+        // get spline order
+        DimArray<size_type> spline_order{
+            (order >= std::get<1>(coord_deriOrder_hint_tuple)
+                 ? order - std::get<1>(coord_deriOrder_hint_tuple)
+                 : order + 1)...};
+        // if derivative order is larger than spline order, derivative is 0.
+        for (auto o : spline_order) {
+            if (o > order) { return val_type{}; }
+        }
+
         // get knot point iter
         const auto knot_iters = get_knot_iters(
             Indices{},
             std::make_pair(std::get<0>(coord_deriOrder_hint_tuple),
                            std::get<2>(coord_deriOrder_hint_tuple))...);
-
-        // get spline order
-        DimArray<size_type> spline_order{
-            (order >= std::get<1>(coord_deriOrder_hint_tuple)
-                 ? order - std::get<1>(coord_deriOrder_hint_tuple)
-                 : 0)...};
 
         // calculate basic spline (out of boundary check also conducted here)
         const auto base_spline_values_1d =
@@ -465,9 +471,11 @@ class BSpline {
     template <typename... CoordDeriOrderPair>
     typename std::enable_if<
         std::is_arithmetic<typename std::common_type<
-            typename CoordDeriOrderPair::first_type...>::type>::value &&
+            typename std::tuple_element<0, CoordDeriOrderPair>::type...>::
+                               type>::value &&
             std::is_integral<typename std::common_type<
-                typename CoordDeriOrderPair::second_type...>::type>::value,
+                typename std::tuple_element<1, CoordDeriOrderPair>::type...>::
+                                 type>::value,
         val_type>::type
     derivative_at(CoordDeriOrderPair... coords) const {
         return derivative_at(std::make_tuple(
@@ -553,3 +561,5 @@ class BSpline {
     }
 #endif
 };
+
+}  // namespace intp

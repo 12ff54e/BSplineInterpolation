@@ -33,6 +33,7 @@ double rel_err(const Func& interp,
 
 int main() {
     using namespace std;
+    using namespace intp;
     // These tests are done by comparing interplation results with that from MM.
 
     Assertion assertion;
@@ -46,82 +47,29 @@ int main() {
     InterpolationFunction<double, 1> interp{
         3, make_pair(f.begin(), f.end()), {0., (double)(f.size() - 1)}};
 
+    // some random points
+    auto coords_1d = {3.937582749415922,  0.46794224590095723,
+                      8.366325011606818,  11.488876902601298,
+                      0.645634679848758,  10.863461372085801,
+                      2.5491368777592243, 0.4267839509148281,
+                      3.064288819169027,  1.28330941106692};
+
     // Values pre-computed by MMA
-    auto val = {0.905515,
-                1.2926721067560611,
-                1.4378328090080814,
-                1.3883272578820713,
-                1.1914856045040405,
-                0.894638,
-                0.5451145954959586,
-                0.19024554211792863,
-                -0.12263900900808183,
-                -0.3462089067560609,
-                -0.43313399999999985,
-                -0.3553414007398976,
-                -0.16178727347979593,
-                0.07931495415025537,
-                0.29975185452020425,
-                0.43130999999999997,
-                0.42577995146363273,
-                0.31496822380125494,
-                0.1506853204070615,
-                -0.015258255324754954,
-                -0.13105199999999992,
-                -0.15762637311463262,
-                -0.10687568572522435,
-                -0.0034352117785002127,
-                0.12805977477881614,
-                0.26297400000000004,
-                0.3790505009948983,
-                0.4635455590996433,
-                0.5060937667069392,
-                0.49632971620949023,
-                0.42388800000000004,
-                0.28383204113504024,
-                0.09294058532665175,
-                -0.12657879104925598,
-                -0.3525185116167764,
-                -0.5626710000000001,
-                -0.7373583375350591,
-                -0.8670212364062518,
-                -0.9446300665099139,
-                -0.9631551977423841,
-                -0.9155670000000002,
-                -0.8014048669948036,
-                -0.6464842877016469,
-                -0.4831897749110898,
-                -0.3439058414136876,
-                -0.261017,
-                -0.2561333064857288,
-                -0.30776698878716124,
-                -0.38365581784572883,
-                -0.4515375646028646,
-                -0.4791500000000001,
-                -0.4432340851422816,
-                -0.35654354178970815,
-                -0.24083528186599512,
-                -0.11786621729485386,
-                -0.009393259999999994,
-                0.06282667809485411,
-                0.07703668506599487,
-                0.011479848989708663,
-                -0.15560074205771945,
-                -0.445962};
+    auto vals_1d = {-0.10342680140577024, 1.4404772594187227,
+                    -0.6740383362867217,  0.059044924309338276,
+                    1.3546807267401677,   -0.08084215107000194,
+                    0.01725408002459637,  1.4414547842595904,
+                    0.444175804071652,    0.39522879177749654};
 
     std::cout << "\n1D Interpolation Test:\n";
 
-    double rel_err1 = 0;
-    auto iter = val.begin();
-    for (double x = 0.; x < (double)(f.size() - 1); x += 0.2, ++iter) {
-        const double f = interp(x);
-        rel_err1 += (f - *iter) * (f - *iter);
-    }
-    rel_err1 = std::sqrt(rel_err1 / val.size());
-    assertion(rel_err1 < tol);
+    double d =
+        rel_err(interp, std::make_pair(coords_1d.begin(), coords_1d.end()),
+                std::make_pair(vals_1d.begin(), vals_1d.end()));
+    assertion(d < tol);
     std::cout << "\n1D test "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
-    std::cout << "Relative Error = " << rel_err1 << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
     // 2D interpolation test
 
@@ -168,13 +116,12 @@ int main() {
 
     std::cout << "\n2D Interpolation Test:\n";
 
-    double rel_err2 =
-        rel_err(interp2, std::make_pair(coords_2d.begin(), coords_2d.end()),
+    d = rel_err(interp2, std::make_pair(coords_2d.begin(), coords_2d.end()),
                 std::make_pair(vals_2d.begin(), vals_2d.end()));
-    assertion(rel_err2 < tol);
+    assertion(d < tol);
     std::cout << "\n2D test "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
-    std::cout << "Relative Error = " << rel_err2 << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
     // 3D interpolation test
 
@@ -306,13 +253,12 @@ int main() {
          -0.260677062462001}};
 
     std::cout << "\n3D Interpolation Test:\n";
-    double rel_err3 =
-        rel_err(interp3, std::make_pair(coords_3d.begin(), coords_3d.end()),
+    d = rel_err(interp3, std::make_pair(coords_3d.begin(), coords_3d.end()),
                 std::make_pair(vals_3d.begin(), vals_3d.end()));
-    assertion(rel_err3 < tol);
+    assertion(d < tol);
     std::cout << "\n3D test "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
-    std::cout << "Relative Error = " << rel_err3 << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
     assertion(!interp3.periodicity(0) && !interp3.periodicity(1) &&
               !interp3.periodicity(2));
@@ -322,44 +268,23 @@ int main() {
     std::cout << "\n1D Interpolation with Periodic Boundary Test:\n";
 
     f.back() = f.front();
-    InterpolationFunction<double, 1> interp_periodic(
+    InterpolationFunction<double, 1> interp1_periodic(
         3, {true}, std::make_pair(f.begin(), f.end()),
         std::make_pair(0., (double)(f.size() - 1)));
 
-    auto vals_1d_periodic = {
-        0.9055149999999998,   1.0370292777747692,    1.1201414050104614,
-        1.136408693358769,    1.0673884544713845,    0.894638,
-        0.6136140623827689,   0.27537105720369215,   -0.05513717916676927,
-        -0.31295681035815387, -0.43313399999999996,  -0.37369643930584595,
-        -0.1845979298252301,  0.06122619930830787,   0.2908406189612311,
-        0.4313099999999999,   0.4307006388406153,    0.32108533409723045,
-        0.1555385099335384,   -0.012865409486769452, -0.13105200000000006,
-        -0.15895408405661543, -0.10853347056369214,  -0.0047592150424612956,
-        0.12739962698584661,  0.26297399999999993,   0.3794406573858462,
-        0.4640595881575386,   0.5065365902363076,    0.4965774615433845,
-        0.4238879999999999,   0.28359912651323055,   0.09254225393353795,
-        -0.1270260819027699,  -0.35284934515938554,  -0.5626710000000001,
-        -0.7368168354387695,  -0.8659419398916928,   -0.9432837266252309,
-        -0.9620796089058463,  -0.9155670000000001,   -0.8033379607581531,
-        -0.650403142366769,   -0.4881278435963081,   -0.34787736321723034,
-        -0.26101699999999994, -0.24894243352861545,  -0.29317086664123093,
-        -0.36524988298953903, -0.43672706622523094,  -0.47914999999999996,
-        -0.47006448320738436, -0.4110091757083075,   -0.3095209526055376,
-        -0.1731366890018456,  -0.009393259999999987, 0.1737692133981548,
-        0.3667976265944619,   0.5597356290916936,    0.7426268703926159,
-        0.9055149999999998};
+    auto vals_1d_periodic = {-0.10276360828017747,   1.1340881789375648,
+                             -0.6776627180298541,    0.45313923482507434,
+                             1.1288349572268954,     -0.12378463800028976,
+                             -0.0026452056651779937, 1.1266006815698877,
+                             0.44624081919808195,    0.475946112240532};
 
-    rel_err1 = 0;
-    iter = vals_1d_periodic.begin();
-    for (double x = 0.; x < (double)(f.size() - 1); x += 0.2, ++iter) {
-        const double f = interp_periodic(x);
-        rel_err1 += (f - *iter) * (f - *iter);
-    }
-    rel_err1 = std::sqrt(rel_err1 / vals_1d_periodic.size());
-    assertion(rel_err1 < tol);
+    d = rel_err(
+        interp1_periodic, std::make_pair(coords_1d.begin(), coords_1d.end()),
+        std::make_pair(vals_1d_periodic.begin(), vals_1d_periodic.end()));
+    assertion(d < tol);
     std::cout << "\n1D test with periodic boundary "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
-    std::cout << "Relative Error = " << rel_err1 << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
     // 2D interplation test with one dimension being periodic boundary
     std::cout << "\n2D Interpolation with Periodic Boundary Test:\n";
@@ -374,19 +299,82 @@ int main() {
                              0.5845798304532657,  0.2875923130734858,
                              -1.4740569960870218, 0.258215214830246};
 
-    rel_err2 =
-        rel_err(interp2_periodic, make_pair(coords_2d.begin(), coords_2d.end()),
+    d = rel_err(interp2_periodic, make_pair(coords_2d.begin(), coords_2d.end()),
                 make_pair(vals_2d_periodic.begin(), vals_2d_periodic.end()));
-    assertion(rel_err2 < tol);
+    assertion(d < tol);
     std::cout << "\n2D test with periodic boundary "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
-    std::cout << "Relative Error = " << rel_err2 << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
 #ifdef _DEBUG
     if (assertion.last_status() != 0) {
         interp2_periodic.spline().__debug_output();
     }
 #endif
+
+    // 1D interpolation derivative test
+
+    std::cout << "\n1D Interpolation Derivative Test:\n";
+
+    auto vals_1d_derivative_1 = {-0.513729823961817,  -0.11730028747531092,
+                                 0.813179759221172,   -0.29821331795997896,
+                                 -0.8172403142837684, 0.5682608302410066,
+                                 1.2259404172291155,  0.07146990739588419,
+                                 0.08280649116771142, -1.79102570100216};
+
+    rel_err(
+        [&](double x) { return interp.derivative_at(std::make_pair(x, 1)); },
+        std::make_pair(coords_1d.begin(), coords_1d.end()),
+        std::make_pair(vals_1d_derivative_1.begin(),
+                       vals_1d_derivative_1.end()));
+    assertion(d < tol);
+    std::cout << "\n1D test of derivative "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    // 2D interpolation derivative test
+
+    std::cout << "\n2D Interpolation Derivative Test:\n";
+
+    auto vals_2d_derivative_x2_y1 = {-0.7543201698562789, 7.386529487473519,
+                                     1.4374808443975349,  0.015013232428628703,
+                                     0.4101648846318855,  0.3989275680682247,
+                                     -1.2969356922668822, -3.0725969893922946,
+                                     -3.4258871562563455, 0.43843555890798447};
+
+    d = rel_err(
+        [&](std::array<double, 2> coord) {
+            return interp2.derivative_at(coord, 2, 1);
+        },
+        std::make_pair(coords_2d.begin(), coords_2d.end()),
+        std::make_pair(vals_2d_derivative_x2_y1.begin(),
+                       vals_2d_derivative_x2_y1.end()));
+    assertion(d < tol);
+    std::cout << "\n2D test of derivative (2,1) "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    // 3D interpolation derivative test
+
+    std::cout << "\n3D Interpolation Derivative Test:\n";
+
+    auto vals_3d_derivative_x1_y0_z3 = {
+        26.856939941150102, -2.3883090024921603, 8.857003271951815,
+        -5.988828759251878, -9.656188308304278,  -3.8790002779026658,
+        -8.950315245767326, 2.859291392187189,   -1.0605065454924238,
+        0.9708580137688204};
+
+    d = rel_err(
+        [&](std::array<double, 3> coord) {
+            return interp3.derivative_at(coord, {1, 0, 3});
+        },
+        std::make_pair(coords_3d.begin(), coords_3d.end()),
+        std::make_pair(vals_3d_derivative_x1_y0_z3.begin(),
+                       vals_3d_derivative_x1_y0_z3.end()));
+    assertion(d < tol);
+    std::cout << "\n3D test of derivative (1,0,3) "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
     return assertion.status();
 }

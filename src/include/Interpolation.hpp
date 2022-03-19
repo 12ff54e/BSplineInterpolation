@@ -1,8 +1,11 @@
 #include <cmath>  // ceil
+#include <initializer_list>
 
 #include <Eigen/SparseLU>
 
 #include "BSpline.hpp"
+
+namespace intp {
 
 template <typename T, unsigned D>
 class InterpolationFunction {
@@ -10,36 +13,53 @@ class InterpolationFunction {
     using val_type = T;
     using spline_type = BSpline<T, D>;
     using size_type = typename spline_type::size_type;
+    using coord_type = typename spline_type::knot_type;
 
     const size_type order;
     const static size_type dim = D;
 
     bool __uniform;
     spline_type __spline;
-    std::array<val_type, dim> __dx;
-    std::array<bool, dim> __periodicity;
+
+    template <typename _T>
+    using DimArray = std::array<_T, dim>;
+
+    DimArray<coord_type> __dx;
+    DimArray<bool> __periodicity;
 
     // auxiliary methods
 
-    template <typename... Coords, unsigned... indices>
-    val_type call_op_helper(util::index_sequence<indices...>,
-                            Coords... coords) const {
+    template <unsigned... di>
+    inline val_type call_op_helper(util::index_sequence<di...>,
+                                   DimArray<coord_type> c) const {
         return __uniform
                    ? __spline(std::make_pair(
-                         coords,
-                         std::min(__spline.knots_num(indices) - order - 2,
+                         c[di],
+                         std::min(__spline.knots_num(di) - order - 2,
                                   (size_type)std::ceil(std::max(
-                                      0., (coords - range(indices).first) /
-                                                  __dx[indices] -
-                                              .5 * (order + 1))) +
+                                      0., (c[di] - range(di).first) / __dx[di] -
+                                              (__periodicity[di]
+                                                   ? 1.
+                                                   : .5 * (order + 1)))) +
                                       order))...)
-                   : __spline(coords...);
+                   : __spline((coord_type)c[di]...);
     }
 
-    template <typename Arr, size_type... indices>
-    val_type call_op_arr_helper(util::index_sequence<indices...> i,
-                                Arr& x) const {
-        return call_op_helper(i, x[indices]...);
+    template <unsigned... di>
+    inline val_type derivative_helper(util::index_sequence<di...>,
+                                      DimArray<coord_type> c,
+                                      DimArray<size_type> d) const {
+        return __uniform
+                   ? __spline.derivative_at(std::make_tuple(
+                         (coord_type)c[di], (size_type)d[di],
+                         std::min(__spline.knots_num(di) - order - 2,
+                                  (size_type)std::ceil(std::max(
+                                      0., (c[di] - range(di).first) / __dx[di] -
+                                              (__periodicity[di]
+                                                   ? 1.
+                                                   : .5 * (order + 1)))) +
+                                      order))...)
+                   : __spline.derivative_at(std::make_pair(c[di], d[di])...);
     }
 
    public:
@@ -97,7 +117,7 @@ class InterpolationFunction {
      */
     template <typename... Ts>
     InterpolationFunction(size_type order,
-                          std::array<bool, dim> periodicity,
+                          DimArray<bool> periodicity,
                           Mesh<val_type, dim> f_mesh,
                           std::pair<Ts, Ts>... x_ranges)
         : order(order),
@@ -139,7 +159,7 @@ class InterpolationFunction {
         // to periodicity
         Mesh<val_type, dim> weights{f_mesh};
         {
-            std::array<size_type, dim> dim_size_tmp;
+            DimArray<size_type> dim_size_tmp;
             bool p_flag = false;
             for (size_type d = 0; d < dim; ++d) {
                 dim_size_tmp[d] = weights.dim_size(d) -
@@ -166,8 +186,7 @@ class InterpolationFunction {
         }
         Eigen::VectorXd mesh_val(weights.size());
 
-        std::array<typename spline_type::BaseSpline, dim>
-            base_spline_vals_per_dim;
+        DimArray<typename spline_type::BaseSpline> base_spline_vals_per_dim;
 
         // pre-calculate base spline of periodic dimension, since it never
         // changes due to its even-spaced knots
@@ -229,7 +248,7 @@ class InterpolationFunction {
             // loop over nD base splines that contributes to current f_mesh
             // point, fill matrix
             for (int i = 0; i < util::pow(order + 1, dim); ++i) {
-                std::array<size_type, dim> ind_arr;
+                DimArray<size_type> ind_arr;
                 val_type spline_val = 1;
                 for (int d = dim - 1, local_ind = i; d >= 0; --d) {
                     ind_arr[d] = local_ind % (order + 1);
@@ -289,18 +308,37 @@ class InterpolationFunction {
 
     template <typename... Coords,
               typename Indices = util::make_index_sequence_for<Coords...>,
-              typename = typename std::enable_if<std::is_scalar<
+              typename = typename std::enable_if<std::is_arithmetic<
                   typename std::common_type<Coords...>::type>::value>::type>
     val_type operator()(Coords... x) const {
-        return call_op_helper(Indices{}, x...);
+        return call_op_helper(Indices{}, DimArray<coord_type>{x...});
     }
 
-    template <
-        typename Arr,
-        typename = typename std::enable_if<!std::is_scalar<Arr>::value>::type>
-    val_type operator()(Arr& x) const {
-        using Indices = util::make_index_sequence<dim>;
-        return call_op_arr_helper(Indices{}, x);
+    val_type operator()(DimArray<coord_type> coord) const {
+        return call_op_helper(util::make_index_sequence<dim>{},
+                              std::move(coord));
+    }
+
+    template <typename... Args>
+    val_type derivative_at(DimArray<coord_type> coord,
+                           Args... deriOrder) const {
+        return derivative_helper(util::make_index_sequence<dim>{},
+                                 std::move(coord),
+                                 DimArray<size_type>{deriOrder...});
+    }
+
+    val_type derivative_at(DimArray<coord_type> coord,
+                           DimArray<size_type> derivatives) const {
+        return derivative_helper(util::make_index_sequence<dim>{},
+                                 std::move(coord), std::move(derivatives));
+    }
+
+    template <typename... CoordDeriOrderPair>
+    val_type derivative_at(CoordDeriOrderPair... coord_deriOrder_pair) const {
+        return derivative_helper(
+            util::make_index_sequence<dim>{},
+            DimArray<coord_type>{coord_deriOrder_pair.first...},
+            DimArray<size_type>{coord_deriOrder_pair.second...});
     }
 
     bool periodicity(size_type dim_ind) const { return __periodicity[dim_ind]; }
@@ -312,3 +350,5 @@ class InterpolationFunction {
      */
     const spline_type& spline() const { return __spline; }
 };
+
+}  // namespace intp

@@ -5,6 +5,8 @@
 #include <type_traits>
 #include <utility>
 
+namespace intp {
+
 namespace util {
 
 /**
@@ -191,3 +193,5 @@ struct is_indexed {
 };
 
 }  // namespace util
+
+}  // namespace intp

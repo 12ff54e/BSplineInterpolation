@@ -6,6 +6,8 @@
 #include "Assertion.hpp"
 
 int main() {
+    using namespace intp;
+
     Assertion assertion;
 
     assertion(std::is_same<util::make_index_sequence<3>,
