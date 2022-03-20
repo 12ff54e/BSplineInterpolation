@@ -142,6 +142,12 @@ class BSpline {
             return knots_end(dim_ind);
         }
         const auto iter = knots_begin(dim_ind) + knot_ind;
+#ifdef _DEBUG
+        if (*iter > x || *(iter + 1) < x) {
+            std::cout << "knot hint miss at dim = " << dim_ind
+                      << ", hint = " << knot_ind << ", x = " << x << '\n';
+        }
+#endif
         return *iter <= x && *(iter + 1) >= x
                    // If the hint is accurate, use that iter
                    ? iter
@@ -240,8 +246,9 @@ class BSpline {
         void>::type
     load_knots(size_type dim_ind, C&& _knots, bool is_uniform = false) {
         knots[dim_ind] = std::forward<C>(_knots);
-        __range[dim_ind].first = knots[dim_ind].front();
-        __range[dim_ind].second = knots[dim_ind].back();
+        __range[dim_ind].first = knots[dim_ind][order];
+        __range[dim_ind].second =
+            knots[dim_ind][knots[dim_ind].size() - order - 1];
         __uniform[dim_ind] = is_uniform;
     }
 

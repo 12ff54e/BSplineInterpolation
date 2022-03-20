@@ -262,7 +262,7 @@ class InterpolationFunction {
                     }
                 }
                 if (spline_val != val_type{0}) {
-#ifdef _DEBUG
+#ifdef VERBOSE
                     std::cout << "[DEBUG] {" << actual_ind << ','
                               << weights.indexing(ind_arr) << "} -> "
                               << spline_val << '\n';
@@ -315,22 +315,20 @@ class InterpolationFunction {
     }
 
     val_type operator()(DimArray<coord_type> coord) const {
-        return call_op_helper(util::make_index_sequence<dim>{},
-                              std::move(coord));
+        return call_op_helper(util::make_index_sequence<dim>{}, coord);
     }
 
     template <typename... Args>
     val_type derivative_at(DimArray<coord_type> coord,
                            Args... deriOrder) const {
-        return derivative_helper(util::make_index_sequence<dim>{},
-                                 std::move(coord),
-                                 DimArray<size_type>{deriOrder...});
+        return derivative_helper(util::make_index_sequence<dim>{}, coord,
+                                 DimArray<size_type>{(size_type)deriOrder...});
     }
 
     val_type derivative_at(DimArray<coord_type> coord,
                            DimArray<size_type> derivatives) const {
-        return derivative_helper(util::make_index_sequence<dim>{},
-                                 std::move(coord), std::move(derivatives));
+        return derivative_helper(util::make_index_sequence<dim>{}, coord,
+                                 derivatives);
     }
 
     template <typename... CoordDeriOrderPair>
@@ -338,7 +336,7 @@ class InterpolationFunction {
         return derivative_helper(
             util::make_index_sequence<dim>{},
             DimArray<coord_type>{coord_deriOrder_pair.first...},
-            DimArray<size_type>{coord_deriOrder_pair.second...});
+            DimArray<size_type>{(size_type)coord_deriOrder_pair.second...});
     }
 
     bool periodicity(size_type dim_ind) const { return __periodicity[dim_ind]; }
