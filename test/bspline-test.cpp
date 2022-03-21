@@ -2,6 +2,7 @@
 #include "Assertion.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <iterator>
 

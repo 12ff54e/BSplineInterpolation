@@ -288,8 +288,17 @@ class InterpolationFunction {
         Eigen::VectorXd weights_eigen_vec;
         weights_eigen_vec = solver.solve(mesh_val);
 
+#if EIGEN_VERSION_AT_LEAST(3, 4, 0)
         weights.storage = std::vector<val_type>(weights_eigen_vec.begin(),
                                                 weights_eigen_vec.end());
+#else
+        std::vector<val_type> tmp;
+        tmp.reserve(weights_eigen_vec.size());
+        for (unsigned i = 0; i < weights_eigen_vec.size(); ++i) {
+            tmp.emplace_back(weights_eigen_vec[i]);
+        }
+        weights.storage = std::move(tmp);
+#endif
 
         __spline.load_ctrlPts(std::move(weights));
     }
