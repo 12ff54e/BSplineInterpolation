@@ -394,7 +394,7 @@ class BSpline {
 
         // get local control points and basic spline values
         for (size_type i = 0; i < buf_size; ++i) {
-            DimArray<unsigned> local_ind_arr;
+            DimArray<unsigned> local_ind_arr{};
             for (size_type d = 0, combined_ind = i; d < dim; ++d) {
                 local_ind_arr[d] = combined_ind % (order + 1);
                 combined_ind /= (order + 1);
