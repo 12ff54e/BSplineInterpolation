@@ -379,6 +379,7 @@ class BSpline {
             calc_base_spline_vals(Indices{}, knot_iters, spline_order,
                                   std::get<0>(coord_deriOrder_hint_tuple)...);
 
+#ifdef STACK_ALLOCATOR
         // create local buffer
         val_type buffer[MAX_BUF_SIZE];
         util::stack_allocator<val_type, MAX_BUF_SIZE> alloc(buffer);
@@ -386,6 +387,10 @@ class BSpline {
         Mesh<val_type, dim, util::stack_allocator<val_type, MAX_BUF_SIZE>>
             local_control_points(order + 1, alloc);
         auto local_spline_val = local_control_points;
+#else
+        Mesh<val_type, dim> local_control_points(order + 1);
+        auto local_spline_val = local_control_points;
+#endif
 
         // get local control points and basic spline values
         for (size_type i = 0; i < buf_size; ++i) {

@@ -16,6 +16,7 @@ int main() {
 
     assertion(util::pow(2, 3u) == 8, "Issues on power function.");
 
+#ifdef STACK_ALLOCATOR
     constexpr unsigned N = 4;
     int buffer[N];
     util::stack_allocator<int, N> alloc(buffer);
@@ -48,6 +49,7 @@ int main() {
     } catch (const std::exception& e) { exception_thrown = true; }
     assertion(exception_thrown,
               "No exception is thrown when allocator capacity is execeed.\n");
+#endif
 
     assertion(util::is_iteratable<std::vector<int>>::value);
     assertion(!util::is_iteratable<double>::value);

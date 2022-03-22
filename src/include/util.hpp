@@ -71,6 +71,8 @@ void dispatch_indexed(Func&& func, Args&&... args) {
                             std::forward<Args>(args)...);
 }
 
+#ifdef STACK_ALLOCATOR
+
 /**
  * @brief A simple stack allocator, with fixed size and a LIFO allocation
  * strategy, by courtesy of Charles Salvia, in his SO answer
@@ -147,6 +149,8 @@ bool operator!=(const stack_allocator<T, N>& lhs,
                 const stack_allocator<U, N>& rhs) noexcept {
     return !(lhs == rhs);
 }
+
+#endif
 
 struct _is_iteratable_impl {
     template <typename _T,
