@@ -354,17 +354,9 @@ class BSpline {
     template <typename... CoordDeriOrderHintTuple,
               typename Indices =
                   util::make_index_sequence_for<CoordDeriOrderHintTuple...>>
-    typename std::enable_if<
-        std::is_arithmetic<typename std::common_type<
-            typename std::tuple_element<0, CoordDeriOrderHintTuple>::type...>::
-                               type>::value &&
-            std::is_integral<typename std::common_type<
-                typename std::tuple_element<1, CoordDeriOrderHintTuple>::
-                    type...>::type>::value &&
-            std::is_integral<typename std::common_type<
-                typename std::tuple_element<2, CoordDeriOrderHintTuple>::
-                    type...>::type>::value,
-        val_type>::type
+    typename std::enable_if<std::tuple_size<typename std::common_type<
+                                CoordDeriOrderHintTuple...>::type>::value == 3,
+                            val_type>::type
     derivative_at(CoordDeriOrderHintTuple... coord_deriOrder_hint_tuple) const {
         // get spline order
         DimArray<size_type> spline_order{
@@ -476,14 +468,9 @@ class BSpline {
      * @return val_type
      */
     template <typename... CoordDeriOrderPair>
-    typename std::enable_if<
-        std::is_arithmetic<typename std::common_type<
-            typename std::tuple_element<0, CoordDeriOrderPair>::type...>::
-                               type>::value &&
-            std::is_integral<typename std::common_type<
-                typename std::tuple_element<1, CoordDeriOrderPair>::type...>::
-                                 type>::value,
-        val_type>::type
+    typename std::enable_if<std::tuple_size<typename std::common_type<
+                                CoordDeriOrderPair...>::type>::value == 2,
+                            val_type>::type
     derivative_at(CoordDeriOrderPair... coords) const {
         return derivative_at(std::make_tuple(
             (knot_type)coords.first, (size_type)coords.second, order)...);

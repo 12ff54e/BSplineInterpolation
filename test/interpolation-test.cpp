@@ -18,8 +18,9 @@ double rel_err(const Func& interp,
     std::cout.precision(17);
     std::cout << "\n[DEBUG] Spline Value           \tExpected\n";
 #endif
-    for (auto pt_it = pts.first, val_it = vals.first;
-         pt_it != pts.second && val_it != vals.second; ++pt_it, ++val_it) {
+    auto pt_it = pts.first;
+    auto val_it = vals.first;
+    for (; pt_it != pts.second && val_it != vals.second; ++pt_it, ++val_it) {
         double f = interp(*pt_it);
         err += (f - *val_it) * (f - *val_it);
         l2 += (*val_it) * (*val_it);
