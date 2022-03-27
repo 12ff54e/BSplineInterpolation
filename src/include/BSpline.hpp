@@ -231,7 +231,7 @@ class BSpline {
           __range{std::make_pair(*(knot_iter_pairs.first),
                                  *(knot_iter_pairs.second - 1))...},
           buf_size(util::pow(order + 1, dim)) {
-        for (int d = 0; d < dim; ++d) {
+        for (size_type d = 0; d < dim; ++d) {
             if (knots[d].size() - control_points.dim_size(d) !=
                 (__periodicity[d] ? 2 * order + 1 : order + 1)) {
                 throw std::range_error(
@@ -431,7 +431,7 @@ class BSpline {
             local_control_points(local_ind_arr) = control_points(ind_arr);
         }
 
-        for (int d = 0; d < dim; ++d) {
+        for (size_type d = 0; d < dim; ++d) {
             if (spline_order[d] == order) { continue; }
             // calculate control points for derivative along this dimension
 
@@ -449,7 +449,8 @@ class BSpline {
                 auto iter = local_control_points.begin(d, local_ind_arr);
                 // Taking derivative is effectively computing new control
                 // points. Number of iteration is order of derivative.
-                for (int k = order; k > spline_order[d]; --k) {
+                for (int k = order; k > static_cast<int>(spline_order[d]);
+                     --k) {
                     // Each reduction reduce control points number by one.
                     // Reduce backward to match pattern of local_spline_val.
                     for (int j = k; j > 0; --j) {

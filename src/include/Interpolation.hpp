@@ -80,15 +80,16 @@ class InterpolationFunction {
             x_range.first);
 
         if (__periodicity[dim_ind]) {
-            for (int i = 0; i < xs.size(); ++i) {
-                xs[i] = x_range.first + (i - (int)order) * __dx[dim_ind];
+            for (int i = 0; i < static_cast<int>(xs.size()); ++i) {
+                xs[i] = x_range.first +
+                        (i - static_cast<int>(order)) * __dx[dim_ind];
             }
         } else {
-            for (int i = order + 1; i < xs.size() - order - 1; ++i) {
+            for (size_type i = order + 1; i < xs.size() - order - 1; ++i) {
                 xs[i] =
                     x_range.first + .5 * (2 * i - order - 1) * __dx[dim_ind];
             }
-            for (int i = xs.size() - order - 1; i < xs.size(); ++i) {
+            for (size_type i = xs.size() - order - 1; i < xs.size(); ++i) {
                 xs[i] = x_range.second;
             }
         }
@@ -237,7 +238,7 @@ class InterpolationFunction {
             // This flag indicates the current point is redundent due to
             // periodicity
             bool skip_flag = false;
-            for (int d = 0; d < dim; ++d) {
+            for (size_type d = 0; d < dim; ++d) {
                 if (__periodicity[d] &&
                     f_indices[d] == f_mesh.dim_size(d) - 1) {
                     skip_flag = true;
@@ -297,7 +298,7 @@ class InterpolationFunction {
 
             // loop over nD base splines that contributes to current f_mesh
             // point, fill matrix
-            for (int i = 0; i < util::pow(order + 1, dim); ++i) {
+            for (size_type i = 0; i < util::pow(order + 1, dim); ++i) {
                 DimArray<size_type> ind_arr;
                 val_type spline_val = 1;
                 for (int d = dim - 1, local_ind = i; d >= 0; --d) {
