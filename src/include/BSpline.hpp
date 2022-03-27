@@ -37,6 +37,10 @@ class BSpline {
     const static size_type dim = D;
     const size_type order;
 
+    // Container for dimension-wise storage
+    template <typename _T>
+    using DimArray = std::array<_T, dim>;
+
     /**
      * @brief Calculate values on base spline function. This is the core of
      * B-Spline. Note: when the given order is smaller than order of spline
@@ -100,12 +104,58 @@ class BSpline {
         return base_spline_buf;
     }
 
-    // std::vector<knot_type> composite_spline_value() const {}
+    /**
+     * @brief Get the lower knot iter points to the segment where given x
+     * locates. If x is out of range of knot vector, the iterator is rather
+     * begin or end of knot vector.
+     *
+     * @param dim_ind specify the dimension
+     * @param x coordinate
+     * @param first a hint for iter offset
+     * @param last an upper bound for iter offset, this function will not search
+     * knots beyond it.
+     * @return KnotContainer::const_iterator
+     */
+    inline KnotContainer::const_iterator get_knot_iter(size_type dim_ind,
+                                                       knot_type x,
+                                                       size_type first,
+                                                       size_type last) const {
+        if (x < knots[dim_ind].front()) {
+            return knots_begin(dim_ind);
+        } else if (x >= knots[dim_ind].back()) {
+            return knots_end(dim_ind);
+        }
+        const auto iter = knots_begin(dim_ind) + first;
+#ifdef _DEBUG
+        if (*iter > x || *(iter + 1) < x) {
+            std::cout << "[DEBUG] knot hint miss at dim = " << dim_ind
+                      << ", hint = " << first << ", x = " << x << '\n';
+        }
+#endif
+        return *iter <= x && *(iter + 1) > x
+                   // If the hint is accurate, use that iter
+                   ? iter
+                   // else, use binary search in the range of distint knots
+                   // (excluding beginning and ending knots that have same
+                   // value)
+                   : --(std::upper_bound(knots_begin(dim_ind) + order,
+                                         knots_begin(dim_ind) + (last + 1), x));
+    }
+
+    inline KnotContainer::const_iterator get_knot_iter(size_type dim_ind,
+                                                       knot_type x,
+                                                       size_type first) const {
+        return get_knot_iter(dim_ind, x, first, knots_num(dim_ind) - order - 1);
+    }
+
+    template <typename... CoordWithHints, unsigned... indices>
+    inline DimArray<KnotContainer::const_iterator> get_knot_iters(
+        util::index_sequence<indices...>,
+        const CoordWithHints&... coords) const {
+        return {get_knot_iter(indices, coords.first, coords.second)...};
+    }
 
    private:
-    template <typename _T>
-    using DimArray = std::array<_T, dim>;
-
     DimArray<bool> __periodicity;
     DimArray<bool> __uniform;
 
@@ -120,50 +170,9 @@ class BSpline {
     // maximun stack buffer size
     // This buffer is for storing weights when calculating spline derivative
     // value.
-    constexpr static size_type MAX_BUF_SIZE = 2000;
+    constexpr static size_type MAX_BUF_SIZE = 1000;
 
     // auxiliary methods
-
-    /**
-     * @brief Get the lower knot iter points to the segment where given x
-     * locates. If x is out of range of knot vector, the iterator is rather
-     * begin or end of knot vector.
-     *
-     * @param dim_ind specify the dimension
-     * @param x coordinate
-     * @param knot_ind a hint for iter offset
-     * @return KnotContainer::const_iterator
-     */
-    inline KnotContainer::const_iterator
-    get_knot_iter(size_type dim_ind, knot_type x, size_type knot_ind) const {
-        if (x < knots[dim_ind].front()) {
-            return knots_begin(dim_ind);
-        } else if (x >= knots[dim_ind].back()) {
-            return knots_end(dim_ind);
-        }
-        const auto iter = knots_begin(dim_ind) + knot_ind;
-#ifdef _DEBUG
-        if (*iter > x || *(iter + 1) < x) {
-            std::cout << "knot hint miss at dim = " << dim_ind
-                      << ", hint = " << knot_ind << ", x = " << x << '\n';
-        }
-#endif
-        return *iter <= x && *(iter + 1) >= x
-                   // If the hint is accurate, use that iter
-                   ? iter
-                   // else, use binary search in the range of distint knots
-                   // (excluding beginning and ending knots that have same
-                   // value)
-                   : prev(std::upper_bound(knots_begin(dim_ind) + order,
-                                           knots_end(dim_ind), x));
-    }
-
-    template <typename... CoordWithHints, unsigned... indices>
-    inline DimArray<KnotContainer::const_iterator> get_knot_iters(
-        util::index_sequence<indices...>,
-        const CoordWithHints&... coords) const {
-        return {get_knot_iter(indices, coords.first, coords.second)...};
-    }
 
     /**
      * @brief Calculate base spline value of each dimension

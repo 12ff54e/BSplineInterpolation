@@ -45,8 +45,8 @@ int main() {
     array<double, 13> f{{0.905515, 0.894638, -0.433134, 0.43131, -0.131052,
                          0.262974, 0.423888, -0.562671, -0.915567, -0.261017,
                          -0.47915, -0.00939326, -0.445962}};
-    InterpolationFunction<double, 1> interp{
-        3, make_pair(f.begin(), f.end()), {0., (double)(f.size() - 1)}};
+    InterpolationFunction<double, 1> interp{3, make_pair(f.begin(), f.end()),
+                                            std::make_pair(0, (f.size() - 1))};
 
     // some random points
     auto coords_1d = {3.937582749415922,  0.46794224590095723,
@@ -116,6 +116,9 @@ int main() {
          0.2755974099701995}};
 
     std::cout << "\n2D Interpolation Test:\n";
+
+    assertion(interp2.uniform(0) && interp2.uniform(1),
+              "Uniform properties check failed.");
 
     d = rel_err(interp2, std::make_pair(coords_2d.begin(), coords_2d.end()),
                 std::make_pair(vals_2d.begin(), vals_2d.end()));
@@ -268,7 +271,10 @@ int main() {
 
     std::cout << "\n1D Interpolation with Periodic Boundary Test:\n";
 
-    f.back() = f.front();
+    // Since the InterpolationFunction ignores the last term along periodic
+    // dimension, thus we can use the origin non-periodic data to interpolate a
+    // periodic spline function
+
     InterpolationFunction<double, 1> interp1_periodic(
         3, {true}, std::make_pair(f.begin(), f.end()),
         std::make_pair(0., (double)(f.size() - 1)));
@@ -375,6 +381,87 @@ int main() {
     assertion(d < tol);
     std::cout << "\n3D test of derivative (1,0,3) "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    // 1D non-uniform interpolation test
+
+    std::cout << "\n1D nonuniform Interpolation Test:\n";
+
+    auto input_coords_1d = {0.,
+                            0.9248468590818175,
+                            2.270222487146226,
+                            3.498804659217474,
+                            3.7530418178453955,
+                            4.791302870662092,
+                            6.3336649913937375,
+                            7.041926963118405,
+                            7.612472537805882,
+                            9.034787492568283,
+                            10.078257485188475,
+                            11.440973163521294,
+                            12.};
+
+    InterpolationFunction<double, 1> interp1_nonuniform(
+        3, std::make_pair(f.begin(), f.end()),
+        std::make_pair(input_coords_1d.begin(), input_coords_1d.end()));
+
+    auto vals_1d_nonuniform = {-0.4562057772431492, 1.3471094229928755,
+                               -0.6079379355534298, -0.016699918339397407,
+                               1.2453576785633913,  -0.17792750766792387,
+                               0.05227508784539216, 1.3530673230583836,
+                               0.877847815343884,   0.27427682690484234};
+
+    d = rel_err(
+        interp1_nonuniform, std::make_pair(coords_1d.begin(), coords_1d.end()),
+        std::make_pair(vals_1d_nonuniform.begin(), vals_1d_nonuniform.end()));
+    assertion(d < tol);
+    std::cout << "\n1D nonuniform test "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    std::cout << "\n1D nonuniform Interpolation Test with Periodic Boundary:\n";
+
+    InterpolationFunction<double, 1> interp1_nonuniform_peridoc(
+        3, true, std::make_pair(f.begin(), f.end()),
+        std::make_pair(input_coords_1d.begin(), input_coords_1d.end()));
+
+    auto vals_1d_nonuniform_periodic = {
+        -0.3738323950661332, 1.1742935774102545, -0.6153230937028499,
+        0.06458135543126312, 1.1223278729126307, -0.525071369106671,
+        -0.1338571414646928, 1.1750592418582853, 0.5702308748859196,
+        0.40755832882350224};
+
+    d = rel_err(interp1_nonuniform_peridoc,
+                std::make_pair(coords_1d.begin(), coords_1d.end()),
+                std::make_pair(vals_1d_nonuniform_periodic.begin(),
+                               vals_1d_nonuniform_periodic.end()));
+    assertion(d < tol);
+    std::cout << "\n1D nonuniform test with periodic boundary "
+              << (assertion.last_status() == 0 ? "succced" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    // 2D non-uniform with one dimension being periodic boundary
+
+    auto nonuniform_coord_for_2d = {0., 1.329905262345947, 2.200286645200226,
+                                    3.1202827237815516, 4.};
+    InterpolationFunction<double, 2> interp2_X_periodic_Y_nonuniform(
+        3, {true, false}, f2d, std::make_pair(0., f2d.dim_size(0) - 1.),
+        std::make_pair(nonuniform_coord_for_2d.begin(),
+                       nonuniform_coord_for_2d.end()));
+
+    auto vals_2d_X_periodic_Y_nonuniform = {
+        -0.7160424002258807,  0.6702846215275077,  0.04933393138376427,
+        -0.48309957376784946, 0.7622619905083738,  0.28742506313682975,
+        0.4762197211423307,   -0.2924876444803407, -0.05355290342562366,
+        0.08938131323971249};
+
+    d = rel_err(interp2_X_periodic_Y_nonuniform,
+                std::make_pair(coords_2d.begin(), coords_2d.end()),
+                std::make_pair(vals_2d_X_periodic_Y_nonuniform.begin(),
+                               vals_2d_X_periodic_Y_nonuniform.end()));
+    assertion(d < tol);
+    std::cout << "\n2D test with x-periodic and y-nonuniform "
+              << (assertion.last_status() == 0 ? "succced" : "failed") << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     return assertion.status();

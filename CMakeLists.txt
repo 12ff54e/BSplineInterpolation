@@ -3,6 +3,7 @@ project(BSplineInterpolation VERSION 0.1.0)
 
 add_compile_options(-std=c++11)
 add_compile_options(-Wall)
+add_compile_options(-g)
 add_definitions(-D_DEBUG)
 include_directories(/usr/include/eigen3)
 

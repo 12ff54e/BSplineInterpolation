@@ -178,7 +178,7 @@ class Mesh {
      * @param total_ind
      * @return std::array<size_type, dim>
      */
-    Indices dimwise_indices(size_type total_ind) {
+    Indices dimwise_indices(size_type total_ind) const {
         Indices indices;
 
         for (unsigned d = 0; d < dim; ++d) {
@@ -300,7 +300,7 @@ class Mesh {
                                              __dim_acc_size[dim - dim_ind - 1]);
     }
 
-    Indices iter_indices(const_iterator iter) {
+    Indices iter_indices(const_iterator iter) const {
         return dimwise_indices(std::distance(begin(), iter));
     }
 
