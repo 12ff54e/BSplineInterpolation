@@ -15,3 +15,7 @@ Since the library is header only, include BSplineInterpolation and one can use a
 
 - Limited compiler support: only tested using g++ 9.3 and clang++ 10.0 (on WSL2 Ubuntu).
 - The algorithm is un-optimized and has low efficiency when constructing interpolation function on mesh of dimension more than 2.
+
+## Known Issues
+
+- Feed interpolation function with out of boundary coordinate will result in zeroth-order extrapolation, even for periodic interpolation.

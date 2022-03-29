@@ -120,9 +120,9 @@ class BSpline {
                                                        knot_type x,
                                                        size_type first,
                                                        size_type last) const {
-        if (x < knots[dim_ind].front()) {
+        if (x < knots[dim_ind][order]) {
             return knots_begin(dim_ind);
-        } else if (x >= knots[dim_ind].back()) {
+        } else if (x >= knots[dim_ind][knots_num(dim_ind) - order - 1]) {
             return knots_end(dim_ind);
         }
         const auto iter = knots_begin(dim_ind) + first;
@@ -410,7 +410,7 @@ class BSpline {
             }
 
             val_type coef = 1;
-            DimArray<unsigned> ind_arr;
+            DimArray<unsigned> ind_arr{};
             for (size_type d = 0; d < dim; ++d) {
                 coef *= base_spline_values_1d[d][local_ind_arr[d]];
 
