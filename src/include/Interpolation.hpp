@@ -219,7 +219,8 @@ class InterpolationFunction {
         for (size_type d = 0; d < dim; ++d) {
             if (__periodicity[d] && __uniform[d]) {
                 base_spline_vals_per_dim[d] = __spline.base_spline_value(
-                    d, __spline.knots_begin(d) + order, 0.);
+                    d, __spline.knots_begin(d) + order,
+                    __spline.knots_begin(d)[order]);
             }
         }
 
