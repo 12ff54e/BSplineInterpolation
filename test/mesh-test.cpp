@@ -58,7 +58,7 @@ int main() {
 
     for (int dim_ind = 0; dim_ind < 3; ++dim_ind) {
         for (unsigned i = 0; i < mesh.dim_size(dim_ind); ++i) {
-            int val;
+            unsigned val;
             if (dim_ind == 0) {
                 assertion((val = mesh(i, 6, 2)) == i);
             } else if (dim_ind == 1) {
@@ -100,7 +100,7 @@ int main() {
     // test equal-length-on-each-dimension constructor
 
     Mesh<int, 4> mesh_4d(5);
-    assertion(mesh_4d.size() == util::pow(5, 4u));
+    assertion(mesh_4d.size() == util::pow(5u, 4u));
 
     return assertion.status();
 }

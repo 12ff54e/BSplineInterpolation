@@ -272,7 +272,7 @@ class InterpolationFunction {
                         }
                     }
                 } else {
-                    const coord_type x =
+                    coord_type x =
                         __periodicity[d]
                             ? __spline.knots_begin(d)[f_indices[d] + order]
                             : input_coords[d][f_indices[d]];

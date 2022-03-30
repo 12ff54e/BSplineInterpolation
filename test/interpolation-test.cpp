@@ -72,6 +72,12 @@ int main() {
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
+    assertion(std::abs(interp(-1.) - (-6.3167718907512755)) < tol,
+              "Out of left boundary extrapolation did not work as expected.\n");
+    assertion(
+        std::abs(interp(13.) - (-4.508470210464194)) < tol,
+        "Out of right boundary extrapolation did not work as expected.\n");
+
     // 2D interpolation test
 
     // random 5x5 mesh grid
@@ -292,6 +298,13 @@ int main() {
     std::cout << "\n1D test with periodic boundary "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << d << '\n';
+
+    assertion(std::abs(interp1_periodic(*coords_1d.begin() - (f.size() - 1)) -
+                       *vals_1d_periodic.begin()) < tol,
+              "Out of left periodic boundary did not work as expected.\n");
+    assertion(std::abs(interp1_periodic(*coords_1d.begin() + (f.size() - 1)) -
+                       *vals_1d_periodic.begin()) < tol,
+              "Out of left periodic boundary did not work as expected.\n");
 
     // 2D interplation test with one dimension being periodic boundary
     std::cout << "\n2D Interpolation with Periodic Boundary Test:\n";

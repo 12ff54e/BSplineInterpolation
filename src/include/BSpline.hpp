@@ -2,7 +2,9 @@
 
 #include <algorithm>  // upper_bound
 #include <array>
-#include <iterator>     // advance, distance, etc.
+#include <cmath>       // fmod
+#include <functional>  // ref
+#include <iterator>    // distance
 #include <stdexcept>    // range_error
 #include <type_traits>  // is_same, is_arithmatic
 #include <vector>
@@ -58,33 +60,27 @@ class BSpline {
         knot_type x,
         size_type spline_order) const {
         std::fill(base_spline_buf.begin(), base_spline_buf.end(), 0);
-        // out of boundary check
-        if (seg_idx_iter == knots_begin(dim_ind)) {
-            base_spline_buf[0] = 1.;
-        } else if (seg_idx_iter == knots_end(dim_ind)) {
-            base_spline_buf[order] = 1.;
-        } else {
-            base_spline_buf[order] = 1;
-            for (size_type i = 1; i <= spline_order; ++i) {
-                // Each iteration will expand buffer zone by one, from back
-                // to front.
-                const size_type idx_begin = order - i;
-                for (size_type j = 0; j <= i; ++j) {
-                    const auto left_iter = seg_idx_iter - (i - j);
-                    const auto right_iter = seg_idx_iter + (j + 1);
-                    base_spline_buf[idx_begin + j] =
-                        (j == 0 ? 0
-                                : base_spline_buf[idx_begin + j] *
-                                      (x - *left_iter) /
-                                      (*(right_iter - 1) - *left_iter)) +
-                        (idx_begin + j == order
-                             ? 0
-                             : base_spline_buf[idx_begin + j + 1] *
-                                   (*right_iter - x) /
-                                   (*right_iter - *(left_iter + 1)));
-                }
+        base_spline_buf[order] = 1;
+        for (size_type i = 1; i <= spline_order; ++i) {
+            // Each iteration will expand buffer zone by one, from back
+            // to front.
+            const size_type idx_begin = order - i;
+            for (size_type j = 0; j <= i; ++j) {
+                const auto left_iter = seg_idx_iter - (i - j);
+                const auto right_iter = seg_idx_iter + (j + 1);
+                base_spline_buf[idx_begin + j] =
+                    (j == 0
+                         ? 0
+                         : base_spline_buf[idx_begin + j] * (x - *left_iter) /
+                               (*(right_iter - 1) - *left_iter)) +
+                    (idx_begin + j == order
+                         ? 0
+                         : base_spline_buf[idx_begin + j + 1] *
+                               (*right_iter - x) /
+                               (*right_iter - *(left_iter + 1)));
             }
         }
+        // }
         return base_spline_buf;
     }
 
@@ -117,19 +113,21 @@ class BSpline {
      * @return KnotContainer::const_iterator
      */
     inline KnotContainer::const_iterator get_knot_iter(size_type dim_ind,
-                                                       knot_type x,
-                                                       size_type first,
+                                                       knot_type& x,
+                                                       size_type hint,
                                                        size_type last) const {
-        if (x < knots[dim_ind][order]) {
-            return knots_begin(dim_ind);
-        } else if (x >= knots[dim_ind][knots_num(dim_ind) - order - 1]) {
-            return knots_end(dim_ind);
+        const auto iter = knots_begin(dim_ind) + hint;
+        if (__periodicity[dim_ind]) {
+            const knot_type len = range(dim_ind).second - range(dim_ind).first;
+            x = range(dim_ind).first +
+                (x < range(dim_ind).first
+                     ? std::fmod(x - range(dim_ind).first, len) + len
+                     : std::fmod(x - range(dim_ind).first, len));
         }
-        const auto iter = knots_begin(dim_ind) + first;
 #ifdef _DEBUG
         if (*iter > x || *(iter + 1) < x) {
             std::cout << "[DEBUG] knot hint miss at dim = " << dim_ind
-                      << ", hint = " << first << ", x = " << x << '\n';
+                      << ", hint = " << hint << ", x = " << x << '\n';
         }
 #endif
         return *iter <= x && *(iter + 1) > x
@@ -138,20 +136,20 @@ class BSpline {
                    // else, use binary search in the range of distint knots
                    // (excluding beginning and ending knots that have same
                    // value)
-                   : --(std::upper_bound(knots_begin(dim_ind) + order,
+                   : --(std::upper_bound(knots_begin(dim_ind) + order + 1,
                                          knots_begin(dim_ind) + (last + 1), x));
     }
 
     inline KnotContainer::const_iterator get_knot_iter(size_type dim_ind,
-                                                       knot_type x,
-                                                       size_type first) const {
-        return get_knot_iter(dim_ind, x, first, knots_num(dim_ind) - order - 1);
+                                                       knot_type& x,
+                                                       size_type hint) const {
+        return get_knot_iter(dim_ind, x, hint, knots_num(dim_ind) - order - 2);
     }
 
     template <typename... CoordWithHints, unsigned... indices>
     inline DimArray<KnotContainer::const_iterator> get_knot_iters(
         util::index_sequence<indices...>,
-        const CoordWithHints&... coords) const {
+        CoordWithHints&&... coords) const {
         return {get_knot_iter(indices, coords.first, coords.second)...};
     }
 
@@ -228,8 +226,9 @@ class BSpline {
               KnotContainer(knot_iter_pairs.first, knot_iter_pairs.second)...},
           control_points(std::move(ctrl_points)),
           base_spline_buf(order + 1, 0),
-          __range{std::make_pair(*(knot_iter_pairs.first),
-                                 *(knot_iter_pairs.second - 1))...},
+          __range{std::make_pair(
+              (knot_iter_pairs.first)[order],
+              (knot_iter_pairs.second)[-static_cast<int>(order) - 1])...},
           buf_size(util::pow(order + 1, dim)) {
         for (size_type d = 0; d < dim; ++d) {
             if (knots[d].size() - control_points.dim_size(d) !=
@@ -272,7 +271,7 @@ class BSpline {
 
     /**
      * @brief Get spline value at given pairs of coordinate and position hint
-     * (possiblily lower knot point index of the segment where coordinate
+     * (hopefully lower knot point index of the segment where coordinate
      * locates, dimension wise).
      *
      * @tparam CoordWithHints std::pair<knot_type, size_type>, ...
@@ -289,7 +288,8 @@ class BSpline {
                 typename CoordWithHints::second_type...>::type>::value,
         val_type>::type
     operator()(CoordWithHints... coord_with_hints) const {
-        // get knot point iter
+        // get knot point iter, it will modfifies coordinate value into
+        // interpolation range of periodic dimension.
         const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints...);
 
         DimArray<size_type> spline_order;
@@ -380,7 +380,7 @@ class BSpline {
         // get knot point iter
         const auto knot_iters = get_knot_iters(
             Indices{},
-            std::make_pair(std::get<0>(coord_deriOrder_hint_tuple),
+            std::make_pair(std::ref(std::get<0>(coord_deriOrder_hint_tuple)),
                            std::get<2>(coord_deriOrder_hint_tuple))...);
 
         // calculate basic spline (out of boundary check also conducted here)
@@ -520,7 +520,8 @@ class BSpline {
      * @param dim_ind
      * @return const std::pair<knot_type, knot_type>&
      */
-    const std::pair<knot_type, knot_type>& range(size_type dim_ind) const {
+    inline const std::pair<knot_type, knot_type>& range(
+        size_type dim_ind) const {
         return __range[dim_ind];
     }
 
@@ -530,7 +531,7 @@ class BSpline {
      * @param dim_ind
      * @return size_type
      */
-    size_type knots_num(size_type dim_ind) const {
+    inline size_type knots_num(size_type dim_ind) const {
         return knots[dim_ind].size();
     }
 
