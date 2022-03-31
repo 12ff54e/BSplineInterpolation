@@ -1,3 +1,5 @@
+[![CMake](https://github.com/12ff54e/BSplineInterpolation/actions/workflows/cmake.yml/badge.svg?branch=main)](https://github.com/12ff54e/BSplineInterpolation/actions/workflows/cmake.yml)
+
 # BSpline Interpolation Lib
 
 This library use B-spline to interpolate given data of any dimension on a Cartesian mesh grid.
