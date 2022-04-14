@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cmath>  // ceil
 #include <initializer_list>
 
@@ -8,7 +10,7 @@
 namespace intp {
 
 template <typename T, unsigned D>
-class InterpolationFunction {
+class InterpolationFunction {  // TODO: Add integration
    private:
     using val_type = T;
     using spline_type = BSpline<T, D>;
@@ -355,6 +357,16 @@ class InterpolationFunction {
         __spline.load_ctrlPts(std::move(weights));
     }
 
+    inline void __boundary_check(const DimArray<coord_type>& coord) const {
+        for (size_type d = 0; d < dim; ++d) {
+            if (!__periodicity[d] &&
+                (coord[d] < range(d).first || coord[d] > range(d).second)) {
+                throw std::domain_error(
+                    "Given coordinate out of interpolation function range!");
+            }
+        }
+    }
+
    public:
     /**
      * @brief Construct a new 1D Interpolation Function object, mimicking
@@ -446,6 +458,11 @@ class InterpolationFunction {
         return __spline.range(dim_ind);
     }
 
+    /**
+     * @brief Get spline value.
+     *
+     * @param x coordinates
+     */
     template <typename... Coords,
               typename Indices = util::make_index_sequence_for<Coords...>,
               typename = typename std::enable_if<std::is_arithmetic<
@@ -454,27 +471,107 @@ class InterpolationFunction {
         return call_op_helper(Indices{}, DimArray<coord_type>{x...});
     }
 
+    /**
+     * @brief Get spline value.
+     *
+     * @param coord coordinate array
+     */
     val_type operator()(DimArray<coord_type> coord) const {
         return call_op_helper(util::make_index_sequence<dim>{}, coord);
     }
 
-    template <typename... Args>
-    val_type derivative_at(DimArray<coord_type> coord,
-                           Args... deriOrder) const {
-        return derivative_helper(util::make_index_sequence<dim>{}, coord,
-                                 DimArray<size_type>{(size_type)deriOrder...});
+    /**
+     * @brief Get spline value, but with out of boundary check.
+     *
+     * @param coord coordinate array
+     */
+    val_type at(DimArray<coord_type> coord) const {
+        __boundary_check(coord);
+        return call_op_helper(util::make_index_sequence<dim>{}, coord);
     }
 
-    val_type derivative_at(DimArray<coord_type> coord,
-                           DimArray<size_type> derivatives) const {
+    /**
+     * @brief Get spline value, but with out of boundary check.
+     *
+     * @param x coordinates
+     */
+    template <typename... Coords,
+              typename Indices = util::make_index_sequence_for<Coords...>,
+              typename = typename std::enable_if<std::is_arithmetic<
+                  typename std::common_type<Coords...>::type>::value>::type>
+    val_type at(Coords... x) const {
+        return at(DimArray<coord_type>{static_cast<coord_type>(x)...});
+    }
+
+    /**
+     * @brief Get spline derivative value.
+     *
+     * @param coord coordinate array
+     * @param derivatives derivative order array
+     */
+    val_type derivative(DimArray<coord_type> coord,
+                        DimArray<size_type> derivatives) const {
         return derivative_helper(util::make_index_sequence<dim>{}, coord,
                                  derivatives);
     }
 
+    /**
+     * @brief Get spline derivative value.
+     *
+     * @param coord coordinate array
+     * @param deriOrder derivative orders
+     */
+    template <typename... Args>
+    val_type derivative(DimArray<coord_type> coord, Args... deriOrder) const {
+        return derivative(coord, DimArray<size_type>{(size_type)deriOrder...});
+    }
+
+    /**
+     * @brief Get spline derivative value.
+     *
+     * @param coord_deriOrder_pair pairs of coordinate and derivative order
+     */
+    template <typename... CoordDeriOrderPair>
+    val_type derivative(CoordDeriOrderPair... coord_deriOrder_pair) const {
+        return derivative(
+            DimArray<coord_type>{coord_deriOrder_pair.first...},
+            DimArray<size_type>{(size_type)coord_deriOrder_pair.second...});
+    }
+
+    /**
+     * @brief Get spline derivative value, but with out of boundary check.
+     *
+     * @param coord coordinate array
+     * @param derivatives derivative order array
+     */
+    val_type derivative_at(DimArray<coord_type> coord,
+                           DimArray<size_type> derivatives) const {
+        __boundary_check(coord);
+        return derivative_helper(util::make_index_sequence<dim>{}, coord,
+                                 derivatives);
+    }
+
+    /**
+     * @brief Get spline derivative value, but with out of boundary check.
+     *
+     * @param coord coordinate array
+     * @param deriOrder derivative orders
+     */
+    template <typename... Args>
+    val_type derivative_at(DimArray<coord_type> coord,
+                           Args... deriOrder) const {
+        return derivative_at(coord,
+                             DimArray<size_type>{(size_type)deriOrder...});
+    }
+
+    /**
+     * @brief Get spline derivative value, but with out of boundary check.
+     *
+     * @param coord_deriOrder_pair pairs of coordinate and derivative order
+     */
     template <typename... CoordDeriOrderPair>
     val_type derivative_at(CoordDeriOrderPair... coord_deriOrder_pair) const {
-        return derivative_helper(
-            util::make_index_sequence<dim>{},
+        return derivative_at(
             DimArray<coord_type>{coord_deriOrder_pair.first...},
             DimArray<size_type>{(size_type)coord_deriOrder_pair.second...});
     }

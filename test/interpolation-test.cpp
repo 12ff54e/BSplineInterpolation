@@ -133,6 +133,13 @@ int main() {
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
+    try {
+        interp2.at(-1, 1);
+        assertion(false, "Out of boundary check failed.\n");
+    } catch (const std::domain_error& e) {
+        std::cout << "Out of boundary check succeed.\n";
+    }
+
     // 3D interpolation test
 
     // random 5x6x7 mesh grid

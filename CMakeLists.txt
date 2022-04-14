@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.11.0)
 project(BSplineInterpolation VERSION 0.1.0)
 include(FetchContent)
 
-add_compile_options(-std=c++11)
+add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=c++11>)
 add_compile_options(-Wall)
 add_compile_options(-g)
 add_definitions(-D_DEBUG)
