@@ -24,10 +24,10 @@ namespace intp {
  * @tparam T Type of control point
  * @tparam D Dimension
  */
-template <typename T, unsigned D>
+template <typename T, size_t D>
 class BSpline {
    public:
-    using size_type = unsigned int;
+    using size_type = size_t;
     using val_type = T;
     using knot_type = double;
 
@@ -146,7 +146,7 @@ class BSpline {
         return get_knot_iter(dim_ind, x, hint, knots_num(dim_ind) - order - 2);
     }
 
-    template <typename... CoordWithHints, unsigned... indices>
+    template <typename... CoordWithHints, size_type... indices>
     inline DimArray<KnotContainer::const_iterator> get_knot_iters(
         util::index_sequence<indices...>,
         CoordWithHints&&... coords) const {
@@ -182,7 +182,7 @@ class BSpline {
      * @param coords a bunch of coordinates
      * @return std::array<decltype(base_spline_buf), dim>
      */
-    template <typename... Coords, unsigned... indices>
+    template <typename... Coords, size_type... indices>
     inline DimArray<decltype(base_spline_buf)> calc_base_spline_vals(
         util::index_sequence<indices...>,
         const DimArray<KnotContainer::const_iterator>& knot_iters,
@@ -200,7 +200,7 @@ class BSpline {
      * @param periodicity
      * @param order
      */
-    BSpline(DimArray<bool> periodicity, size_type order = 3)
+    explicit BSpline(DimArray<bool> periodicity, size_type order = 3)
         : order(order),
           __periodicity(periodicity),
           control_points(size_type{}),
@@ -301,7 +301,7 @@ class BSpline {
         // combine control points and basic spline values to get spline value
         val_type v{};
         for (size_type i = 0; i < buf_size; ++i) {
-            DimArray<unsigned> ind_arr;
+            DimArray<size_type> ind_arr;
             for (size_type d = 0, combined_ind = i; d < dim; ++d) {
                 ind_arr[d] = combined_ind % (order + 1);
                 combined_ind /= (order + 1);
@@ -403,14 +403,14 @@ class BSpline {
 
         // get local control points and basic spline values
         for (size_type i = 0; i < buf_size; ++i) {
-            DimArray<unsigned> local_ind_arr{};
+            DimArray<size_type> local_ind_arr{};
             for (size_type d = 0, combined_ind = i; d < dim; ++d) {
                 local_ind_arr[d] = combined_ind % (order + 1);
                 combined_ind /= (order + 1);
             }
 
             val_type coef = 1;
-            DimArray<unsigned> ind_arr{};
+            DimArray<size_type> ind_arr{};
             for (size_type d = 0; d < dim; ++d) {
                 coef *= base_spline_values_1d[d][local_ind_arr[d]];
 
@@ -439,7 +439,7 @@ class BSpline {
                 local_control_points.size() / local_control_points.dim_size(d);
             // tranverse the hyper surface of fixing dimension d
             for (size_type i = 0; i < hyper_surface_size; ++i) {
-                DimArray<unsigned> local_ind_arr;
+                DimArray<size_type> local_ind_arr;
                 for (size_type dd = 0, combined_ind = i; dd < dim; ++dd) {
                     if (dd == d) { continue; }
                     local_ind_arr[dd] = combined_ind % (order + 1);

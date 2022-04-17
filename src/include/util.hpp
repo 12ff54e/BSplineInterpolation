@@ -10,26 +10,26 @@ namespace intp {
 namespace util {
 
 /**
- * @brief Polyfill for C++14 interger_sequence, but with [T = unsigned int] only
+ * @brief Polyfill for C++14 interger_sequence, but with [T = size_t] only
  *
  * @tparam Indices
  */
-template <unsigned... Indices>
+template <size_t... Indices>
 struct index_sequence {
-    using val_type = unsigned;
-    const static unsigned size = sizeof...(Indices);
+    using val_type = size_t;
+    const static size_t size = sizeof...(Indices);
 };
 
-template <unsigned N, unsigned... Indices>
+template <size_t N, size_t... Indices>
 struct make_index_sequence_impl
     : make_index_sequence_impl<N - 1, N - 1, Indices...> {};
 
-template <unsigned... Indices>
+template <size_t... Indices>
 struct make_index_sequence_impl<0, Indices...> {
     using type = index_sequence<Indices...>;
 };
 
-template <unsigned N>
+template <size_t N>
 using make_index_sequence = typename make_index_sequence_impl<N>::type;
 
 template <typename... T>

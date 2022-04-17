@@ -35,7 +35,8 @@ double rel_err(const Func& interp,
 int main() {
     using namespace std;
     using namespace intp;
-    // These tests are done by comparing interplation results with that from MM.
+    // These tests are done by comparing interpolation results with that from
+    // MM.
 
     Assertion assertion;
     constexpr double tol = 1e-14;
@@ -280,7 +281,7 @@ int main() {
     assertion(!interp3.periodicity(0) && !interp3.periodicity(1) &&
               !interp3.periodicity(2));
 
-    // 1D interplation test with periodic boundary
+    // 1D interpolation test with periodic boundary
 
     std::cout << "\n1D Interpolation with Periodic Boundary Test:\n";
 
@@ -313,7 +314,7 @@ int main() {
                        *vals_1d_periodic.begin()) < tol,
               "Out of left periodic boundary did not work as expected.\n");
 
-    // 2D interplation test with one dimension being periodic boundary
+    // 2D interpolation test with one dimension being periodic boundary
     std::cout << "\n2D Interpolation with Periodic Boundary Test:\n";
 
     InterpolationFunction<double, 2> interp2_periodic(

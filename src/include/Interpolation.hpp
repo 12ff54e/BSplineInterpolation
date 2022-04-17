@@ -9,7 +9,7 @@
 
 namespace intp {
 
-template <typename T, unsigned D>
+template <typename T, size_t D>
 class InterpolationFunction {  // TODO: Add integration
    private:
     using val_type = T;
@@ -31,10 +31,7 @@ class InterpolationFunction {  // TODO: Add integration
 
     // auxiliary methods
 
-    template <typename>
-    using __cast_to_bool = bool;
-
-    template <unsigned... di>
+    template <size_type... di>
     inline val_type call_op_helper(util::index_sequence<di...>,
                                    DimArray<coord_type> c) const {
         return __spline(std::make_pair(
@@ -49,7 +46,7 @@ class InterpolationFunction {  // TODO: Add integration
                        : order)...);
     }
 
-    template <unsigned... di>
+    template <size_type... di>
     inline val_type derivative_helper(util::index_sequence<di...>,
                                       DimArray<coord_type> c,
                                       DimArray<size_type> d) const {
@@ -110,7 +107,7 @@ class InterpolationFunction {  // TODO: Add integration
         DimArray<typename spline_type::KnotContainer>& input_coords,
         std::pair<_T, _T> x_range) {
         __uniform[dim_ind] = false;
-        const unsigned n = std::distance(x_range.first, x_range.second);
+        const size_type n = std::distance(x_range.first, x_range.second);
         if (n != f_mesh.dim_size(dim_ind)) {
             throw std::range_error(
                 std::string("Inconsistency between knot number and "
@@ -122,7 +119,7 @@ class InterpolationFunction {  // TODO: Add integration
 
         if (__periodicity[dim_ind]) {
             std::copy(x_range.first, x_range.second, xs.begin() + order);
-            for (unsigned i = 0; i < order; ++i) {
+            for (size_type i = 0; i < order; ++i) {
                 xs[i] = xs[order] - xs[n + order - 1] + xs[n + i - 1];
                 xs[n + order + i] =
                     xs[n + order - 1] + xs[order + i + 1] - xs[order];
@@ -134,18 +131,18 @@ class InterpolationFunction {  // TODO: Add integration
             // expected for input iterators.
             auto l_knot = *it;
             // fill lestmost *order+1* identical knots
-            for (unsigned i = 0; i < order + 1; ++i) { xs[i] = l_knot; }
+            for (size_type i = 0; i < order + 1; ++i) { xs[i] = l_knot; }
             // first knot is same as first input coordinate
             input_coords[dim_ind].emplace_back(l_knot);
             // Every knot in middle is average of *order* input
             // coordinates. This var is to track the sum of a moving window with
             // width *order*.
             coord_type window_sum{};
-            for (unsigned i = 1; i < order; ++i) {
+            for (size_type i = 1; i < order; ++i) {
                 input_coords[dim_ind].emplace_back(*(++it));
                 window_sum += input_coords[dim_ind][i];
             }
-            for (unsigned i = order + 1; i < n; ++i) {
+            for (size_type i = order + 1; i < n; ++i) {
                 input_coords[dim_ind].emplace_back(*(++it));
                 window_sum += input_coords[dim_ind][i - 1];
                 xs[i] = window_sum / order;
@@ -153,7 +150,7 @@ class InterpolationFunction {  // TODO: Add integration
             }
             auto r_knot = *(++it);
             // fill rightmost *order+1* identical knots
-            for (unsigned i = n; i < n + order + 1; ++i) { xs[i] = r_knot; }
+            for (size_type i = n; i < n + order + 1; ++i) { xs[i] = r_knot; }
             // last knot is same as last input coordinate
             input_coords[dim_ind].emplace_back(r_knot);
         }
@@ -199,7 +196,7 @@ class InterpolationFunction {  // TODO: Add integration
         // and nonuniform case with even order
         size_type entry_count{};
         for (size_type total_ind = 0; total_ind < f_mesh.size(); ++total_ind) {
-            auto indices = f_mesh.dimwise_indices(total_ind);
+            auto indices = f_mesh.dimension().dimwise_indices(total_ind);
             size_type c = 1;
             for (size_type d = 0; d < dim; ++d) {
                 auto ind = indices[d];
@@ -318,12 +315,13 @@ class InterpolationFunction {  // TODO: Add integration
                 if (spline_val != val_type{0}) {
 #ifdef _TRACE
                     std::cout << "[TRACE] {" << actual_ind << ','
-                              << weights.indexing(ind_arr) << "} -> "
-                              << spline_val << '\n';
+                              << weights.dimension().indexing(ind_arr)
+                              << "} -> " << spline_val << '\n';
 #endif
 
                     coef_list.emplace_back(
-                        actual_ind, weights.indexing(ind_arr), spline_val);
+                        actual_ind, weights.dimension().indexing(ind_arr),
+                        spline_val);
                 }
             }
 
@@ -348,7 +346,7 @@ class InterpolationFunction {  // TODO: Add integration
 #else
         std::vector<val_type> tmp;
         tmp.reserve(weights_eigen_vec.size());
-        for (unsigned i = 0; i < weights_eigen_vec.size(); ++i) {
+        for (size_type i = 0; i < weights_eigen_vec.size(); ++i) {
             tmp.emplace_back(weights_eigen_vec[i]);
         }
         weights.storage = std::move(tmp);
