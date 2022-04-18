@@ -36,6 +36,8 @@ class MeshDimension {
     }
 
    public:
+    MeshDimension() = default;
+
     MeshDimension(std::initializer_list<size_type> il) {
         std::copy(il.begin(), il.end(), __dim_size.begin());
         set_dim_acc_size();
@@ -232,6 +234,16 @@ class Mesh {
     friend class InterpolationFunction;  // friend class forward declaration,
                                          // InterpolationFunction need access
                                          // to the storage object
+
+    template <typename U, size_type DD>
+    friend class
+        InterpolationFunctionTemplate;  // friend class forward
+                                        // declaration,InterpolationFunctionTemplate
+                                        // need access to
+                                        // mesh_dimension and storage
+
+    // default constructor is for internal use only
+    Mesh() = default;
 
    public:
     explicit Mesh(std::initializer_list<size_type> il,
