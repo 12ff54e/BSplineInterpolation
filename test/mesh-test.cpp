@@ -98,7 +98,8 @@ int main() {
 
     std::vector<double> vec{1, 1, 2, 3, 5, 8, 13, 21};
     Mesh<double, 1> mesh_1d_from_container(vec);
-    Mesh<double, 1> mesh_1d_from_iterator(vec.begin(), vec.end());
+    Mesh<double, 1> mesh_1d_from_iterator(
+        std::make_pair(vec.begin(), vec.end()));
 
     for (unsigned i = 0; i < vec.size(); ++i) {
         assertion(mesh_1d_from_container(i) == vec[i] &&

@@ -23,7 +23,7 @@ int main(int argc, char const* argv[]) {
     const auto t_after_vec = high_resolution_clock::now();
 
     InterpolationFunctionTemplate<double, 1> interp1d_template(
-        3, trig_vec.size(), std::make_pair(0., 2 * M_PI));
+        3, true, trig_vec.size(), std::make_pair(0., 2 * M_PI));
 
     const auto t_after_template_1d = high_resolution_clock::now();
 

@@ -263,10 +263,9 @@ class Mesh {
                   std::is_convertible<typename std::iterator_traits<
                                           InputIter>::iterator_category,
                                       std::input_iterator_tag>::value>::type>
-    explicit Mesh(InputIter iter_begin,
-                  InputIter iter_end,
+    explicit Mesh(std::pair<InputIter, InputIter> range,
                   const allocator_type& alloc = allocator_type())
-        : storage(iter_begin, iter_end, alloc),
+        : storage(range.first, range.second, alloc),
           __dimension{(size_type)storage.size()} {}
 
     template <typename Array,
@@ -274,7 +273,7 @@ class Mesh {
                   dim == 1u && util::is_iteratable<Array>::value>::type>
     explicit Mesh(const Array& array,
                   const allocator_type& alloc = allocator_type())
-        : Mesh(array.begin(), array.end(), alloc) {}
+        : Mesh(std::make_pair(array.begin(), array.end()), alloc) {}
 
    public:
     // properties
