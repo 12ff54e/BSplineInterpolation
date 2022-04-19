@@ -624,18 +624,30 @@ class InterpolationFunctionTemplate {
 
     static constexpr size_type dim = D;
 
+    template <typename U>
+    using DimArray = std::array<U, dim>;
+
+    using MeshDim = MeshDimension<dim>;
+
+    /**
+     * @brief Construct a new Interpolation Function Template object
+     *
+     * @param order Order of BSpline
+     * @param periodicity Periodicity of each dimension
+     * @param interp_mesh_dimension The structure of coordinate mesh
+     * @param x_ranges Begin and end iterator/value pairs of each dimension
+     */
     template <typename... Ts>
-    InterpolationFunctionTemplate(
-        size_type order,
-        typename function_type::DimArray<bool> periodicity,
-        MeshDimension<dim> interp_mesh_dimension,
-        std::pair<Ts, Ts>... x_ranges)
+    InterpolationFunctionTemplate(size_type order,
+                                  DimArray<bool> periodicity,
+                                  MeshDim interp_mesh_dimension,
+                                  std::pair<Ts, Ts>... x_ranges)
         : input_coords{},
           mesh_dimension(interp_mesh_dimension),
           base(order, periodicity, input_coords, mesh_dimension, x_ranges...) {
         // adjust dimension according to periodicity
         {
-            typename function_type::DimArray<size_type> dim_size_tmp;
+            DimArray<size_type> dim_size_tmp;
             bool p_flag = false;
             for (size_type d = 0; d < dim; ++d) {
                 dim_size_tmp[d] =
@@ -664,8 +676,7 @@ class InterpolationFunctionTemplate {
             entry_count += c;
         }
 
-        typename function_type::DimArray<
-            typename function_type::spline_type::BaseSpline>
+        DimArray<typename function_type::spline_type::BaseSpline>
             base_spline_vals_per_dim;
 
         const auto& spline = base.spline();
@@ -692,16 +703,7 @@ class InterpolationFunctionTemplate {
             // dimension
             decltype(f_indices) base_spline_anchor;
 
-            // This flag indicates the current point is redundent due to
-            // periodicity
-            // bool skip_flag = false;
             for (size_type d = 0; d < dim; ++d) {
-                // if (base.periodicity(d) &&
-                //     f_indices[d] == mesh_dimension.dim_size(d) - 1) {
-                //     skip_flag = true;
-                //     break;
-                // }
-
                 const auto knot_num = spline.knots_num(d);
                 // This is the index of i-th dimension knot vector to the left
                 // of current f_indices[i] position, notice that knot points has
@@ -750,12 +752,11 @@ class InterpolationFunctionTemplate {
 
                 base_spline_anchor[d] = knot_ind - order;
             }
-            // if (skip_flag) { continue; }
 
             // loop over nD base splines that contributes to current f_mesh
             // point, fill matrix
             for (size_type i = 0; i < util::pow(order + 1, dim); ++i) {
-                typename function_type::DimArray<size_type> ind_arr;
+                DimArray<size_type> ind_arr;
                 val_type spline_val = 1;
                 for (int d = dim - 1, local_ind = i; d >= 0; --d) {
                     ind_arr[d] = local_ind % (order + 1);
@@ -783,11 +784,12 @@ class InterpolationFunctionTemplate {
         }
 
         // fill coefficient matrix
-        Eigen::SparseMatrix<double> coef(mesh_dimension.size(),
-                                         mesh_dimension.size());
-        coef.setFromTriplets(coef_list.begin(), coef_list.end());
-
-        solver.compute(coef);
+        {
+            Eigen::SparseMatrix<double> coef(mesh_dimension.size(),
+                                             mesh_dimension.size());
+            coef.setFromTriplets(coef_list.begin(), coef_list.end());
+            solver.compute(coef);
+        }
 
 #ifdef _DEBUG
         if (solver.info() != Eigen::Success) {
@@ -798,7 +800,53 @@ class InterpolationFunctionTemplate {
     }
 
     /**
-     * @brief Interpolated on given function values.
+     * @brief Construct a new 1D Interpolation Function Template object.
+     *
+     * @param order order of interpolation, the interpolated function is of
+     * $C^{order-1}$
+     * @param periodic whether to construct a periodic spline
+     * @param f_length point number of to-be-interpolated data
+     * @param x_range a pair of x_min and x_max
+     */
+    template <typename C1, typename C2>
+    InterpolationFunctionTemplate(size_type order,
+                                  bool periodicity,
+                                  size_type f_length,
+                                  std::pair<C1, C2> x_range)
+        : InterpolationFunctionTemplate(order,
+                                        {periodicity},
+                                        MeshDim{f_length},
+                                        x_range) {
+        static_assert(
+            dim == size_type{1},
+            "You can not use this overload of constructor in 1D case.");
+    }
+
+    template <typename C1, typename C2>
+    InterpolationFunctionTemplate(size_type order,
+                                  size_type f_length,
+                                  std::pair<C1, C2> x_range)
+        : InterpolationFunctionTemplate(order, false, f_length, x_range) {}
+
+    /**
+     * @brief Construct a new (nonperiodic) Interpolation Function Template
+     * object
+     *
+     * @param order Order of BSpline
+     * @param interp_mesh_dimension The structure of coordinate mesh
+     * @param x_ranges Begin and end iterator/value pairs of each dimension
+     */
+    template <typename... Ts>
+    InterpolationFunctionTemplate(size_type order,
+                                  MeshDim interp_mesh_dimension,
+                                  std::pair<Ts, Ts>... x_ranges)
+        : InterpolationFunctionTemplate(order,
+                                        {},
+                                        interp_mesh_dimension,
+                                        x_ranges...) {}
+
+    /**
+     * @brief Interpolate on given function values.
      *
      * @param f_mesh
      */
@@ -808,13 +856,26 @@ class InterpolationFunctionTemplate {
         return interp;
     }
 
+    /**
+     * @brief Interpolate on given 1d range (begin and end iterator).
+     *
+     */
+    template <typename InputIter>
+    typename std::enable_if<
+        dim == size_type{1} &&
+            std::is_convertible<
+                typename std::iterator_traits<InputIter>::iterator_category,
+                std::input_iterator_tag>::value,
+        function_type>::type
+    interpolate(std::pair<InputIter, InputIter> f_range) {
+        return interpolate(Mesh<val_type, dim>{f_range.first, f_range.second});
+    }
+
    private:
     // input coordinates, needed only in nonuniform-nonperiodic case
-    typename function_type::DimArray<
-        typename function_type::spline_type::KnotContainer>
-        input_coords;
+    DimArray<typename function_type::spline_type::KnotContainer> input_coords;
 
-    MeshDimension<dim> mesh_dimension;
+    MeshDim mesh_dimension;
 
     // the base interpolation function with unspecified weights
     function_type base;

@@ -290,7 +290,7 @@ int main() {
     // periodic spline function
 
     InterpolationFunction<double, 1> interp1_periodic(
-        3, {true}, std::make_pair(f.begin(), f.end()),
+        3, true, std::make_pair(f.begin(), f.end()),
         std::make_pair(0., (double)(f.size() - 1)));
 
     auto vals_1d_periodic = {-0.10276360828017747,   1.1340881789375648,
