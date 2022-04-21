@@ -349,7 +349,7 @@ int main() {
                                  1.2259404172291155,  0.07146990739588419,
                                  0.08280649116771142, -1.79102570100216};
 
-    rel_err(
+    d = rel_err(
         [&](double x) { return interp.derivative_at(std::make_pair(x, 1)); },
         std::make_pair(coords_1d.begin(), coords_1d.end()),
         std::make_pair(vals_1d_derivative_1.begin(),
