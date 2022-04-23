@@ -289,14 +289,15 @@ int main() {
     // periodic spline function
 
     InterpolationFunction<double, 1> interp1_periodic(
-        3, {true}, std::make_pair(f.begin(), f.end()),
+        4, {true}, std::make_pair(f.begin(), f.end()),
         std::make_pair(0., (double)(f.size() - 1)));
 
-    auto vals_1d_periodic = {-0.10276360828017747,   1.1340881789375648,
-                             -0.6776627180298541,    0.45313923482507434,
-                             1.1288349572268954,     -0.12378463800028976,
-                             -0.0026452056651779937, 1.1266006815698877,
-                             0.44624081919808195,    0.475946112240532};
+    auto vals_1d_periodic = {
+        -0.09762254647017743, 1.168800757853312,  -0.6682906902062101,
+        0.44128062499073417,  1.1642814012848224, -0.12481864202139212,
+        -0.00445415461594469, 1.159234754035029,  0.4508845136779133,
+        0.45967108162968584,
+    };
 
     d = rel_err(
         interp1_periodic, std::make_pair(coords_1d.begin(), coords_1d.end()),
@@ -311,7 +312,7 @@ int main() {
               "Out of left periodic boundary did not work as expected.\n");
     assertion(std::abs(interp1_periodic(*coords_1d.begin() + (f.size() - 1)) -
                        *vals_1d_periodic.begin()) < tol,
-              "Out of left periodic boundary did not work as expected.\n");
+              "Out of Right periodic boundary did not work as expected.\n");
 
     // 2D interplation test with one dimension being periodic boundary
     std::cout << "\n2D Interpolation with Periodic Boundary Test:\n";
@@ -442,14 +443,14 @@ int main() {
     std::cout << "\n1D nonuniform Interpolation Test with Periodic Boundary:\n";
 
     InterpolationFunction<double, 1> interp1_nonuniform_peridoc(
-        3, true, std::make_pair(f.begin(), f.end()),
+        4, true, std::make_pair(f.begin(), f.end()),
         std::make_pair(input_coords_1d.begin(), input_coords_1d.end()));
 
     auto vals_1d_nonuniform_periodic = {
-        -0.3738323950661332, 1.1742935774102545, -0.6153230937028499,
-        0.06458135543126312, 1.1223278729126307, -0.525071369106671,
-        -0.1338571414646928, 1.1750592418582853, 0.5702308748859196,
-        0.40755832882350224};
+        -0.4464803199487985,    1.2298382629311808, -0.6268441539418139,
+        0.06800541396058792,    1.1730724308997087, -0.6075709757451075,
+        0.00021566856863144274, 1.2284708203600656, 0.8052326379455318,
+        0.3011733005197456};
 
     d = rel_err(interp1_nonuniform_peridoc,
                 std::make_pair(coords_1d.begin(), coords_1d.end()),
