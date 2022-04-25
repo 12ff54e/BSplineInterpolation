@@ -80,19 +80,20 @@ class InterpolationFunction {  // TODO: Add integration
         const size_type n = mesh_dimension.dim_size(dim_ind);
         __dx[dim_ind] = (x_range.second - x_range.first) / (n - 1);
 
-        std::vector<typename spline_type::knot_type> xs(
-            __periodicity[dim_ind] ? n + 2 * order : n + order + 1,
-            x_range.first);
+        const size_t extra =
+            __periodicity[dim_ind] ? 2 * order + (1 - order % 2) : order + 1;
+
+        std::vector<typename spline_type::knot_type> xs(n + extra,
+                                                        x_range.first);
 
         if (__periodicity[dim_ind]) {
-            for (int i = 0; i < static_cast<int>(xs.size()); ++i) {
-                xs[i] = x_range.first +
-                        (i - static_cast<int>(order)) * __dx[dim_ind];
+            for (size_type i = 0; i < xs.size(); ++i) {
+                xs[i] = x_range.first - .5 * extra * __dx[dim_ind] +
+                        i * __dx[dim_ind];
             }
         } else {
             for (size_type i = order + 1; i < xs.size() - order - 1; ++i) {
-                xs[i] =
-                    x_range.first + .5 * (2 * i - order - 1) * __dx[dim_ind];
+                xs[i] = x_range.first - .5 * extra + i * __dx[dim_ind];
             }
             for (size_type i = xs.size() - order - 1; i < xs.size(); ++i) {
                 xs[i] = x_range.second;
@@ -121,17 +122,28 @@ class InterpolationFunction {  // TODO: Add integration
                 std::to_string(dim_ind));
         }
         typename spline_type::KnotContainer xs(
-            __periodicity[dim_ind] ? n + 2 * order : n + order + 1);
+            __periodicity[dim_ind] ? n + 2 * order + (1 - order % 2)
+                                   : n + order + 1);
 
+        input_coords[dim_ind].reserve(n);
         if (__periodicity[dim_ind]) {
-            std::copy(x_range.first, x_range.second, xs.begin() + order);
-            for (size_type i = 0; i < order; ++i) {
-                xs[i] = xs[order] - xs[n + order - 1] + xs[n + i - 1];
-                xs[n + order + i] =
-                    xs[n + order - 1] + xs[order + i + 1] - xs[order];
+            auto iter = x_range.first;
+
+            input_coords[dim_ind].push_back(*iter);
+            for (size_type i = order + 1; i < order + n; ++i) {
+                val_type present = *(++iter);
+                xs[i] = order % 2 == 0
+                            ? .5 * (input_coords[dim_ind].back() + present)
+                            : present;
+                input_coords[dim_ind].push_back(present);
+            }
+            val_type period =
+                input_coords[dim_ind].back() - input_coords[dim_ind].front();
+            for (size_type i = 0; i < order + 1; ++i) {
+                xs[i] = xs[n + i - 1] - period;
+                xs[xs.size() - i - 1] = xs[xs.size() - i - n] + period;
             }
         } else {
-            input_coords[dim_ind].reserve(n);
             auto it = x_range.first;
             // Notice that *it++ is not guarantee to work as what you
             // expected for input iterators.
@@ -499,9 +511,10 @@ class InterpolationFunctionTemplate {
         // changes due to its even-spaced knots
         for (size_type d = 0; d < dim; ++d) {
             if (base.periodicity(d) && base.uniform(d)) {
-                base_spline_vals_per_dim[d] =
-                    spline.base_spline_value(d, spline.knots_begin(d) + order,
-                                             spline.knots_begin(d)[order]);
+                base_spline_vals_per_dim[d] = spline.base_spline_value(
+                    d, spline.knots_begin(d) + order,
+                    spline.knots_begin(d)[order] +
+                        (1 - order % 2) * __dx[d] * .5);
             }
         }
 
@@ -543,10 +556,7 @@ class InterpolationFunctionTemplate {
                         }
                     }
                 } else {
-                    coord_type x =
-                        base.periodicity(d)
-                            ? spline.knots_begin(d)[f_indices[d] + order]
-                            : input_coords[d][f_indices[d]];
+                    coord_type x = input_coords[d][f_indices[d]];
                     // using BSpline::get_knot_iter to find current
                     // knot_ind
                     const auto iter =
@@ -580,7 +590,7 @@ class InterpolationFunctionTemplate {
                     ind_arr[d] += base_spline_anchor[d];
 
                     if (base.periodicity(d)) {
-                        ind_arr[d] %= (spline.knots_num(d) - 2 * order - 1);
+                        ind_arr[d] %= mesh_dimension.dim_size(d);
                     }
                 }
                 if (spline_val != val_type{0}) {

@@ -49,9 +49,11 @@ class BSpline {
      * (used in calculating derivative), spline value is aligned at right in
      * result vector.
      *
+     * @param dim_ind which dimension
      * @param seg_idx_iter the iterator points to left knot point of a segment
      * @param x
-     * @param spline_order order of base spline
+     * @param spline_order order of base spline, defaulted to be spline function
+     * order
      * @return a reference to local buffer
      */
     inline const BaseSpline& base_spline_value(
@@ -118,11 +120,12 @@ class BSpline {
                                                        size_type last) const {
         const auto iter = knots_begin(dim_ind) + hint;
         if (__periodicity[dim_ind]) {
-            const knot_type len = range(dim_ind).second - range(dim_ind).first;
+            const knot_type period =
+                range(dim_ind).second - range(dim_ind).first;
             x = range(dim_ind).first +
                 (x < range(dim_ind).first
-                     ? std::fmod(x - range(dim_ind).first, len) + len
-                     : std::fmod(x - range(dim_ind).first, len));
+                     ? std::fmod(x - range(dim_ind).first, period) + period
+                     : std::fmod(x - range(dim_ind).first, period));
         }
 #ifdef _DEBUG
         if (*iter > x || *(iter + 1) < x) {
@@ -256,7 +259,7 @@ class BSpline {
         knots[dim_ind] = std::forward<C>(_knots);
         __range[dim_ind].first = knots[dim_ind][order];
         __range[dim_ind].second =
-            knots[dim_ind][knots[dim_ind].size() - order - 1];
+            knots[dim_ind][knots[dim_ind].size() - order - (2 - order % 2)];
         __uniform[dim_ind] = is_uniform;
     }
 
@@ -324,7 +327,7 @@ class BSpline {
 
                 // check periodicity, put out-of-right-boundary index to left
                 if (__periodicity[d]) {
-                    ind_arr[d] %= (knots_num(d) - 2 * order - 1);
+                    ind_arr[d] %= control_points.dim_size(d);
                 }
             }
 
