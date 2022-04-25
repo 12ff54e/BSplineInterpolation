@@ -514,7 +514,7 @@ class InterpolationFunctionTemplate {
                 base_spline_vals_per_dim[d] = spline.base_spline_value(
                     d, spline.knots_begin(d) + order,
                     spline.knots_begin(d)[order] +
-                        (1 - order % 2) * __dx[d] * .5);
+                        (1 - order % 2) * base.__dx[d] * .5);
             }
         }
 
