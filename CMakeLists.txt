@@ -20,6 +20,9 @@ add_executable(bsp_test test/bspline-test.cpp)
 add_executable(itp_test test/interpolation-test.cpp)
 add_executable(mesh_test test/mesh-test.cpp)
 add_executable(util_test test/util-test.cpp)
+add_executable(itp-template_test test/interpolation-template-test.cpp)
+
+target_compile_options(itp-template_test PRIVATE -O2)
 
 include(CTest)
 enable_testing()
@@ -27,6 +30,7 @@ add_test(intp-bspline bsp_test)
 add_test(intp-interp itp_test)
 add_test(intp-mesh mesh_test)
 add_test(intp-util util_test)
+add_test(intp-interp-template itp-template_test)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
