@@ -88,12 +88,11 @@ class InterpolationFunction {  // TODO: Add integration
 
         if (__periodicity[dim_ind]) {
             for (size_type i = 0; i < xs.size(); ++i) {
-                xs[i] = x_range.first - .5 * extra * __dx[dim_ind] +
-                        i * __dx[dim_ind];
+                xs[i] = x_range.first + (i - .5 * extra) * __dx[dim_ind];
             }
         } else {
             for (size_type i = order + 1; i < xs.size() - order - 1; ++i) {
-                xs[i] = x_range.first - .5 * extra + i * __dx[dim_ind];
+                xs[i] = x_range.first + (i - .5 * extra) * __dx[dim_ind];
             }
             for (size_type i = xs.size() - order - 1; i < xs.size(); ++i) {
                 xs[i] = x_range.second;
@@ -188,10 +187,14 @@ class InterpolationFunction {  // TODO: Add integration
         MeshDimension<dim> mesh_dimension,
         DimArray<typename spline_type::KnotContainer>& input_coords,
         std::pair<Ts, Ts>... x_ranges) {
+#if __cplusplus >= 201703L
+        (__create_knot_vector(di, f_mesh, input_coords, x_ranges), ...);
+#else
         // polyfill of C++17 fold expression over comma
         std::array<std::nullptr_t, sizeof...(Ts)>{
             (__create_knot_vector(di, mesh_dimension, input_coords, x_ranges),
              nullptr)...};
+#endif
     }
 
     inline void __boundary_check(const DimArray<coord_type>& coord) const {
