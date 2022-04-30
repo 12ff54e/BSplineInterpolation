@@ -198,6 +198,8 @@ class Mesh {
                                          // interpolation procedure
 
    public:
+    Mesh() = default;
+
     explicit Mesh(std::initializer_list<size_type> il,
                   const allocator_type& alloc = allocator_type())
         : storage(alloc) {
