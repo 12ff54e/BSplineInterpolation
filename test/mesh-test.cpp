@@ -10,34 +10,45 @@ int main() {
     Assertion assertion;
     Mesh<int, 3> mesh{10, 20, 30};
 
-    assertion(mesh.dim_acc_size()[0] == 1);
-    assertion(mesh.dim_acc_size()[1] == 30);
-    assertion(mesh.dim_acc_size()[2] == 20 * 30);
-    assertion(mesh.dim_acc_size()[3] == 10 * 20 * 30);
+    auto& mesh_dim = mesh.dimension();
 
-    assertion(mesh.dim_size(0) == 10);
-    assertion(mesh.dim_size(1) == 20);
-    assertion(mesh.dim_size(2) == 30);
+    assertion(mesh_dim.dim_acc_size(0) == 1,
+              "Dimension accumulation size wrong.");
+    assertion(mesh_dim.dim_acc_size(1) == 30,
+              "Dimension accumulation size wrong.");
+    assertion(mesh_dim.dim_acc_size(2) == 20 * 30,
+              "Dimension accumulation size wrong.");
+    assertion(mesh_dim.dim_acc_size(3) == 10 * 20 * 30,
+              "Dimension accumulation size wrong.");
 
-    assertion(mesh.size() == 10 * 20 * 30);
+    assertion(mesh.dim_size(0) == 10, "Dimension wise size wrong.");
+    assertion(mesh.dim_size(1) == 20, "Dimension wise size wrong.");
+    assertion(mesh.dim_size(2) == 30, "Dimension wise size wrong.");
+
+    assertion(mesh.size() == 10 * 20 * 30, "Total size wrong.");
 
     mesh(3, 4, 5) = 1;
-    assertion(*(mesh.data() + 3 * 600 + 4 * 30 + 5) == 1.);
+    assertion(*(mesh.data() + 3 * 600 + 4 * 30 + 5) == 1.,
+              "Modify data by index failed.");
 
     auto it = mesh.begin();
     advance(it, 3 * 600 + 4 * 30 + 5);
     auto indices = mesh.iter_indices(it);
 
-    assertion(indices[0] == 3);
-    assertion(indices[1] == 4);
-    assertion(indices[2] == 5);
+    assertion(indices[0] == 3, "Iterator indexing failed.");
+    assertion(indices[1] == 4, "Iterator indexing failed.");
+    assertion(indices[2] == 5, "Iterator indexing failed.");
 
     mesh.resize({30, 20, 5});
 
-    assertion(mesh.dim_acc_size()[0] == 1);
-    assertion(mesh.dim_acc_size()[1] == 5);
-    assertion(mesh.dim_acc_size()[2] == 20 * 5);
-    assertion(mesh.dim_acc_size()[3] == 30 * 20 * 5);
+    assertion(mesh_dim.dim_acc_size(0) == 1,
+              "Dimension accumulation size wrong after resize.");
+    assertion(mesh_dim.dim_acc_size(1) == 5,
+              "Dimension accumulation size wrong after resize.");
+    assertion(mesh_dim.dim_acc_size(2) == 20 * 5,
+              "Dimension accumulation size wrong after resize.");
+    assertion(mesh_dim.dim_acc_size(3) == 30 * 20 * 5,
+              "Dimension accumulation size wrong after resize.");
 
     // test iterator along one dimension
 
@@ -87,7 +98,8 @@ int main() {
 
     std::vector<double> vec{1, 1, 2, 3, 5, 8, 13, 21};
     Mesh<double, 1> mesh_1d_from_container(vec);
-    Mesh<double, 1> mesh_1d_from_iterator(vec.begin(), vec.end());
+    Mesh<double, 1> mesh_1d_from_iterator(
+        std::make_pair(vec.begin(), vec.end()));
 
     for (unsigned i = 0; i < vec.size(); ++i) {
         assertion(mesh_1d_from_container(i) == vec[i] &&
@@ -100,7 +112,8 @@ int main() {
     // test equal-length-on-each-dimension constructor
 
     Mesh<int, 4> mesh_4d(5);
-    assertion(mesh_4d.size() == util::pow(5u, 4u));
+    assertion(mesh_4d.size() == util::pow(5u, 4u),
+              "Equal length on each dimension mesh size wrong.");
 
     return assertion.status();
 }
