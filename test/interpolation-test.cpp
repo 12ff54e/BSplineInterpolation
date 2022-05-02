@@ -19,8 +19,7 @@ int main() {
     array<double, 13> f{{0.905515, 0.894638, -0.433134, 0.43131, -0.131052,
                          0.262974, 0.423888, -0.562671, -0.915567, -0.261017,
                          -0.47915, -0.00939326, -0.445962}};
-    InterpolationFunction<double, 1> interp{3, make_pair(f.begin(), f.end()),
-                                            std::make_pair(0, (f.size() - 1))};
+    InterpolationFunction1D<double> interp{std::make_pair(f.begin(), f.end())};
 
     // some random points
     auto coords_1d = {3.937582749415922,  0.46794224590095723,
@@ -262,9 +261,8 @@ int main() {
     // dimension, thus we can use the origin non-periodic data to interpolate a
     // periodic spline function
 
-    InterpolationFunction<double, 1> interp1_periodic(
-        4, true, std::make_pair(f.begin(), f.end()),
-        std::make_pair(0., (double)(f.size() - 1)));
+    InterpolationFunction1D<double> interp1_periodic(
+        std::make_pair(f.begin(), f.end()), 4, true);
 
     auto vals_1d_periodic = {
         -0.09762254647017743, 1.168800757853312,  -0.6682906902062101,
@@ -396,9 +394,9 @@ int main() {
                             11.440973163521294,
                             12.};
 
-    InterpolationFunction<double, 1> interp1_nonuniform(
-        3, std::make_pair(f.begin(), f.end()),
-        std::make_pair(input_coords_1d.begin(), input_coords_1d.end()));
+    InterpolationFunction1D<double> interp1_nonuniform(
+        std::make_pair(input_coords_1d.begin(), input_coords_1d.end()),
+        std::make_pair(f.begin(), f.end()));
 
     auto vals_1d_nonuniform = {-0.4562057772431492, 1.3471094229928755,
                                -0.6079379355534298, -0.016699918339397407,
@@ -416,9 +414,9 @@ int main() {
 
     std::cout << "\n1D nonuniform Interpolation Test with Periodic Boundary:\n";
 
-    InterpolationFunction<double, 1> interp1_nonuniform_peridoc(
-        4, true, std::make_pair(f.begin(), f.end()),
-        std::make_pair(input_coords_1d.begin(), input_coords_1d.end()));
+    InterpolationFunction1D<double> interp1_nonuniform_peridoc(
+        std::make_pair(input_coords_1d.begin(), input_coords_1d.end()),
+        std::make_pair(f.begin(), f.end()), 4, true);
 
     auto vals_1d_nonuniform_periodic = {
         -0.4464803199487985,    1.2298382629311808, -0.6268441539418139,

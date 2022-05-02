@@ -230,21 +230,6 @@ class Mesh {
 
     MeshDimension<dim> __dimension;
 
-    template <typename U, size_type DD>
-    friend class InterpolationFunction;  // friend class forward declaration,
-                                         // InterpolationFunction need access
-                                         // to the storage object
-
-    template <typename U, size_type DD>
-    friend class
-        InterpolationFunctionTemplate;  // friend class forward
-                                        // declaration,InterpolationFunctionTemplate
-                                        // need access to
-                                        // mesh_dimension and storage
-
-    // default constructor is for internal use only
-    Mesh() = default;
-
    public:
     explicit Mesh(const MeshDimension<dim>& mesh_dimension)
         : __dimension(mesh_dimension) {

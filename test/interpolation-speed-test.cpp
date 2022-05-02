@@ -65,9 +65,9 @@ int main(int argc, char const* argv[]) {
 
         const auto t_after_vec = high_resolution_clock::now();
 
-        InterpolationFunction<double, 1> interp1d(
-            3, true, std::make_pair(vec_1d.begin(), vec_1d.end()),
-            std::make_pair(-M_PI, M_PI));
+        InterpolationFunction1D<double> interp1d(
+            std::make_pair(-M_PI, M_PI),
+            std::make_pair(vec_1d.begin(), vec_1d.end()), 3, true);
 
         const auto t_after_interpolation_1d = high_resolution_clock::now();
 
