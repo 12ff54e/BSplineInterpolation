@@ -1,38 +1,11 @@
 #include "../src/include/Interpolation.hpp"
+#include "./rel_err.hpp"
 #include "Assertion.hpp"
 
-#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <random>
 #include <vector>
-
-#ifdef _DEBUG
-#include <iomanip>
-#endif
-
-template <typename Func, typename InputIterPt, typename InputIterVal>
-double rel_err(const Func& interp,
-               std::pair<InputIterPt, InputIterPt> pts,
-               std::pair<InputIterVal, InputIterVal> vals) {
-    double err{}, l2{};
-#ifdef _DEBUG
-    std::cout.precision(17);
-    std::cout << "\n[DEBUG] Spline Value           \tExpected\n";
-#endif
-    auto pt_it = pts.first;
-    auto val_it = vals.first;
-    for (; pt_it != pts.second && val_it != vals.second; ++pt_it, ++val_it) {
-        double f = interp(*pt_it);
-        err += (f - *val_it) * (f - *val_it);
-        l2 += (*val_it) * (*val_it);
-#ifdef _DEBUG
-        std::cout << "[DEBUG] " << std::setw(20) << f << ",\t" << std::setw(20)
-                  << *val_it << '\n';
-#endif
-    }
-    return std::sqrt(err / l2);
-}
 
 int main(int argc, char const* argv[]) {
     using namespace std::chrono;
@@ -62,11 +35,12 @@ int main(int argc, char const* argv[]) {
     }
 
     Assertion assertion;
-    constexpr double eps = 1e-4;
+    constexpr double eps = 1e-4;  // TODO: use a more reasonable error torelance
+                                  //  according to Taylor series expansion
 
     const auto t_start_1d = high_resolution_clock::now();
 
-    constexpr size_t len = 256;
+    constexpr size_t len = 1024;
     constexpr double dx = 2 * M_PI / (len * len);
     std::vector<double> trig_vec{};
     trig_vec.reserve(len * len + 1);
@@ -80,8 +54,8 @@ int main(int argc, char const* argv[]) {
 
     const auto t_after_vec = high_resolution_clock::now();
 
-    InterpolationFunctionTemplate<double, 1> interp1d_template(
-        3, true, trig_vec.size(), std::make_pair(-M_PI, M_PI));
+    InterpolationFunctionTemplate1D<double> interp1d_template(
+        std::make_pair(-M_PI, M_PI), trig_vec.size(), 3, true);
 
     const auto t_after_template_1d = high_resolution_clock::now();
 
@@ -124,7 +98,6 @@ int main(int argc, char const* argv[]) {
 
     const auto t_start_2d = high_resolution_clock::now();
 
-    // In order to test the speed of bspline construction, use a 256x256 mesh
     constexpr double dt = 2 * M_PI / len;
 
     Mesh<double, 2> trig_mesh_2d_1(len + 1);
@@ -202,9 +175,8 @@ int main(int argc, char const* argv[]) {
 
     const auto t_start_3d = high_resolution_clock::now();
 
-    // In order to test the speed of bspline construction, use a 32*32*64 mesh
-    constexpr size_t lt = 32;
-    constexpr size_t lz = 64;
+    constexpr size_t lt = 256;
+    constexpr size_t lz = 256;
     constexpr double dt_3d = 2 * M_PI / lt;
     constexpr double dz = 1. / (lz - 1);
 
