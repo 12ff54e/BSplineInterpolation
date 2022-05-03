@@ -26,7 +26,6 @@ add_executable(itp_template_test test/interpolation-template-test.cpp)
 target_compile_options(itp_speed_test PRIVATE -O2)
 target_compile_options(itp_template_test PRIVATE -O2)
 
-
 include(CTest)
 enable_testing()
 add_test(intp-bspline bsp_test)

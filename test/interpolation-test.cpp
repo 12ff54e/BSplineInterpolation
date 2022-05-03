@@ -19,7 +19,15 @@ int main() {
     array<double, 13> f{{0.905515, 0.894638, -0.433134, 0.43131, -0.131052,
                          0.262974, 0.423888, -0.562671, -0.915567, -0.261017,
                          -0.47915, -0.00939326, -0.445962}};
-    InterpolationFunction1D<double> interp{std::make_pair(f.begin(), f.end())};
+
+    InterpolationFunction1D<double> interp{std::make_pair(0, .5 * (f.size() - 1)), 
+        std::make_pair(f.begin(), f.end())};
+
+    auto coords_1d_half = {1.968791374707961,  0.23397112295047862,
+                           4.183162505803409,  5.744438451300649,
+                           0.322817339924379,  5.431730686042901,
+                           1.2745684388796121, 0.21339197545741406,
+                           1.5321444095845136, 0.64165470553346};
 
     // some random points
     auto coords_1d = {3.937582749415922,  0.46794224590095723,
@@ -37,18 +45,18 @@ int main() {
 
     std::cout << "\n1D Interpolation Test:\n";
 
-    double d =
-        rel_err(interp, std::make_pair(coords_1d.begin(), coords_1d.end()),
-                std::make_pair(vals_1d.begin(), vals_1d.end()));
+    double d = rel_err(
+        interp, std::make_pair(coords_1d_half.begin(), coords_1d_half.end()),
+        std::make_pair(vals_1d.begin(), vals_1d.end()));
     assertion(d < tol);
     std::cout << "\n1D test "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
-    assertion(std::abs(interp(-1.) - (-6.3167718907512755)) < tol,
+    assertion(std::abs(interp(-.5) - (-6.3167718907512755)) < tol,
               "Out of left boundary extrapolation did not work as expected.\n");
     assertion(
-        std::abs(interp(13.) - (-4.508470210464194)) < tol,
+        std::abs(interp(6.5) - (-4.508470210464194)) < tol,
         "Out of right boundary extrapolation did not work as expected.\n");
 
     // 2D interpolation test
@@ -316,15 +324,15 @@ int main() {
 
     std::cout << "\n1D Interpolation Derivative Test:\n";
 
-    auto vals_1d_derivative_1 = {-0.513729823961817,  -0.11730028747531092,
-                                 0.813179759221172,   -0.29821331795997896,
-                                 -0.8172403142837684, 0.5682608302410066,
-                                 1.2259404172291155,  0.07146990739588419,
-                                 0.08280649116771142, -1.79102570100216};
+    auto vals_1d_derivative_1 = {-1.027459647923634,  -0.23460057495062184,
+                                 1.626359518442344,   -0.5964266359199579,
+                                 -1.6344806285675368, 1.1365216604820132,
+                                 2.451880834458231,   0.14293981479176837,
+                                 0.16561298233542285, -3.58205140200432};
 
     d = rel_err(
         [&](double x) { return interp.derivative_at(std::make_pair(x, 1)); },
-        std::make_pair(coords_1d.begin(), coords_1d.end()),
+        std::make_pair(coords_1d_half.begin(), coords_1d_half.end()),
         std::make_pair(vals_1d_derivative_1.begin(),
                        vals_1d_derivative_1.end()));
     assertion(d < tol);
