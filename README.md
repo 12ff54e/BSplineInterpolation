@@ -11,13 +11,13 @@ This library is standard C++11 and relies on [Eigen3](https://eigen.tuxfamily.or
 
 ## How to use
 
-Since the library is header only, include BSplineInterpolation and one can use all its functionality under namespace intp. Check test/interpolation-test.cpp for more info.
+Since the library is header only, include BSplineInterpolation and one can use all its functionality under namespace intp. Check test/interpolation-test.cpp and test/interpolation-template-test.cpp for more info.
 
-## Disclaimer
+## Note
 
-- Limited compiler support: only tested using g++ 9.3 and clang++ 10.0 (on WSL2 Ubuntu).
-- The algorithm is un-optimized and has low efficiency when constructing interpolation function on mesh of dimension more than 2.
+- Limited compiler support: only tested using g++ 10.0 and clang++ 11.0 (on WSL2 Ubuntu).
+- The Interpolation Template feature is not efficient in dimension 2 or higher.
 
 ## Known Issues
 
-- Feed interpolation function with out of boundary coordinate will result in zeroth-order extrapolation, even for periodic interpolation.
+- No

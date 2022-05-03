@@ -9,7 +9,7 @@ int main() {
     using namespace std;
     using namespace intp;
     // These tests are done by comparing interpolation results with that from
-    // MM.
+    // MMA.
 
     Assertion assertion;
     constexpr double tol = 1e-14;
