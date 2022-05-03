@@ -35,8 +35,8 @@ int main(int argc, char const* argv[]) {
     }
 
     Assertion assertion;
-    constexpr double eps = 1e-4;    // TODO: use a more reasonable error torelance
-                                    //  according to Taylor series expansion
+    constexpr double eps = 1e-4;  // TODO: use a more reasonable error torelance
+                                  //  according to Taylor series expansion
 
     const auto t_start_1d = high_resolution_clock::now();
 
@@ -55,7 +55,7 @@ int main(int argc, char const* argv[]) {
     const auto t_after_vec = high_resolution_clock::now();
 
     InterpolationFunctionTemplate1D<double> interp1d_template(
-        std::make_pair(0., 2 * M_PI), trig_vec.size(), 3, true);
+        std::make_pair(-M_PI, M_PI), trig_vec.size(), 3, true);
 
     const auto t_after_template_1d = high_resolution_clock::now();
 
