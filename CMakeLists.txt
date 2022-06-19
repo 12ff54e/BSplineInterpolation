@@ -1,39 +1,50 @@
-cmake_minimum_required(VERSION 3.11.0)
+cmake_minimum_required(VERSION 3.12.0)
 project(BSplineInterpolation VERSION 0.1.0)
 include(FetchContent)
+include(CTest)
 
-add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=c++11>)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 add_compile_options(-Wall)
 add_compile_options(-g)
 add_definitions(-D_DEBUG)
 
-FetchContent_Declare(
-    eigen3
-    GIT_REPOSITORY https://gitlab.com/libeigen/eigen
-    GIT_TAG 34e5f34b391e9b964917d54139aae1ecf522d4e5 # 3.4.0
-)
-FetchContent_MakeAvailable(eigen3)
-set(BUILD_TESTING OFF)
-include_directories(${eigen3_SOURCE_DIR})
+find_package(Eigen3 3.0 CONFIG)
 
-add_executable(bsp_test test/bspline-test.cpp)
-add_executable(itp_test test/interpolation-test.cpp)
-add_executable(mesh_test test/mesh-test.cpp)
-add_executable(util_test test/util-test.cpp)
-add_executable(itp_speed_test test/interpolation-speed-test.cpp)
-add_executable(itp_template_test test/interpolation-template-test.cpp)
+message(STATUS)
+if(TARGET Eigen3::Eigen)
+    message(STATUS "Eigen3 v${EIGEN3_VERSION_STRING} found in ${EIGEN3_INCLUDE_DIR}")
+    else()
+    message(STATUS "Download Eigen 3.4.0 from its repository ...")
+    FetchContent_Declare(
+        eigen3
+        GIT_REPOSITORY https://gitlab.com/libeigen/eigen
+        GIT_TAG 34e5f34b391e9b964917d54139aae1ecf522d4e5 # 3.4.0
+    )
+    FetchContent_MakeAvailable(eigen3)
+    include_directories(${eigen3_SOURCE_DIR})
+endif()
 
-target_compile_options(itp_speed_test PRIVATE -O2)
-target_compile_options(itp_template_test PRIVATE -O2)
+list(APPEND tests util-test mesh-test bspline-test interpolation-test interpolation-speed-test interpolation-template-test)
 
-include(CTest)
+list(LENGTH tests test_num)
+message(STATUS)
+message(STATUS  ${test_num} " tests found: ")
 enable_testing()
-add_test(intp-bspline bsp_test)
-add_test(intp-interp itp_test)
-add_test(intp-mesh mesh_test)
-add_test(intp-util util_test)
-add_test(intp-interp-speed itp_speed_test)
-add_test(intp-interp-template itp_template_test)
+foreach(test ${tests})
+    string(JOIN "" test_src_file test/ ${test} .cpp)
+    add_executable(${test} ${test_src_file})
+    target_link_libraries(${test} PRIVATE Eigen3::Eigen)
+
+    string(JOIN "-" test_name intp ${test})
+    add_test(${test_name} ${test})
+    message(STATUS ${test} " from source file " ${test_src_file})
+endforeach(test ${tests})
+message(STATUS)
+
+target_compile_options(interpolation-speed-test PRIVATE -O2)
+target_compile_options(interpolation-template-test PRIVATE -O2)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

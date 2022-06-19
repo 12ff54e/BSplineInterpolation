@@ -185,7 +185,7 @@ class InterpolationFunction {  // TODO: Add integration
         DimArray<typename spline_type::KnotContainer>& input_coords,
         std::pair<Ts, Ts>... x_ranges) {
 #if __cplusplus >= 201703L
-        (__create_knot_vector(di, f_mesh, input_coords, x_ranges), ...);
+        (__create_knot_vector(di, mesh_dimension, input_coords, x_ranges), ...);
 #else
         // polyfill of C++17 fold expression over comma
         std::array<std::nullptr_t, sizeof...(Ts)>{
