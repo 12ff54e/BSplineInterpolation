@@ -59,7 +59,7 @@ class MeshDimension {
     }
 
     /**
-     * @brief Convert multi-dimesion index to one dimension index in storage
+     * @brief Convert multi-dimension index to one dimension index in storage
      * vector.
      *
      * @param ind

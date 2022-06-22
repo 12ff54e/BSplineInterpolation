@@ -10,7 +10,7 @@ namespace intp {
 namespace util {
 
 /**
- * @brief Polyfill for C++14 interger_sequence, but with [T = size_t] only
+ * @brief Polyfill for C++14 integer_sequence, but with [T = size_t] only
  *
  * @tparam Indices
  */

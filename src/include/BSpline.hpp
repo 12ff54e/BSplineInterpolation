@@ -128,7 +128,8 @@ class BSpline {
                      : std::fmod(x - range(dim_ind).first, period));
         }
 #ifdef _DEBUG
-        if (*iter > x || *(iter + 1) < x) {
+        if ((*iter > x || *(iter + 1) < x) && x >= range(dim_ind).first &&
+            x <= range(dim_ind).second) {
             std::cout << "[DEBUG] knot hint miss at dim = " << dim_ind
                       << ", hint = " << hint << ", x = " << x << '\n';
         }
@@ -136,7 +137,7 @@ class BSpline {
         return *iter <= x && *(iter + 1) > x
                    // If the hint is accurate, use that iter
                    ? iter
-                   // else, use binary search in the range of distint knots
+                   // else, use binary search in the range of distinct knots
                    // (excluding beginning and ending knots that have same
                    // value)
                    : --(std::upper_bound(knots_begin(dim_ind) + order + 1,
@@ -168,7 +169,7 @@ class BSpline {
 
     const size_type buf_size;
 
-    // maximun stack buffer size
+    // maximum stack buffer size
     // This buffer is for storing weights when calculating spline derivative
     // value.
     constexpr static size_type MAX_BUF_SIZE = 1000;
@@ -291,7 +292,7 @@ class BSpline {
                 typename CoordWithHints::second_type...>::type>::value,
         val_type>::type
     operator()(CoordWithHints... coord_with_hints) const {
-        // get knot point iter, it will modfifies coordinate value into
+        // get knot point iter, it will modifies coordinate value into
         // interpolation range of periodic dimension.
         const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints...);
 
@@ -318,7 +319,7 @@ class BSpline {
                 // When the coordinate is out of range in some dimensions, the
                 // corresponding iterator was set to be begin or end iterator of
                 // knot vector in `get_knot_iters` method and it will be treated
-                // seperately.
+                // separately.
                 ind_arr[d] +=
                     knot_iters[d] == knots_begin(d) ? 0
                     : knot_iters[d] == knots_end(d)
@@ -354,7 +355,7 @@ class BSpline {
 
     /**
      * @brief Get derivative value at given pairs of coordinate and position
-     * hint (possiblily lower knot point index of the segment where coordinate
+     * hint (possibly lower knot point index of the segment where coordinate
      * locates, dimension wise).
      *
      * @tparam CoordDeriOrderHintTuple std::tuple<knot_type, size_type,
@@ -440,7 +441,7 @@ class BSpline {
 
             const size_type hyper_surface_size =
                 local_control_points.size() / local_control_points.dim_size(d);
-            // tranverse the hyper surface of fixing dimension d
+            // transverse the hyper surface of fixing dimension d
             for (size_type i = 0; i < hyper_surface_size; ++i) {
                 DimArray<size_type> local_ind_arr;
                 for (size_type dd = 0, combined_ind = i; dd < dim; ++dd) {
@@ -544,7 +545,9 @@ class BSpline {
      * @param dim_ind dimension index
      * @return a bool
      */
-    bool periodicity(size_type dim_ind) const { return __periodicity[dim_ind]; }
+    bool periodicity(size_type dim_ind) const {
+        return __periodicity[dim_ind];
+    }
 
     /**
      * @brief Get uniformity of one dimension
@@ -552,7 +555,9 @@ class BSpline {
      * @param dim_ind dimension index
      * @return a bool
      */
-    bool uniform(size_type dim_ind) const { return __uniform[dim_ind]; }
+    bool uniform(size_type dim_ind) const {
+        return __uniform[dim_ind];
+    }
 
 #ifdef _DEBUG
     void __debug_output() const {

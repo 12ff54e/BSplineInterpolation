@@ -179,7 +179,7 @@ class InterpolationFunctionTemplate {
         : InterpolationFunctionTemplate(order, false, f_length, x_range) {}
 
     /**
-     * @brief Construct a new (nonperiodic) Interpolation Function Template
+     * @brief Construct a new (aperiodic) Interpolation Function Template
      * object
      *
      * @param order Order of BSpline

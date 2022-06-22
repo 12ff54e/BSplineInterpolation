@@ -144,7 +144,7 @@ class InterpolationFunction {  // TODO: Add integration
             // Notice that *it++ is not guarantee to work as what you
             // expected for input iterators.
             auto l_knot = *it;
-            // fill lestmost *order+1* identical knots
+            // fill leftmost *order+1* identical knots
             for (size_type i = 0; i < order + 1; ++i) { xs[i] = l_knot; }
             // first knot is same as first input coordinate
             input_coords[dim_ind].emplace_back(l_knot);
