@@ -192,6 +192,25 @@ struct is_indexed : _is_indexed_impl {
     static constexpr bool value = decltype(__test<T>(0))::value;
 };
 
+/**
+ * @brief Polyfill for C++20 stl function with the same name
+ *
+ * @tparam Vec
+ */
+template <typename Vec>
+using remove_cvref_t =
+    typename std::remove_cv<typename std::remove_reference<Vec>::type>::type;
+
+/**s
+ * @brief CRTP helper, used for downward casting.
+ *
+ */
+template <typename T, typename...>
+struct CRTP {
+    T& cast() { return static_cast<T&>(*this); }
+    const T& cast() const { return static_cast<const T&>(*this); }
+};
+
 }  // namespace util
 
 }  // namespace intp

@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options(-Wall)
 add_compile_options(-g)
 add_definitions(-D_DEBUG)
+# add_definitions(-D_TRACE)
 
 find_package(Eigen3 3.0 CONFIG)
 
@@ -26,7 +27,7 @@ if(TARGET Eigen3::Eigen)
     include_directories(${eigen3_SOURCE_DIR})
 endif()
 
-list(APPEND tests util-test mesh-test bspline-test interpolation-test interpolation-speed-test interpolation-template-test)
+list(APPEND tests util-test mesh-test band-matrix-and-solver-test bspline-test interpolation-test interpolation-speed-test interpolation-template-test)
 
 list(LENGTH tests test_num)
 message(STATUS)
