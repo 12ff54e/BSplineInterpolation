@@ -128,7 +128,8 @@ class BSpline {
                      : std::fmod(x - range(dim_ind).first, period));
         }
 #ifdef _DEBUG
-        if (*iter > x || *(iter + 1) < x) {
+        if ((*iter > x || *(iter + 1) < x) && x >= range(dim_ind).first &&
+            x <= range(dim_ind).second) {
             std::cout << "[DEBUG] knot hint miss at dim = " << dim_ind
                       << ", hint = " << hint << ", x = " << x << '\n';
         }
@@ -544,7 +545,9 @@ class BSpline {
      * @param dim_ind dimension index
      * @return a bool
      */
-    bool periodicity(size_type dim_ind) const { return __periodicity[dim_ind]; }
+    bool periodicity(size_type dim_ind) const {
+        return __periodicity[dim_ind];
+    }
 
     /**
      * @brief Get uniformity of one dimension
@@ -552,7 +555,9 @@ class BSpline {
      * @param dim_ind dimension index
      * @return a bool
      */
-    bool uniform(size_type dim_ind) const { return __uniform[dim_ind]; }
+    bool uniform(size_type dim_ind) const {
+        return __uniform[dim_ind];
+    }
 
 #ifdef _DEBUG
     void __debug_output() const {

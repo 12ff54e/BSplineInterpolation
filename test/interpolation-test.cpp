@@ -20,7 +20,8 @@ int main() {
                          0.262974, 0.423888, -0.562671, -0.915567, -0.261017,
                          -0.47915, -0.00939326, -0.445962}};
 
-    InterpolationFunction1D<double> interp{std::make_pair(0, .5 * (f.size() - 1)), 
+    InterpolationFunction1D<double> interp{
+        std::make_pair(0, .5 * (f.size() - 1)),
         std::make_pair(f.begin(), f.end())};
 
     auto coords_1d_half = {1.968791374707961,  0.23397112295047862,
@@ -55,11 +56,19 @@ int main() {
 
     assertion(std::abs(interp(-.5) - (-6.3167718907512755)) < tol,
               "Out of left boundary extrapolation did not work as expected.\n");
+    if (assertion.last_status() == 0) {
+        std::cout << "Out of left boundary extrapolation work as expected.\n";
+    }
     assertion(
         std::abs(interp(6.5) - (-4.508470210464194)) < tol,
         "Out of right boundary extrapolation did not work as expected.\n");
+    if (assertion.last_status() == 0) {
+        std::cout << "Out of right boundary extrapolation work as expected.\n";
+    }
 
     // 2D interpolation test
+
+    std::cout << "\n2D Interpolation Test:\n";
 
     // random 5x5 mesh grid
     constexpr array<array<double, 5>, 5> f2{
@@ -102,8 +111,6 @@ int main() {
          0.5464869245836507, 0.0474466547034479, -1.0511757647770876,
          0.2755974099701995}};
 
-    std::cout << "\n2D Interpolation Test:\n";
-
     assertion(interp2.uniform(0) && interp2.uniform(1),
               "Uniform properties check failed.");
 
@@ -122,6 +129,8 @@ int main() {
     }
 
     // 3D interpolation test
+
+    std::cout << "\n3D Interpolation Test:\n";
 
     // random 5x6x7 mesh grid
     constexpr array<array<array<double, 7>, 6>, 5> f3{
@@ -250,7 +259,6 @@ int main() {
          -0.2674229002109916, 0.1673843822053797, -0.021928200124974297,
          -0.260677062462001}};
 
-    std::cout << "\n3D Interpolation Test:\n";
     d = rel_err(interp3, std::make_pair(coords_3d.begin(), coords_3d.end()),
                 std::make_pair(vals_3d.begin(), vals_3d.end()));
     assertion(d < tol);

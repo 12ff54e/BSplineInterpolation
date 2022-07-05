@@ -3,6 +3,10 @@
 #include "BSpline.hpp"
 #include "Mesh.hpp"
 
+#ifdef _TRACE
+#include <iostream>
+#endif
+
 namespace intp {
 
 template <typename T, size_t D>
@@ -73,6 +77,10 @@ class InterpolationFunctionTemplate {
             }
         }
 
+#ifdef _TRACE
+        std::cout << "\n[TRACE] Coefficient Matrices\n";
+#endif
+
         // loop through each dimension to construct coefficient matrix
         for (size_type d = 0; d < dim; ++d) {
             std::vector<Eigen::Triplet<val_type>> coef_list;
@@ -80,6 +88,10 @@ class InterpolationFunctionTemplate {
             // space to make sure no re-allocation occurs during the filling
             // process
             coef_list.reserve(mesh_dimension.dim_size(d) * (order + 1));
+
+#ifdef _TRACE
+            std::cout << "\n[TRACE] Dimension " << d << '\n';
+#endif
 
             for (size_type i = 0; i < mesh_dimension.dim_size(d); ++i) {
                 const auto knot_num = spline.knots_num(d);
@@ -127,6 +139,12 @@ class InterpolationFunctionTemplate {
                     coef_list.emplace_back(
                         i, (knot_ind - order + j) % mesh_dimension.dim_size(d),
                         base_spline_vals_per_dim[d][j]);
+
+#ifdef _TRACE
+                    std::cout << "[TRACE] {" << coef_list.back().row() << ", "
+                              << coef_list.back().col() << "} -> "
+                              << coef_list.back().value() << '\n';
+#endif
                 }
             }
 
