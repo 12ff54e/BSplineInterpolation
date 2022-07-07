@@ -86,10 +86,10 @@ class ExtendedBandMatrix : public BandMatrix<T> {
 
     ExtendedBandMatrix(size_type dim, size_type lower, size_type upper)
         : base_type(dim, lower, upper),
-          __right_side_bands{dim, lower},
-          __bottom_side_bands{dim, upper} {}
+          __right_side_bands{dim - upper - 1, lower},
+          __bottom_side_bands{dim - lower - 1, upper} {}
 
-    ExtendedBandMatrix() : ExtendedBandMatrix(0, 0, 0) {}
+    ExtendedBandMatrix() : ExtendedBandMatrix(1, 0, 0) {}
 
     val_type& main_bands_val(size_type i, size_type j) {
         return base_type::operator()(i, j);

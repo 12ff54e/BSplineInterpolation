@@ -3,13 +3,21 @@ project(BSplineInterpolation VERSION 0.1.0)
 include(FetchContent)
 include(CTest)
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_compile_options(-Wall)
-add_compile_options(-g)
-add_definitions(-D_DEBUG)
-# add_definitions(-D_TRACE)
+if(MSVC)
+    set(CMAKE_CXX_FLAGS "/W4")
+else()
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+endif()
+
+add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:_DEBUG>)
+# add_compile_definitions(_TRACE)
 
 find_package(Eigen3 3.0 CONFIG)
 
@@ -44,8 +52,13 @@ foreach(test ${tests})
 endforeach(test ${tests})
 message(STATUS)
 
-target_compile_options(interpolation-speed-test PRIVATE -O2)
-target_compile_options(interpolation-template-test PRIVATE -O2)
+if(MSVC)
+    target_compile_options(interpolation-speed-test PRIVATE /O2)
+    target_compile_options(interpolation-template-test PRIVATE /O2)    
+else()
+    target_compile_options(interpolation-speed-test PRIVATE -O2)
+    target_compile_options(interpolation-template-test PRIVATE -O2)
+endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
