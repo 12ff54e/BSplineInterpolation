@@ -10,8 +10,8 @@ namespace intp {
 
 /**
  * @brief Band square matrix A is stored in n by (1+p+q) matrix B, with A_{i,j}=
- * B_{j,i+q-j}, i.e. each diagonal is stored as a row in B, aligned by column
- * index.
+ * B_{j,i+q-j}, i.e. each diagonal is stored as a column in B, aligned by column
+ * index in A.
  *
  * @tparam T value type of matrix element
  */
@@ -46,10 +46,14 @@ class BandMatrix {
      * @return val_type&
      */
     val_type& operator()(size_type i, size_type j) {
+        util::custom_assert(j + p >= i && i + q >= j,
+                            "Given i and j not in main bands.");
         return __bands(j, i + q - j);
     }
 
     val_type operator()(size_type i, size_type j) const {
+        util::custom_assert(j + p >= i && i + q >= j,
+                            "Given i and j not in main bands.");
         return __bands(j, i + q - j);
     }
 
@@ -69,6 +73,23 @@ class BandMatrix {
             }
         }
         return xx;
+    }
+
+    /**
+     * @brief Insertion operator, used for debug mostly.
+     *
+     * @param os
+     * @param mat
+     * @return std::ostream&
+     */
+    friend std::ostream& operator<<(std::ostream& os, const BandMatrix& mat) {
+        for (size_t i = 0; i < mat.n; ++i) {
+            for (size_t j = i > mat.p ? i - mat.p : 0;
+                 j<i + mat.q + 1> mat.n ? mat.n : i + mat.q + 1; ++j) {
+                os << "{" << i << ", " << j << "}->" << mat(i, j) << '\n';
+            }
+        }
+        return os;
     }
 
    protected:
@@ -100,11 +121,17 @@ class ExtendedBandMatrix : public BandMatrix<T> {
     }
 
     val_type& side_bands_val(size_type i, size_type j) {
+        util::custom_assert(
+            j >= std::max(n - p, i + q + 1) || i >= std::max(n - q, j + p + 1),
+            "Given i and j not in side bands.");
         return j > i + q ? __right_side_bands(i, j + p - n)
                          : __bottom_side_bands(j, i + q - n);
     }
 
     val_type side_bands_val(size_type i, size_type j) const {
+        util::custom_assert(
+            j >= std::max(n - p, i + q + 1) || i >= std::max(n - q, j + p + 1),
+            "Given i and j not in side bands.");
         return j > i + q ? __right_side_bands(i, j + p - n)
                          : __bottom_side_bands(j, i + q - n);
     }

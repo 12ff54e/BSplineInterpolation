@@ -2,6 +2,7 @@
 
 #include <array>
 #include <memory>
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
 
@@ -10,7 +11,7 @@ namespace intp {
 namespace util {
 
 /**
- * @brief Polyfill for C++14 interger_sequence, but with [T = size_t] only
+ * @brief Polyfill for C++14 intergers_sequence, but with [T = size_t] only
  *
  * @tparam Indices
  */
@@ -210,6 +211,12 @@ struct CRTP {
     T& cast() { return static_cast<T&>(*this); }
     const T& cast() const { return static_cast<const T&>(*this); }
 };
+
+void custom_assert(bool assertion, const char* msg) {
+#ifdef _DEBUG
+    if (!assertion) { throw std::runtime_error(msg); }
+#endif
+}
 
 }  // namespace util
 

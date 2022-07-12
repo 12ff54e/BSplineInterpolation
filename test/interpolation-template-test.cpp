@@ -7,7 +7,7 @@
 #include <random>
 #include <vector>
 
-int main(int argc, char const* argv[]) {
+int main() {
     using namespace std::chrono;
     using namespace intp;
 

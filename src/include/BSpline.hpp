@@ -2,9 +2,9 @@
 
 #include <algorithm>  // upper_bound
 #include <array>
-#include <cmath>       // fmod
-#include <functional>  // ref
-#include <iterator>    // distance
+#include <cmath>        // fmod
+#include <functional>   // ref
+#include <iterator>     // distance
 #include <stdexcept>    // range_error
 #include <type_traits>  // is_same, is_arithmatic
 #include <vector>
@@ -49,7 +49,6 @@ class BSpline {
      * (used in calculating derivative), spline value is aligned at right in
      * result vector.
      *
-     * @param dim_ind which dimension
      * @param seg_idx_iter the iterator points to left knot point of a segment
      * @param x
      * @param spline_order order of base spline, defaulted to be spline function
@@ -57,7 +56,7 @@ class BSpline {
      * @return a reference to local buffer
      */
     inline const BaseSpline& base_spline_value(
-        size_type dim_ind,
+        size_type,
         KnotContainer::const_iterator seg_idx_iter,
         knot_type x,
         size_type spline_order) const {

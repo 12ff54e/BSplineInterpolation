@@ -59,7 +59,7 @@ class MeshDimension {
     }
 
     /**
-     * @brief Convert multi-dimesion index to one dimension index in storage
+     * @brief Convert multi-dimension index to one dimension index in storage
      * vector.
      *
      * @param ind
@@ -120,7 +120,7 @@ class Mesh {
     using size_type = size_t;
     using val_type = T;
     const static size_type dim = D;
-    using Indices = std::array<size_type, dim>;
+    using index_type = typename MeshDimension<dim>::index_type;
     using allocator_type = Alloc;
 
    private:
@@ -282,7 +282,7 @@ class Mesh {
 
     // modifiers
 
-    void resize(Indices sizes) {
+    void resize(index_type sizes) {
         __dimension.resize(sizes);
         storage.resize(__dimension.size());
     }
@@ -316,34 +316,34 @@ class Mesh {
      */
     const_iterator end() const { return storage.cend(); }
 
-    skip_iterator<val_type> begin(size_type dim_ind, Indices indices) {
+    skip_iterator<val_type> begin(size_type dim_ind, index_type indices) {
         indices[dim_ind] = 0;
         return skip_iterator<val_type>(
             storage.data() + __dimension.indexing(indices),
             __dimension.dim_acc_size(dim - dim_ind - 1));
     }
-    skip_iterator<val_type> end(size_type dim_ind, Indices indices) {
+    skip_iterator<val_type> end(size_type dim_ind, index_type indices) {
         indices[dim_ind] = __dimension.dim_size(dim_ind);
         return skip_iterator<val_type>(
             storage.data() + __dimension.indexing(indices),
             __dimension.dim_acc_size(dim - dim_ind - 1));
     }
     skip_iterator<const val_type> begin(size_type dim_ind,
-                                        Indices indices) const {
+                                        index_type indices) const {
         indices[dim_ind] = 0;
         return skip_iterator<const val_type>(
             storage.data() + __dimension.indexing(indices),
             __dimension.dim_acc_size(dim - dim_ind - 1));
     }
     skip_iterator<const val_type> end(size_type dim_ind,
-                                      Indices indices) const {
+                                      index_type indices) const {
         indices[dim_ind] = __dimension.dim_size(dim_ind);
         return skip_iterator<const val_type>(
             storage.data() + indexing(indices),
             __dimension.dim_acc_size(dim - dim_ind - 1));
     }
 
-    Indices iter_indices(const_iterator iter) const {
+    index_type iter_indices(const_iterator iter) const {
         return __dimension.dimwise_indices(std::distance(begin(), iter));
     }
 };
