@@ -6,8 +6,7 @@ This library use B-spline to interpolate given data of any dimension on a Cartes
 
 ## Perquisite
 
-This library is standard C++11 and relies on [Eigen3](https://eigen.tuxfamily.org/). CMake is required only for build and run tests.
-- The eigen3 library should be in system path such that `#include <Eigen/SparseLU>` works properly.
+This library is standard C++11. CMake is required only for build and run tests.
 
 ## How to use
 

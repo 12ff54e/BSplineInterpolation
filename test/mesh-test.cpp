@@ -31,9 +31,9 @@ int main() {
     assertion(*(mesh.data() + 3 * 600 + 4 * 30 + 5) == 1.,
               "Modify data by index failed.");
 
-    auto it = mesh.begin();
-    advance(it, 3 * 600 + 4 * 30 + 5);
-    auto indices = mesh.iter_indices(it);
+    auto mesh_it = mesh.begin();
+    advance(mesh_it, 3 * 600 + 4 * 30 + 5);
+    auto indices = mesh.iter_indices(mesh_it);
 
     assertion(indices[0] == 3, "Iterator indexing failed.");
     assertion(indices[1] == 4, "Iterator indexing failed.");
@@ -54,17 +54,17 @@ int main() {
 
     auto dim_it = mesh.begin(0, {0, 6, 2});
     for (auto it = dim_it; it != mesh.end(0, {0, 6, 2}); ++it) {
-        *it = it - dim_it;
+        *it =static_cast<int>(it - dim_it);
     }
 
     dim_it = mesh.begin(1, {4, 0, 4});
     for (auto it = dim_it; it != mesh.end(1, {4, 0, 4}); ++it) {
-        *it = it - dim_it;
+        *it = static_cast<int>(it - dim_it);
     }
 
     dim_it = mesh.begin(2, {9, 7, 0});
     for (auto it = dim_it; it != mesh.end(2, {9, 7, 0}); ++it) {
-        *it = it - dim_it;
+        *it = static_cast<int>(it - dim_it);
     }
 
     for (int dim_ind = 0; dim_ind < 3; ++dim_ind) {

@@ -3,8 +3,6 @@
 #include <cmath>  // ceil
 #include <initializer_list>
 
-#include <Eigen/SparseLU>
-
 #include "InterpolationTemplate.hpp"
 
 namespace intp {

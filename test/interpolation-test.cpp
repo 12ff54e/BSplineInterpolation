@@ -124,7 +124,7 @@ int main() {
     try {
         interp2.at(-1, 1);
         assertion(false, "Out of boundary check failed.\n");
-    } catch (const std::domain_error& e) {
+    } catch (const std::domain_error&) {
         std::cout << "Out of boundary check succeed.\n";
     }
 

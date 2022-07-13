@@ -7,7 +7,12 @@
 #include <random>
 #include <vector>
 
-int main(int argc, char const* argv[]) {
+// M_PI is not part of the standard
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+int main() {
     using namespace std::chrono;
     using namespace intp;
 
@@ -17,8 +22,8 @@ int main(int argc, char const* argv[]) {
     std::vector<std::array<double, 2>> coord_2d;
     std::vector<std::array<double, 3>> coord_3d;
     {
-        std::mt19937 rand_gen(
-            high_resolution_clock::now().time_since_epoch().count());
+        std::mt19937 rand_gen(static_cast<unsigned int>(
+            high_resolution_clock::now().time_since_epoch().count()));
         std::uniform_real_distribution<> rand_dist(-M_PI, M_PI);
         std::uniform_real_distribution<> rand_dist2(-.5, .5);
 
@@ -156,7 +161,7 @@ int main(int argc, char const* argv[]) {
 
     double err1 =
         rel_err(interp2d_1, std::make_pair(coord_2d.begin(), coord_2d.end()),
-                std::make_pair(vals_2d_1.begin(), vals_2d_2.end()));
+                std::make_pair(vals_2d_1.begin(), vals_2d_1.end()));
     double err2 =
         rel_err(interp2d_2, std::make_pair(coord_2d.begin(), coord_2d.end()),
                 std::make_pair(vals_2d_2.begin(), vals_2d_2.end()));
@@ -244,7 +249,7 @@ int main(int argc, char const* argv[]) {
 
     double err1_3d =
         rel_err(interp3d_1, std::make_pair(coord_3d.begin(), coord_3d.end()),
-                std::make_pair(vals_3d_1.begin(), vals_3d_2.end()));
+                std::make_pair(vals_3d_1.begin(), vals_3d_1.end()));
     double err2_3d =
         rel_err(interp3d_2, std::make_pair(coord_3d.begin(), coord_3d.end()),
                 std::make_pair(vals_3d_2.begin(), vals_3d_2.end()));

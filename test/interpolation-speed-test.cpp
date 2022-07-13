@@ -12,7 +12,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-int main(int argc, char const* argv[]) {
+int main() {
     using namespace std::chrono;
     using namespace intp;
 
@@ -22,8 +22,8 @@ int main(int argc, char const* argv[]) {
     std::vector<std::array<double, 2>> coord_2d;
     std::vector<std::array<double, 3>> coord_3d;
     {
-        std::mt19937 rand_gen(
-            high_resolution_clock::now().time_since_epoch().count());
+        std::mt19937 rand_gen(static_cast<unsigned int>(
+            high_resolution_clock::now().time_since_epoch().count()));
         std::uniform_real_distribution<> rand_dist(-M_PI, M_PI);
         std::uniform_real_distribution<> rand_dist2(-.5, .5);
 
@@ -47,11 +47,7 @@ int main(int argc, char const* argv[]) {
     {
         const auto t_start_1d = high_resolution_clock::now();
 
-        // size of 1d interpolation points, it should be len^3 to match point
-        // number in 2d and 3d case but the memory consumption is huge (heap
-        // allocation peak = 36.52 GByte) when interpolating so many points in
-        // 1d.
-        const size_t len_1d = len * len * len / 4;
+        const size_t len_1d = len * len * len;
         constexpr double dx = 2 * M_PI / (len_1d);
         std::vector<double> vec_1d{};
         vec_1d.reserve(len_1d + 1);
@@ -98,7 +94,7 @@ int main(int argc, char const* argv[]) {
     {
         const auto t_start_2d = high_resolution_clock::now();
 
-        const size_t len_2d = std::pow(len, 1.5);
+        const size_t len_2d = static_cast<std::size_t>(std::pow(len, 1.5));
         const double dt = 2 * M_PI / len_2d;
 
         Mesh<double, 2> trig_mesh_2d(len_2d + 1);

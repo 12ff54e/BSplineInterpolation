@@ -9,7 +9,7 @@ class Assertion {
     int last_err;
 
    public:
-    Assertion() : err(0) {}
+    Assertion() : err(0),last_err(0) {}
 
     void operator()(bool t) {
         last_err = t ? 0 : 1;

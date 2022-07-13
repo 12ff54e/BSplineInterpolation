@@ -1,7 +1,12 @@
 #pragma once
 
 #include "BSpline.hpp"
+#include "BandLU.hpp"
 #include "Mesh.hpp"
+
+#ifdef _TRACE
+#include <iostream>
+#endif
 
 namespace intp {
 
@@ -48,13 +53,11 @@ class InterpolationFunctionTemplate {
         // adjust dimension according to periodicity
         {
             DimArray<size_type> dim_size_tmp;
-            bool p_flag = false;
             for (size_type d = 0; d < dim; ++d) {
                 dim_size_tmp[d] =
-                    mesh_dimension.dim_size(d) -
-                    (base.periodicity(d) ? ((p_flag = true), 1) : 0);
+                    mesh_dimension.dim_size(d) - (base.periodicity(d) ? 1 : 0);
             }
-            if (p_flag) { mesh_dimension.resize(dim_size_tmp); }
+            mesh_dimension.resize(dim_size_tmp);
         }
 
         DimArray<typename function_type::spline_type::BaseSpline>
@@ -73,13 +76,21 @@ class InterpolationFunctionTemplate {
             }
         }
 
+#ifdef _TRACE
+        std::cout << "\n[TRACE] Coefficient Matrices\n";
+#endif
+
         // loop through each dimension to construct coefficient matrix
         for (size_type d = 0; d < dim; ++d) {
-            std::vector<Eigen::Triplet<val_type>> coef_list;
-            // rough estimate of upper limit of coefficient number, reserve
-            // space to make sure no re-allocation occurs during the filling
-            // process
-            coef_list.reserve(mesh_dimension.dim_size(d) * (order + 1));
+            bool periodic = base.periodicity(d);
+            auto mat_dim = mesh_dimension.dim_size(d);
+            auto band_width = periodic ? order / 2 : order - 1;
+            ExtendedBandMatrix<val_type> coef_mat{mat_dim, band_width,
+                                                  band_width};
+
+#ifdef _TRACE
+            std::cout << "\n[TRACE] Dimension " << d << '\n';
+#endif
 
             for (size_type i = 0; i < mesh_dimension.dim_size(d); ++i) {
                 const auto knot_num = spline.knots_num(d);
@@ -90,12 +101,11 @@ class InterpolationFunctionTemplate {
 
                 if (base.uniform(d)) {
                     knot_ind =
-                        base.periodicity(d)
-                            ? i + order
-                            : std::min(
-                                  knot_num - order - 2,
-                                  i > order / 2 ? i + (order + 1) / 2 : order);
-                    if (!base.periodicity(d)) {
+                        periodic ? i + order
+                                 : std::min(knot_num - order - 2,
+                                            i > order / 2 ? i + (order + 1) / 2
+                                                          : order);
+                    if (!periodic) {
                         if (knot_ind <= 2 * order + 1 ||
                             knot_ind >= knot_num - 2 * order - 2) {
                             // update base spline
@@ -111,8 +121,8 @@ class InterpolationFunctionTemplate {
                     // using BSpline::get_knot_iter to find current
                     // knot_ind
                     const auto iter =
-                        base.periodicity(d) ? spline.knots_begin(d) + i + order
-                        : i == 0            ? spline.knots_begin(d) + order
+                        periodic ? spline.knots_begin(d) + i + order
+                        : i == 0 ? spline.knots_begin(d) + order
                         : i == input_coords[d].size() - 1
                             ? spline.knots_end(d) - order - 2
                             : spline.get_knot_iter(
@@ -123,29 +133,55 @@ class InterpolationFunctionTemplate {
                         spline.base_spline_value(d, iter, x);
                 }
 
-                for (size_type j = 0; j < order + 1; ++j) {
-                    coef_list.emplace_back(
-                        i, (knot_ind - order + j) % mesh_dimension.dim_size(d),
-                        base_spline_vals_per_dim[d][j]);
+                if (!periodic) {
+                    if (i == 0) {
+                        coef_mat.main_bands_val(0, 0) = 1;
+                        continue;
+                    }
+                    if (i == mesh_dimension.dim_size(d) - 1) {
+                        coef_mat.main_bands_val(i, i) = 1;
+                        continue;
+                    }
                 }
-            }
-
-            // fill coefficient matrix
-            {
-                Eigen::SparseMatrix<double> coef(mesh_dimension.dim_size(d),
-                                                 mesh_dimension.dim_size(d));
-                coef.setFromTriplets(coef_list.begin(), coef_list.end());
-                solver[d].compute(coef);
-            }
-
-#ifdef _DEBUG
-            if (solver[d].info() != Eigen::Success) {
-                throw std::runtime_error(
-                    std::string{
-                        "Coefficient matrix decomposition failed at dim "} +
-                    std::to_string(d) + std::string{".\n"});
-            }
+#ifdef _TRACE
+                std::cout << "[TRACE] {0, 0} -> 1\n";
 #endif
+
+                for (size_type j = 0; j < (periodic ? order | 1 : order + 1);
+                     ++j) {
+                    if (periodic) {
+                        coef_mat((i + band_width) % mesh_dimension.dim_size(d),
+                                 (knot_ind - order + j) %
+                                     mesh_dimension.dim_size(d)) =
+                            base_spline_vals_per_dim[d][j];
+                    } else {
+                        coef_mat.main_bands_val(i, knot_ind - order + j) =
+                            base_spline_vals_per_dim[d][j];
+                    }
+#ifdef _TRACE
+                    std::cout
+                        << "[TRACE] {"
+                        << (periodic
+                                ? (i + band_width) % mesh_dimension.dim_size(d)
+                                : i)
+                        << ", "
+                        << (knot_ind - order + j) % mesh_dimension.dim_size(d)
+                        << "} -> " << base_spline_vals_per_dim[d][j] << '\n';
+#endif
+                }
+#ifdef _TRACE
+                std::cout << "[TRACE] {" << mesh_dimension.dim_size(d) - 1
+                          << ", " << mesh_dimension.dim_size(d) - 1
+                          << "} -> 1\n";
+#endif
+            }
+
+            if (periodic) {
+                solver_periodic[d].compute(coef_mat);
+            } else {
+                solver_aperiodic[d].compute(
+                    static_cast<BandMatrix<val_type>>(coef_mat));
+            }
         }
     }
 
@@ -222,27 +258,33 @@ class InterpolationFunctionTemplate {
     function_type base;
 
     // solver for weights
-    DimArray<Eigen::SparseLU<Eigen::SparseMatrix<double>,
-                             Eigen::COLAMDOrdering<int>>>
-        solver;
+    DimArray<BandLU<BandMatrix<val_type>>> solver_aperiodic;
+    DimArray<BandLU<ExtendedBandMatrix<val_type>>> solver_periodic;
 
     Mesh<val_type, dim> __solve_for_control_points(
         const Mesh<val_type, dim>& f_mesh) const {
         Mesh<val_type, dim> weights{mesh_dimension};
 
+        auto check_idx =
+            [&](typename Mesh<val_type, dim>::index_type& indices) {
+                bool keep_flag = true;
+                for (size_type d = 0; d < dim; ++d) {
+                    if (base.periodicity(d)) {
+                        // Skip last point of periodic dimension
+                        keep_flag = indices[d] != weights.dim_size(d);
+                        indices[d] = (indices[d] + weights.dim_size(d) +
+                                      base.order / 2) %
+                                     weights.dim_size(d);
+                    }
+                }
+                return keep_flag;
+            };
+
         // Copy interpolating values into weights mesh as the initial state of
         // the iterative control points solving algorithm
         for (auto it = f_mesh.begin(); it != f_mesh.end(); ++it) {
             auto f_indices = f_mesh.iter_indices(it);
-            bool skip_flag = false;
-            for (size_type d = 0; d < dim; ++d) {
-                // Skip last point of periodic dimension
-                if (f_indices[d] == weights.dim_size(d)) {
-                    skip_flag = true;
-                    break;
-                }
-            }
-            if (!skip_flag) { weights(f_indices) = *it; }
+            if (check_idx(f_indices)) { weights(f_indices) = *it; }
         }
 
         // loop through each dimension to solve for control points
@@ -252,26 +294,26 @@ class InterpolationFunctionTemplate {
 
             // loop over each point (representing a 1D spline) of hyperplane
             for (size_type i = 0; i < hyperplane_size; ++i) {
-                DimArray<size_type> ind_arr;
+                DimArray<size_type> ind_arr{};
                 for (size_type d_ = 0, total_ind = i; d_ < dim; ++d_) {
                     if (d_ == d) { continue; }
                     ind_arr[d_] = total_ind % weights.dim_size(d_);
                     total_ind /= weights.dim_size(d_);
                 }
 
-                // loop through one dimension, update interpolating value to
-                // control points
-                Eigen::VectorXd mesh_val_1d(weights.dim_size(d));
-                size_type ind_1d{};
-                for (auto it = weights.begin(d, ind_arr);
-                     it != weights.end(d, ind_arr); ++it, ++ind_1d) {
-                    mesh_val_1d(ind_1d) = *it;
-                }
-                Eigen::VectorXd weights_1d = solver[d].solve(mesh_val_1d);
-                ind_1d = 0;
-                for (auto it = weights.begin(d, ind_arr);
-                     it != weights.end(d, ind_arr); ++it, ++ind_1d) {
-                    *it = weights_1d(ind_1d);
+                // Loop through one dimension, update interpolating value to
+                // control points.
+                // In periodic case, rows are shifted to make coefficient matrix
+                // diagonal dominate so weights column should be shifted
+                // accordingly.
+                // auto iter = weights.begin(d, ind_arr);
+                if (base.periodicity(d)) {
+                    //     auto shifted_iter = util::make_cycle_vec(
+                    //         iter, weights.dim_size(d), -(int)(base.order /
+                    //         2));
+                    solver_periodic[d].solve(weights.begin(d, ind_arr));
+                } else {
+                    solver_aperiodic[d].solve(weights.begin(d, ind_arr));
                 }
             }
         }
