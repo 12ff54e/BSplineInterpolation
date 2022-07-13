@@ -40,7 +40,7 @@ int main() {
     }
 
     Assertion assertion;
-    constexpr double eps = 1e-4;  // TODO: use a more reasonable error torelance
+    constexpr double eps = 1e-4;  // TODO: use a more reasonable error tolerance
                                   //  according to Taylor series expansion
 
     const auto t_start_1d = high_resolution_clock::now();

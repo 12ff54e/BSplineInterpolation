@@ -148,7 +148,7 @@ int main() {
         const auto t_start_3d = high_resolution_clock::now();
 
         constexpr double dt_3d = 2 * M_PI / len;
-        constexpr double dt_3d_nonperiodic = 1. / (len - 1);
+        constexpr double dt_3d_aperiodic = 1. / (len - 1);
 
         Mesh<double, 3> mesh_3d{len + 1, len + 1, len};
         for (size_t i = 0; i <= len; ++i) {
@@ -157,7 +157,7 @@ int main() {
                     mesh_3d(i, j, k) =
                         std::sin(i * dt_3d - M_PI) *
                         std::cos(j * dt_3d - M_PI) *
-                        std::exp(-std::pow(k * dt_3d_nonperiodic - .5, 2));
+                        std::exp(-std::pow(k * dt_3d_aperiodic - .5, 2));
                 }
             }
         }

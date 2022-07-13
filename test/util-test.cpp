@@ -48,7 +48,7 @@ int main() {
         vec.push_back(42);
     } catch (const std::exception& e) { exception_thrown = true; }
     assertion(exception_thrown,
-              "No exception is thrown when allocator capacity is execeed.\n");
+              "No exception is thrown when allocator capacity is exceeded.\n");
 #endif
 
     assertion(util::is_iteratable<std::vector<int>>::value);

@@ -356,7 +356,7 @@ class BSpline {
 
     /**
      * @brief Get derivative value at given pairs of coordinate and position
-     * hint (possibility lower knot point index of the segment where coordinate
+     * hint (possibly lower knot point index of the segment where coordinate
      * locates, dimension wise).
      *
      * @tparam CoordDeriOrderHintTuple std::tuple<knot_type, size_type,
