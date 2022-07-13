@@ -47,11 +47,7 @@ int main() {
     {
         const auto t_start_1d = high_resolution_clock::now();
 
-        // size of 1d interpolation points, it should be len^3 to match point
-        // number in 2d and 3d case but the memory consumption is huge (heap
-        // allocation peak = 36.52 GByte) when interpolating so many points in
-        // 1d.
-        const size_t len_1d = len * len * len / 4;
+        const size_t len_1d = len * len * len;
         constexpr double dx = 2 * M_PI / (len_1d);
         std::vector<double> vec_1d{};
         vec_1d.reserve(len_1d + 1);

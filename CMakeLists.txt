@@ -15,7 +15,7 @@ else()
     set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 endif()
 
-add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:_DEBUG>)
+add_compile_definitions($<$<CONFIG:Debug>:_DEBUG>)
 # add_compile_definitions(_TRACE)
 
 list(APPEND tests util-test mesh-test band-matrix-and-solver-test bspline-test interpolation-test interpolation-speed-test interpolation-template-test)
