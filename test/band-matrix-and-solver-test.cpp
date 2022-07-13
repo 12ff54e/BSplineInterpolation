@@ -36,9 +36,10 @@ int main() {
     std::vector<double> b;
     b.reserve(n);
     {
-        std::mt19937 rand_gen(std::chrono::high_resolution_clock::now()
-                                  .time_since_epoch()
-                                  .count());
+        std::mt19937 rand_gen(
+            static_cast<unsigned int>(std::chrono::high_resolution_clock::now()
+                                          .time_since_epoch()
+                                          .count()));
         std::uniform_real_distribution<> rand_dist(-1., 1.);
         for (size_t i = 0; i < n; ++i) { b.push_back(rand_dist(rand_gen)); }
     }

@@ -62,7 +62,7 @@ class BandLU;
 template <typename T>
 class BandLU<BandMatrix<T>> : public BandLUBase<BandLU, BandMatrix<T>> {
    public:
-    using base_type = BandLUBase<BandLU, BandMatrix<T>>;
+    using base_type = BandLUBase<intp::BandLU, BandMatrix<T>>;
     using matrix_type = BandMatrix<T>;
     using size_type = typename matrix_type::size_type;
 
@@ -114,7 +114,7 @@ template <typename T>
 class BandLU<ExtendedBandMatrix<T>>
     : public BandLUBase<BandLU, ExtendedBandMatrix<T>> {
    public:
-    using base_type = BandLUBase<BandLU, ExtendedBandMatrix<T>>;
+    using base_type = BandLUBase<intp::BandLU, ExtendedBandMatrix<T>>;
     using matrix_type = ExtendedBandMatrix<T>;
     using size_type = typename matrix_type::size_type;
 
@@ -151,7 +151,7 @@ class BandLU<ExtendedBandMatrix<T>>
             }
 
             // update upper right corner due to right side bands
-            for (size_type i = k + 1; i < k + p + 1; ++i) {
+            for (size_type i = k + 1; i < std::min(k + p + 1, n); ++i) {
                 for (size_type j = std::max(n - p, k + q + 1); j < n; ++j) {
                     __lu_store(i, j) -= __lu_store.main_bands_val(i, k) *
                                         __lu_store.side_bands_val(k, j);
@@ -159,7 +159,7 @@ class BandLU<ExtendedBandMatrix<T>>
             }
 
             // update lower left corner due to bottom side bands
-            for (size_type j = k + 1; j < k + q + 1; ++j) {
+            for (size_type j = k + 1; j < std::min(k + q + 1, n); ++j) {
                 for (size_type i = std::max(n - q, k + p + 1); i < n; ++i) {
                     __lu_store(i, j) -= __lu_store.side_bands_val(i, k) *
                                         __lu_store.main_bands_val(k, j);

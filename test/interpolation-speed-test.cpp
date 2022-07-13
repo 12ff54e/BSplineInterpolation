@@ -22,8 +22,8 @@ int main() {
     std::vector<std::array<double, 2>> coord_2d;
     std::vector<std::array<double, 3>> coord_3d;
     {
-        std::mt19937 rand_gen(
-            high_resolution_clock::now().time_since_epoch().count());
+        std::mt19937 rand_gen(static_cast<unsigned int>(
+            high_resolution_clock::now().time_since_epoch().count()));
         std::uniform_real_distribution<> rand_dist(-M_PI, M_PI);
         std::uniform_real_distribution<> rand_dist2(-.5, .5);
 
@@ -98,7 +98,7 @@ int main() {
     {
         const auto t_start_2d = high_resolution_clock::now();
 
-        const size_t len_2d = std::pow(len, 1.5);
+        const size_t len_2d = static_cast<std::size_t>(std::pow(len, 1.5));
         const double dt = 2 * M_PI / len_2d;
 
         Mesh<double, 2> trig_mesh_2d(len_2d + 1);

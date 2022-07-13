@@ -208,7 +208,9 @@ class BSpline {
           __periodicity(periodicity),
           control_points(size_type{}),
           base_spline_buf(order + 1, 0),
-          buf_size(util::pow(order + 1, dim)){};
+          buf_size(util::pow(order + 1, dim)){
+        __uniform.fill(true);
+    };
 
     /**
      * @brief Basically the default constructor, initialize an empty, non-closed
@@ -442,7 +444,7 @@ class BSpline {
                 local_control_points.size() / local_control_points.dim_size(d);
             // transverse the hyper surface of fixing dimension d
             for (size_type i = 0; i < hyper_surface_size; ++i) {
-                DimArray<size_type> local_ind_arr;
+                DimArray<size_type> local_ind_arr{};
                 for (size_type dd = 0, combined_ind = i; dd < dim; ++dd) {
                     if (dd == d) { continue; }
                     local_ind_arr[dd] = combined_ind % (order + 1);

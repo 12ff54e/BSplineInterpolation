@@ -294,7 +294,7 @@ class InterpolationFunctionTemplate {
 
             // loop over each point (representing a 1D spline) of hyperplane
             for (size_type i = 0; i < hyperplane_size; ++i) {
-                DimArray<size_type> ind_arr;
+                DimArray<size_type> ind_arr{};
                 for (size_type d_ = 0, total_ind = i; d_ < dim; ++d_) {
                     if (d_ == d) { continue; }
                     ind_arr[d_] = total_ind % weights.dim_size(d_);
