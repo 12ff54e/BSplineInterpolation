@@ -133,6 +133,8 @@ class BSpline {
                       << ", hint = " << hint << ", x = " << x << '\n';
         }
 #endif
+        // I tried reurn the iter without checking, but the speed has no
+        // significant improves.
         return *iter <= x && *(iter + 1) > x
                    // If the hint is accurate, use that iter
                    ? iter
@@ -208,7 +210,7 @@ class BSpline {
           __periodicity(periodicity),
           control_points(size_type{}),
           base_spline_buf(order + 1, 0),
-          buf_size(util::pow(order + 1, dim)){
+          buf_size(util::pow(order + 1, dim)) {
         __uniform.fill(true);
     };
 

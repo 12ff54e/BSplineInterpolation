@@ -21,12 +21,12 @@ int main() {
     std::vector<double> coord_1d;
     std::vector<std::array<double, 2>> coord_2d;
     std::vector<std::array<double, 3>> coord_3d;
-    {
-        std::mt19937 rand_gen(static_cast<unsigned int>(
-            high_resolution_clock::now().time_since_epoch().count()));
-        std::uniform_real_distribution<> rand_dist(-M_PI, M_PI);
-        std::uniform_real_distribution<> rand_dist2(-.5, .5);
 
+    std::mt19937 rand_gen(static_cast<unsigned int>(
+        high_resolution_clock::now().time_since_epoch().count()));
+    std::uniform_real_distribution<> rand_dist(-M_PI, M_PI);
+    std::uniform_real_distribution<> rand_dist2(-.5, .5);
+    {
         constexpr size_t coord_num = 100;
         coord_1d.reserve(coord_num);
         coord_2d.reserve(coord_num);
@@ -41,6 +41,7 @@ int main() {
 
     Assertion assertion;
     constexpr size_t len = 256;
+    constexpr size_t eval_count = 1 << 20;
     const double eps = std::sqrt(std::numeric_limits<double>::epsilon());
 
     // 1D case
@@ -65,9 +66,23 @@ int main() {
             std::make_pair(-M_PI, M_PI),
             std::make_pair(vec_1d.begin(), vec_1d.end()), 3, true);
 
-        const auto t_after_interpolation_1d = high_resolution_clock::now();
+        const auto t_after_interpolation = high_resolution_clock::now();
 
-        std::cout << "\nInterpolation on a 1D mesh consisting " << vec_1d.size()
+        for (size_t i = 0; i < eval_count; ++i) {
+            interp1d(rand_dist(rand_gen));
+        }
+
+        const auto t_after_eval = high_resolution_clock::now();
+
+        double err_1d =
+            rel_err(interp1d, std::make_pair(coord_1d.begin(), coord_1d.end()),
+                    std::make_pair(vals_1d.begin(), vals_1d.end()));
+        assertion(err_1d < eps);
+        std::cout << "Interpolation 1d trigonometric function with err = "
+                  << err_1d << '\n';
+
+        std::cout << "Interpolation on a 1D mesh consisting " << vec_1d.size()
+                  << " points. Then evaluete the function on " << eval_count
                   << " points.\n\n";
         std::cout << "Phase\t\t\tTime\n";
         std::cout
@@ -76,18 +91,17 @@ int main() {
                    1000.
             << "ms\n";
         std::cout << "Interpolate\t\t"
-                  << duration_cast<microseconds>(t_after_interpolation_1d -
+                  << duration_cast<microseconds>(t_after_interpolation -
                                                  t_after_vec)
                              .count() /
                          1000.
+                  << "ms\n";
+        std::cout << "Evaluate\t\t"
+                  << duration_cast<microseconds>(t_after_eval -
+                                                 t_after_interpolation)
+                             .count() /
+                         1000.
                   << "ms\n\n";
-
-        double err_1d =
-            rel_err(interp1d, std::make_pair(coord_1d.begin(), coord_1d.end()),
-                    std::make_pair(vals_1d.begin(), vals_1d.end()));
-        assertion(err_1d < eps);
-        std::cout << "Interpolation 1d trigonometric function with err = "
-                  << err_1d << '\n';
     }
 
     // 2d case
@@ -120,8 +134,23 @@ int main() {
 
         const auto t_after_interpolation = high_resolution_clock::now();
 
-        std::cout << "\nInterpolation on a 2D mesh consisting "
-                  << trig_mesh_2d.size() << " points.\n\n";
+        for (size_t i = 0; i < eval_count; ++i) {
+            interp2d(rand_dist(rand_gen), rand_dist(rand_gen));
+        }
+
+        const auto t_after_eval = high_resolution_clock::now();
+
+        double err_2d =
+            rel_err(interp2d, std::make_pair(coord_2d.begin(), coord_2d.end()),
+                    std::make_pair(vals_2d.begin(), vals_2d.end()));
+        assertion(err_2d < eps);
+        std::cout << "Interpolation 2d trigonometric function with err = "
+                  << err_2d << '\n';
+
+        std::cout << "Interpolation on a 2D mesh consisting "
+                  << trig_mesh_2d.size()
+                  << " points. Then evaluete the function on " << eval_count
+                  << " points\n\n";
         std::cout << "Phase\t\t\tTime\n";
         std::cout
             << "Mesh\t\t\t"
@@ -133,14 +162,13 @@ int main() {
                                                  t_after_mesh)
                              .count() /
                          1000.
+                  << "ms\n";
+        std::cout << "Evaluate\t\t"
+                  << duration_cast<microseconds>(t_after_eval -
+                                                 t_after_interpolation)
+                             .count() /
+                         1000.
                   << "ms\n\n";
-
-        double err_2d =
-            rel_err(interp2d, std::make_pair(coord_2d.begin(), coord_2d.end()),
-                    std::make_pair(vals_2d.begin(), vals_2d.end()));
-        assertion(err_2d < eps);
-        std::cout << "Interpolation 2d trigonometric function with err = "
-                  << err_2d << '\n';
     }
 
     // 3d case
@@ -176,22 +204,14 @@ int main() {
             3, {true, true, false}, mesh_3d, std::make_pair(-M_PI, M_PI),
             std::make_pair(-M_PI, M_PI), std::make_pair(-.5, .5));
 
-        const auto t_after_interpolation_3d = high_resolution_clock::now();
+        const auto t_after_interpolation = high_resolution_clock::now();
 
-        std::cout << "\nInterpolation on a 3D mesh consisting "
-                  << mesh_3d.size() << " points.\n\n";
-        std::cout << "Phase\t\t\tTime\n";
-        std::cout << "Mesh\t\t\t"
-                  << duration_cast<microseconds>(t_after_mesh_3d - t_start_3d)
-                             .count() /
-                         1000.
-                  << "ms\n";
-        std::cout << "Interpolate\t\t"
-                  << duration_cast<microseconds>(t_after_interpolation_3d -
-                                                 t_after_mesh_3d)
-                             .count() /
-                         1000.
-                  << "ms\n\n";
+        for (size_t i = 0; i < eval_count; ++i) {
+            interp3d(rand_dist(rand_gen), rand_dist(rand_gen),
+                     rand_dist2(rand_gen));
+        }
+
+        const auto t_after_eval = high_resolution_clock::now();
 
         double err_3d =
             rel_err(interp3d, std::make_pair(coord_3d.begin(), coord_3d.end()),
@@ -199,6 +219,28 @@ int main() {
         assertion(err_3d < eps);
         std::cout << "Interpolation 3d trig-exp function with err = " << err_3d
                   << '\n';
+
+        std::cout << "Interpolation on a 3D mesh consisting " << mesh_3d.size()
+                  << " points. Then evaluete the function on " << eval_count
+                  << " points\n\n";
+        std::cout << "Phase\t\t\tTime\n";
+        std::cout << "Mesh\t\t\t"
+                  << duration_cast<microseconds>(t_after_mesh_3d - t_start_3d)
+                             .count() /
+                         1000.
+                  << "ms\n";
+        std::cout << "Interpolate\t\t"
+                  << duration_cast<microseconds>(t_after_interpolation -
+                                                 t_after_mesh_3d)
+                             .count() /
+                         1000.
+                  << "ms\n";
+        std::cout << "Evaluate\t\t"
+                  << duration_cast<microseconds>(t_after_eval -
+                                                 t_after_interpolation)
+                             .count() /
+                         1000.
+                  << "ms\n\n";
     }
 
     return assertion.status();

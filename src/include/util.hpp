@@ -208,15 +208,16 @@ using remove_cvref_t =
  */
 template <typename T, typename...>
 struct CRTP {
-    T& cast() { return static_cast<T&>(*this); }
-    const T& cast() const { return static_cast<const T&>(*this); }
+    constexpr T& cast() { return static_cast<T&>(*this); }
+    constexpr const T& cast() const { return static_cast<const T&>(*this); }
 };
 
-void custom_assert(bool assertion, const char* msg) {
 #ifdef _DEBUG
-    if (!assertion) { throw std::runtime_error(msg); }
+#define CUSTOM_ASSERT(assertion, msg) \
+    if (!(assertion)) { throw std::runtime_error(msg); }
+#else
+#define CUSTOM_ASSERT(assertion, msg)
 #endif
-}
 
 }  // namespace util
 
