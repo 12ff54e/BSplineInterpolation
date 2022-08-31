@@ -322,7 +322,7 @@ class InterpolationFunctionTemplate {
     }
 };
 
-template <typename T>
+template <typename T = double>
 class InterpolationFunctionTemplate1D
     : public InterpolationFunctionTemplate<T, size_t{1}> {
    private:

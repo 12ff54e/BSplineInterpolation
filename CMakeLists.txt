@@ -3,7 +3,7 @@ project(BSplineInterpolation VERSION 1.1.0)
 include(CTest)
 
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE RelWithDebugInfo)
+  set(CMAKE_BUILD_TYPE Release)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)

@@ -20,9 +20,8 @@ int main() {
                          0.262974, 0.423888, -0.562671, -0.915567, -0.261017,
                          -0.47915, -0.00939326, -0.445962}};
 
-    InterpolationFunction1D<double> interp{
-        std::make_pair(0, .5 * (f.size() - 1)),
-        std::make_pair(f.begin(), f.end())};
+    InterpolationFunction1D interp{std::make_pair(0, .5 * (f.size() - 1)),
+                                   std::make_pair(f.begin(), f.end())};
 
     auto coords_1d_half = {1.968791374707961,  0.23397112295047862,
                            4.183162505803409,  5.744438451300649,
@@ -277,8 +276,8 @@ int main() {
     // dimension, thus we can use the origin non-periodic data to interpolate a
     // periodic spline function
 
-    InterpolationFunction1D<double> interp1_periodic(
-        std::make_pair(f.begin(), f.end()), 4, true);
+    InterpolationFunction1D interp1_periodic(std::make_pair(f.begin(), f.end()),
+                                             4, true);
 
     auto vals_1d_periodic = {
         -0.09762254647017743, 1.168800757853312,  -0.6682906902062101,
@@ -410,7 +409,7 @@ int main() {
                             11.440973163521294,
                             12.};
 
-    InterpolationFunction1D<double> interp1_nonuniform(
+    InterpolationFunction1D interp1_nonuniform(
         std::make_pair(input_coords_1d.begin(), input_coords_1d.end()),
         std::make_pair(f.begin(), f.end()));
 
@@ -430,7 +429,7 @@ int main() {
 
     std::cout << "\n1D nonuniform Interpolation Test with Periodic Boundary:\n";
 
-    InterpolationFunction1D<double> interp1_nonuniform_peridoc(
+    InterpolationFunction1D interp1_nonuniform_peridoc(
         std::make_pair(input_coords_1d.begin(), input_coords_1d.end()),
         std::make_pair(f.begin(), f.end()), 4, true);
 

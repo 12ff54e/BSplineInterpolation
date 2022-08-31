@@ -59,7 +59,7 @@ int main() {
 
     const auto t_after_vec = high_resolution_clock::now();
 
-    InterpolationFunctionTemplate1D<double> interp1d_template(
+    InterpolationFunctionTemplate1D interp1d_template(
         std::make_pair(-M_PI, M_PI), trig_vec.size(), 3, true);
 
     const auto t_after_template_1d = high_resolution_clock::now();

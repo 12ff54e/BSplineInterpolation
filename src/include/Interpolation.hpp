@@ -433,7 +433,7 @@ class InterpolationFunction {  // TODO: Add integration
     const spline_type& spline() const { return __spline; }
 };
 
-template <typename T>
+template <typename T = double>
 class InterpolationFunction1D : public InterpolationFunction<T, size_t{1}> {
    private:
     using base = InterpolationFunction<T, size_t{1}>;
