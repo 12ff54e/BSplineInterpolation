@@ -51,8 +51,8 @@ int main() {
               "No exception is thrown when allocator capacity is exceeded.\n");
 #endif
 
-    assertion(util::is_iteratable<std::vector<int>>::value);
-    assertion(!util::is_iteratable<double>::value);
+    assertion(util::is_iterable<std::vector<int>>::value);
+    assertion(!util::is_iterable<double>::value);
 
     assertion(util::is_indexed<std::vector<int>>::value);
     assertion(!util::is_indexed<std::initializer_list<int>>::value);

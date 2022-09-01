@@ -153,7 +153,7 @@ bool operator!=(const stack_allocator<T, N>& lhs,
 
 #endif
 
-struct _is_iteratable_impl {
+struct _is_iterable_impl {
     template <typename _T,
               typename = typename std::enable_if<std::is_convertible<
                   typename std::iterator_traits<
@@ -184,7 +184,7 @@ struct _is_indexed_impl {
  * @tparam T a type to check
  */
 template <typename T>
-struct is_iteratable : _is_iteratable_impl {
+struct is_iterable : _is_iterable_impl {
     static constexpr bool value = decltype(__test<T>(0))::value;
 };
 
@@ -202,14 +202,22 @@ template <typename Vec>
 using remove_cvref_t =
     typename std::remove_cv<typename std::remove_reference<Vec>::type>::type;
 
-/**s
+#if __cplusplus >= 201402L
+#define _CPP14_CONSTEXPR_ constexpr
+#else
+#define _CPP14_CONSTEXPR_
+#endif
+
+/**
  * @brief CRTP helper, used for downward casting.
  *
  */
 template <typename T, typename...>
 struct CRTP {
-    constexpr T& cast() { return static_cast<T&>(*this); }
-    constexpr const T& cast() const { return static_cast<const T&>(*this); }
+    _CPP14_CONSTEXPR_ T& cast() { return static_cast<T&>(*this); }
+    _CPP14_CONSTEXPR_ const T& cast() const {
+        return static_cast<const T&>(*this);
+    }
 };
 
 #ifdef _DEBUG

@@ -260,7 +260,7 @@ class Mesh {
 
     template <typename Array,
               typename = typename std::enable_if<
-                  dim == 1u && util::is_iteratable<Array>::value>::type>
+                  dim == 1u && util::is_iterable<Array>::value>::type>
     explicit Mesh(const Array& array,
                   const allocator_type& alloc = allocator_type())
         : Mesh(std::make_pair(array.begin(), array.end()), alloc) {}

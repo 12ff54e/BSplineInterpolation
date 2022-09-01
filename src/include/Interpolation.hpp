@@ -186,9 +186,12 @@ class InterpolationFunction {  // TODO: Add integration
         (__create_knot_vector(di, mesh_dimension, input_coords, x_ranges), ...);
 #else
         // polyfill of C++17 fold expression over comma
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
         std::array<std::nullptr_t, sizeof...(Ts)>{
             (__create_knot_vector(di, mesh_dimension, input_coords, x_ranges),
              nullptr)...};
+#pragma GCC diagnostic pop
 #endif
     }
 
