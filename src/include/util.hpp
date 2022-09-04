@@ -227,6 +227,19 @@ struct CRTP {
 #define CUSTOM_ASSERT(assertion, msg)
 #endif
 
+/**
+ * @brief Get the being/end iterator pair of a (stl) container
+ *
+ * @tparam T Container type
+ * @param c Container
+ */
+template <typename T>
+inline auto get_range(T& c)
+    -> std::pair<decltype(c.begin()), decltype(c.end())> {
+    // Use trailing return type to be C++11 compatible.
+    return std::make_pair(c.begin(), c.end());
+}
+
 }  // namespace util
 
 }  // namespace intp

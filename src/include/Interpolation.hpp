@@ -120,9 +120,13 @@ class InterpolationFunction {  // TODO: Add integration
                                    : n + order + 1);
 
         input_coords[dim_ind].reserve(n);
+        // The x_range may be given by input iterators, which can not be
+        // multi-passed.
         if (__periodicity[dim_ind]) {
-            auto iter = x_range.first;
+            // In periodic case, the knots are data points, shifted by half of
+            // local grid size if spline order is odd.
 
+            auto iter = x_range.first;
             input_coords[dim_ind].push_back(*iter);
             for (size_type i = order + 1; i < order + n; ++i) {
                 val_type present = *(++iter);
@@ -138,9 +142,10 @@ class InterpolationFunction {  // TODO: Add integration
                 xs[xs.size() - i - 1] = xs[xs.size() - i - n] + period;
             }
         } else {
+            // In aperiodic case, the internal knots are moving average of data
+            // points with windows size equal to spline order.
+
             auto it = x_range.first;
-            // Notice that *it++ is not guarantee to work as what you
-            // expected for input iterators.
             auto l_knot = *it;
             // fill leftmost *order+1* identical knots
             for (size_type i = 0; i < order + 1; ++i) { xs[i] = l_knot; }
@@ -308,7 +313,8 @@ class InterpolationFunction {  // TODO: Add integration
               typename = typename std::enable_if<std::is_arithmetic<
                   typename std::common_type<Coords...>::type>::value>::type>
     val_type operator()(Coords... x) const {
-        return call_op_helper(Indices{}, DimArray<coord_type>{x...});
+        return call_op_helper(
+            Indices{}, DimArray<coord_type>{static_cast<coord_type>(x)...});
     }
 
     /**

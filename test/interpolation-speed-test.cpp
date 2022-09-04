@@ -82,7 +82,7 @@ int main() {
                   << err_1d << '\n';
 
         std::cout << "Interpolation on a 1D mesh consisting " << vec_1d.size()
-                  << " points. Then evaluete the function on " << eval_count
+                  << " points. Then evaluate the function on " << eval_count
                   << " points.\n\n";
         std::cout << "Phase\t\t\tTime\n";
         std::cout
@@ -149,7 +149,7 @@ int main() {
 
         std::cout << "Interpolation on a 2D mesh consisting "
                   << trig_mesh_2d.size()
-                  << " points. Then evaluete the function on " << eval_count
+                  << " points. Then evaluate the function on " << eval_count
                   << " points\n\n";
         std::cout << "Phase\t\t\tTime\n";
         std::cout
@@ -221,7 +221,7 @@ int main() {
                   << '\n';
 
         std::cout << "Interpolation on a 3D mesh consisting " << mesh_3d.size()
-                  << " points. Then evaluete the function on " << eval_count
+                  << " points. Then evaluate the function on " << eval_count
                   << " points\n\n";
         std::cout << "Phase\t\t\tTime\n";
         std::cout << "Mesh\t\t\t"

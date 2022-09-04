@@ -83,6 +83,7 @@ class InterpolationFunctionTemplate {
         // loop through each dimension to construct coefficient matrix
         for (size_type d = 0; d < dim; ++d) {
             bool periodic = base.periodicity(d);
+            bool uniform = base.uniform(d);
             auto mat_dim = mesh_dimension.dim_size(d);
             auto band_width = periodic ? order / 2 : order - 1;
             ExtendedBandMatrix<val_type> coef_mat{mat_dim, band_width,
@@ -90,16 +91,31 @@ class InterpolationFunctionTemplate {
 
 #ifdef _TRACE
             std::cout << "\n[TRACE] Dimension " << d << '\n';
+            std::cout << "[TRACE] {0, 0} -> 1\n";
 #endif
 
             for (size_type i = 0; i < mesh_dimension.dim_size(d); ++i) {
+                if (!periodic) {
+                    // In aperiodic case, first and last data point can only
+                    // be covered by one base spline, and the base spline at
+                    // these ending points eval to 1.
+                    if (i == 0 || i == mesh_dimension.dim_size(d) - 1) {
+                        coef_mat.main_bands_val(i, i) = 1;
+                        continue;
+                    }
+                }
+
                 const auto knot_num = spline.knots_num(d);
                 // This is the index of knot point to the left of i-th
                 // interpolated value's coordinate, notice that knot points has
                 // a larger gap in both ends in non-periodic case.
                 size_type knot_ind{};
+                // flag for internal points in uniform aperiodic case
+                const bool is_internal =
+                    i > order / 2 &&
+                    i < mesh_dimension.dim_size(d) - order / 2 - 1;
 
-                if (base.uniform(d)) {
+                if (uniform) {
                     knot_ind =
                         periodic ? i + order
                                  : std::min(knot_num - order - 2,
@@ -108,7 +124,8 @@ class InterpolationFunctionTemplate {
                     if (!periodic) {
                         if (knot_ind <= 2 * order + 1 ||
                             knot_ind >= knot_num - 2 * order - 2) {
-                            // update base spline
+                            // out of the zone of even-spaced knots, update base
+                            // spline
                             const auto iter = spline.knots_begin(d) + knot_ind;
                             const coord_type x =
                                 spline.range(d).first + i * base.__dx[d];
@@ -133,22 +150,12 @@ class InterpolationFunctionTemplate {
                         spline.base_spline_value(d, iter, x);
                 }
 
-                if (!periodic) {
-                    if (i == 0) {
-                        coef_mat.main_bands_val(0, 0) = 1;
-                        continue;
-                    }
-                    if (i == mesh_dimension.dim_size(d) - 1) {
-                        coef_mat.main_bands_val(i, i) = 1;
-                        continue;
-                    }
-                }
-#ifdef _TRACE
-                std::cout << "[TRACE] {0, 0} -> 1\n";
-#endif
-
-                for (size_type j = 0; j < (periodic ? order | 1 : order + 1);
-                     ++j) {
+                // number of base spline that covers present data point.
+                const size_type s_num = periodic                 ? order | 1
+                                        : order == 1             ? 1
+                                        : uniform && is_internal ? order | 1
+                                                                 : order + 1;
+                for (size_type j = 0; j < s_num; ++j) {
                     if (periodic) {
                         coef_mat((i + band_width) % mesh_dimension.dim_size(d),
                                  (knot_ind - order + j) %
@@ -169,12 +176,12 @@ class InterpolationFunctionTemplate {
                         << "} -> " << base_spline_vals_per_dim[d][j] << '\n';
 #endif
                 }
-#ifdef _TRACE
-                std::cout << "[TRACE] {" << mesh_dimension.dim_size(d) - 1
-                          << ", " << mesh_dimension.dim_size(d) - 1
-                          << "} -> 1\n";
-#endif
             }
+
+#ifdef _TRACE
+            std::cout << "[TRACE] {" << mesh_dimension.dim_size(d) - 1 << ", "
+                      << mesh_dimension.dim_size(d) - 1 << "} -> 1\n";
+#endif
 
             if (periodic) {
                 solver_periodic[d].compute(coef_mat);
