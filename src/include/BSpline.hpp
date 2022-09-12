@@ -14,6 +14,7 @@
 #endif
 
 #include "Mesh.hpp"
+#include "aligned-allocator.hpp"
 #include "util.hpp"
 
 namespace intp {
@@ -32,7 +33,8 @@ class BSpline {
     using knot_type = double;
 
     using KnotContainer = std::vector<knot_type>;
-    using ControlPointContainer = Mesh<val_type, D>;
+    using ControlPointContainer =
+        Mesh<val_type, D, AlignedAllocator<val_type, Alignment::AVX>>;
 
     using BaseSpline = std::vector<knot_type>;
 

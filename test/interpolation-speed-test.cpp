@@ -150,7 +150,7 @@ int main() {
         std::cout << "Interpolation on a 2D mesh consisting "
                   << trig_mesh_2d.size()
                   << " points. Then evaluate the function on " << eval_count
-                  << " points\n\n";
+                  << " points.\n\n";
         std::cout << "Phase\t\t\tTime\n";
         std::cout
             << "Mesh\t\t\t"
@@ -222,7 +222,7 @@ int main() {
 
         std::cout << "Interpolation on a 3D mesh consisting " << mesh_3d.size()
                   << " points. Then evaluate the function on " << eval_count
-                  << " points\n\n";
+                  << " points.\n\n";
         std::cout << "Phase\t\t\tTime\n";
         std::cout << "Mesh\t\t\t"
                   << duration_cast<microseconds>(t_after_mesh_3d - t_start_3d)

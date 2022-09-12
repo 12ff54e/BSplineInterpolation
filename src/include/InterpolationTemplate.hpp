@@ -27,6 +27,9 @@ class InterpolationFunctionTemplate {
     using coord_type = typename function_type::coord_type;
     using val_type = typename function_type::val_type;
 
+    using ctrl_pt_type =
+        typename function_type::spline_type::ControlPointContainer;
+
     static constexpr size_type dim = D;
 
     template <typename U>
@@ -268,9 +271,9 @@ class InterpolationFunctionTemplate {
     DimArray<BandLU<BandMatrix<val_type>>> solver_aperiodic;
     DimArray<BandLU<ExtendedBandMatrix<val_type>>> solver_periodic;
 
-    Mesh<val_type, dim> __solve_for_control_points(
+    ctrl_pt_type __solve_for_control_points(
         const Mesh<val_type, dim>& f_mesh) const {
-        Mesh<val_type, dim> weights{mesh_dimension};
+        ctrl_pt_type weights{mesh_dimension};
 
         auto check_idx =
             [&](typename Mesh<val_type, dim>::index_type& indices) {

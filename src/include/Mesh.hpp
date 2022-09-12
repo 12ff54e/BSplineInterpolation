@@ -16,46 +16,34 @@ class MeshDimension {
 
    private:
     index_type __dim_size;
-    /**
-     * @brief The i-th element stores the sub-mesh size when the first (dim-i)
-     * coordinates are specified.
-     */
-    std::array<size_type, dim + 1> __dim_acc_size;
-
-    /**
-     * @brief Set the __dim_acc_size object. Check description of __dim_acc_size
-     * for details.
-     */
-    void set_dim_acc_size() {
-        for (size_type d = 0; d <= dim; ++d) {
-            __dim_acc_size[d] = 1;
-            for (size_type i = 0; i < d; ++i) {
-                __dim_acc_size[d] *= __dim_size[dim - i - 1];
-            }
-        }
-    }
 
    public:
     MeshDimension() = default;
 
     MeshDimension(std::initializer_list<size_type> il) {
         std::copy(il.begin(), il.end(), __dim_size.begin());
-        set_dim_acc_size();
     }
 
     MeshDimension(size_type n) {
         std::fill(__dim_size.begin(), __dim_size.end(), n);
-        set_dim_acc_size();
     }
 
     // properties
 
-    size_type size() const { return __dim_acc_size.back(); }
+    size_type size() const {
+        size_type s = 1;
+        for (auto&& d : __dim_size) { s *= d; };
+        return s;
+    }
 
     size_type dim_size(size_type dim_ind) const { return __dim_size[dim_ind]; }
 
     size_type dim_acc_size(size_type dim_ind) const {
-        return __dim_acc_size[dim_ind];
+        size_type das = 1;
+        for (size_type d = 0; d < dim_ind; ++d) {
+            das *= __dim_size[dim - d - 1];
+        }
+        return das;
     }
 
     /**
@@ -66,17 +54,19 @@ class MeshDimension {
      * @param indices
      * @return size_type
      */
-    template <typename... _Indices>
-    size_type indexing(size_type ind, _Indices... indices) const {
-        return ind * __dim_acc_size[sizeof...(indices)] + indexing(indices...);
+    template <typename... Indices>
+    size_type indexing(Indices... indices) const {
+        return indexing(index_type{static_cast<size_type>(indices)...});
     }
 
-    constexpr size_type indexing() const { return 0; }
+    // constexpr size_type indexing() const { return 0; }
 
-    size_type indexing(index_type ind_arr) const {
+    size_type indexing(const index_type& ind_arr) const {
         size_type ind{};
+        size_type sub_mesh_size = 1;
         for (size_type d = 0; d < dim; ++d) {
-            ind += ind_arr[d] * __dim_acc_size[dim - d - 1];
+            ind += ind_arr[dim - d - 1] * sub_mesh_size;
+            sub_mesh_size *= __dim_size[dim - d - 1];
         }
         return ind;
     }
@@ -92,8 +82,8 @@ class MeshDimension {
         index_type indices;
 
         for (size_type d = 0; d < dim; ++d) {
-            indices[d] = total_ind / __dim_acc_size[dim - d - 1];
-            total_ind %= __dim_acc_size[dim - d - 1];
+            indices[dim - d - 1] = total_ind % __dim_size[dim - d - 1];
+            total_ind /= __dim_size[dim - d - 1];
         }
 
         return indices;
@@ -101,10 +91,7 @@ class MeshDimension {
 
     // modifiers
 
-    void resize(index_type sizes) {
-        __dim_size = sizes;
-        set_dim_acc_size();
-    }
+    void resize(index_type sizes) { __dim_size = sizes; }
 };
 
 /**
