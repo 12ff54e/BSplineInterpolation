@@ -127,13 +127,13 @@ class BSpline {
                      : std::fmod(x - range(dim_ind).first, period));
         }
 #ifdef _DEBUG
-        if ((*iter > x || *(iter + 1) < x) && x >= range(dim_ind).first &&
-            x <= range(dim_ind).second) {
+        if (__uniform[dim_ind] && (*iter > x || *(iter + 1) < x) &&
+            x >= range(dim_ind).first && x <= range(dim_ind).second) {
             std::cout << "[DEBUG] knot hint miss at dim = " << dim_ind
                       << ", hint = " << hint << ", x = " << x << '\n';
         }
 #endif
-        // I tried reurn the iter without checking, but the speed has no
+        // I tried return the iter without checking, but the speed has no
         // significant improves.
         return *iter <= x && *(iter + 1) > x
                    // If the hint is accurate, use that iter

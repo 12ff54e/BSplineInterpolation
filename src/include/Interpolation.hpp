@@ -171,10 +171,10 @@ class InterpolationFunction {  // TODO: Add integration
             // last knot is same as last input coordinate
             input_coords[dim_ind].emplace_back(r_knot);
         }
-#ifdef _DEBUG
-        std::cout << "[DEBUG] Nonuniform knots along dimension" << dim_ind
+#ifdef _TRACE
+        std::cout << "[TRACE] Nonuniform knots along dimension" << dim_ind
                   << ":\n";
-        for (auto& c : xs) { std::cout << "[DEBUG] " << c << '\n'; }
+        for (auto& c : xs) { std::cout << "[TRACE] " << c << '\n'; }
         std::cout << std::endl;
 #endif
 
