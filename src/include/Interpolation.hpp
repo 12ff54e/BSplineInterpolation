@@ -119,7 +119,8 @@ class InterpolationFunction {  // TODO: Add integration
             __periodicity[dim_ind] ? n + 2 * order + (1 - order % 2)
                                    : n + order + 1);
 
-        input_coords[dim_ind].reserve(n);
+        auto& input_coord = input_coords[dim_ind];
+        input_coord.reserve(n);
         // The x_range may be given by input iterators, which can not be
         // multi-passed.
         if (__periodicity[dim_ind]) {
@@ -127,16 +128,14 @@ class InterpolationFunction {  // TODO: Add integration
             // local grid size if spline order is odd.
 
             auto iter = x_range.first;
-            input_coords[dim_ind].push_back(*iter);
+            input_coord.push_back(*iter);
             for (size_type i = order + 1; i < order + n; ++i) {
                 val_type present = *(++iter);
-                xs[i] = order % 2 == 0
-                            ? .5 * (input_coords[dim_ind].back() + present)
-                            : present;
-                input_coords[dim_ind].push_back(present);
+                xs[i] = order % 2 == 0 ? .5 * (input_coord.back() + present)
+                                       : present;
+                input_coord.push_back(present);
             }
-            val_type period =
-                input_coords[dim_ind].back() - input_coords[dim_ind].front();
+            val_type period = input_coord.back() - input_coord.front();
             for (size_type i = 0; i < order + 1; ++i) {
                 xs[i] = xs[n + i - 1] - period;
                 xs[xs.size() - i - 1] = xs[xs.size() - i - n] + period;
@@ -150,27 +149,38 @@ class InterpolationFunction {  // TODO: Add integration
             // fill leftmost *order+1* identical knots
             for (size_type i = 0; i < order + 1; ++i) { xs[i] = l_knot; }
             // first knot is same as first input coordinate
-            input_coords[dim_ind].emplace_back(l_knot);
+            input_coord.emplace_back(l_knot);
             // Every knot in middle is average of *order* input
             // coordinates. This var is to track the sum of a moving window with
             // width *order*.
             coord_type window_sum{};
             for (size_type i = 1; i < order; ++i) {
-                input_coords[dim_ind].emplace_back(*(++it));
-                window_sum += input_coords[dim_ind][i];
+                input_coord.emplace_back(*(++it));
+                window_sum += input_coord[i];
             }
             for (size_type i = order + 1; i < n; ++i) {
-                input_coords[dim_ind].emplace_back(*(++it));
-                window_sum += input_coords[dim_ind][i - 1];
+                input_coord.emplace_back(*(++it));
+                window_sum += input_coord[i - 1];
                 xs[i] = window_sum / order;
-                window_sum -= input_coords[dim_ind][i - order];
+                window_sum -= input_coord[i - order];
             }
             auto r_knot = *(++it);
             // fill rightmost *order+1* identical knots
             for (size_type i = n; i < n + order + 1; ++i) { xs[i] = r_knot; }
             // last knot is same as last input coordinate
-            input_coords[dim_ind].emplace_back(r_knot);
+            input_coord.emplace_back(r_knot);
         }
+#ifdef _DEBUG
+        // check whether input coordinates is monotonic
+        for (std::size_t i = 0; i < input_coord.size() - 1; ++i) {
+            if (input_coord[i + 1] <= input_coord[i]) {
+                throw std::range_error(
+                    std::string("Given coordinate is not monotonically "
+                                "increasing at dimension ") +
+                    std::to_string(dim_ind));
+            }
+        }
+#endif
 #ifdef _TRACE
         std::cout << "[TRACE] Nonuniform knots along dimension" << dim_ind
                   << ":\n";
