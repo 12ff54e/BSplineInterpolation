@@ -35,7 +35,8 @@ class InterpolationFunctionTemplate {
     using MeshDim = MeshDimension<dim>;
 
     /**
-     * @brief Construct a new Interpolation Function Template object
+     * @brief Construct a new Interpolation Function Template object, all other
+     * constructors delegate to this one
      *
      * @param order Order of BSpline
      * @param periodicity Periodicity of each dimension
@@ -49,7 +50,145 @@ class InterpolationFunctionTemplate {
                                   std::pair<Ts, Ts>... x_ranges)
         : input_coords{},
           mesh_dimension(interp_mesh_dimension),
-          base(order, periodicity, input_coords, mesh_dimension, x_ranges...) {
+          base(order, periodicity, input_coords, mesh_dimension, x_ranges...),
+          solvers{} {
+        // active union member accordingly
+        for (size_type i = 0; i < dim; ++i) { solvers[i] = periodicity[i]; }
+        __build_solver();
+    }
+
+    /**
+     * @brief Construct a new 1D Interpolation Function Template object.
+     *
+     * @param order order of interpolation, the interpolated function is of
+     * $C^{order-1}$
+     * @param periodic whether to construct a periodic spline
+     * @param f_length point number of to-be-interpolated data
+     * @param x_range a pair of x_min and x_max
+     */
+    template <typename C1, typename C2>
+    InterpolationFunctionTemplate(size_type order,
+                                  bool periodicity,
+                                  size_type f_length,
+                                  std::pair<C1, C2> x_range)
+        : InterpolationFunctionTemplate(order,
+                                        {periodicity},
+                                        MeshDim{f_length},
+                                        x_range) {
+        static_assert(
+            dim == size_type{1},
+            "You can only use this overload of constructor in 1D case.");
+    }
+
+    template <typename C1, typename C2>
+    InterpolationFunctionTemplate(size_type order,
+                                  size_type f_length,
+                                  std::pair<C1, C2> x_range)
+        : InterpolationFunctionTemplate(order, false, f_length, x_range) {}
+
+    /**
+     * @brief Construct a new (aperiodic) Interpolation Function Template
+     * object
+     *
+     * @param order Order of BSpline
+     * @param interp_mesh_dimension The structure of coordinate mesh
+     * @param x_ranges Begin and end iterator/value pairs of each dimension
+     */
+    template <typename... Ts>
+    InterpolationFunctionTemplate(size_type order,
+                                  MeshDim interp_mesh_dimension,
+                                  std::pair<Ts, Ts>... x_ranges)
+        : InterpolationFunctionTemplate(order,
+                                        {},
+                                        interp_mesh_dimension,
+                                        x_ranges...) {}
+
+    template <typename MeshOrIterPair>
+    function_type interpolate(MeshOrIterPair&& mesh_or_iter_pair) const& {
+        function_type interp{base};
+        interp.__spline.load_ctrlPts(
+            __solve_for_control_points(Mesh<val_type, dim>{
+                std::forward<MeshOrIterPair>(mesh_or_iter_pair)}));
+        return interp;
+    }
+
+    template <typename MeshOrIterPair>
+    function_type interpolate(MeshOrIterPair&& mesh_or_iter_pair) && {
+        base.__spline.load_ctrlPts(
+            __solve_for_control_points(Mesh<val_type, dim>{
+                std::forward<MeshOrIterPair>(mesh_or_iter_pair)}));
+        return std::move(base);
+    }
+
+   private:
+    // input coordinates, needed only in nonuniform case
+    DimArray<typename function_type::spline_type::KnotContainer> input_coords;
+
+    MeshDim mesh_dimension;
+
+    // the base interpolation function with unspecified weights
+    function_type base;
+
+    // A union-like class storing BandLU solver for Either band matrix or
+    // extended band matrix
+    struct EitherSolver {
+        EitherSolver() : is_active_(false) {}
+        // Active union member and tag it.
+        EitherSolver(bool is_periodic)
+            : is_active_(true), is_periodic_(is_periodic) {
+            if (is_periodic_) {
+                solver_periodic = {};
+            } else {
+                solver_aperiodic = {};
+            }
+        }
+        EitherSolver& operator=(bool is_periodic) {
+            if (is_active_) {
+                throw std::runtime_error("Can not switch solver type.");
+            }
+
+            is_active_ = true;
+            is_periodic_ = is_periodic;
+            if (is_periodic_) {
+                solver_periodic = {};
+            } else {
+                solver_aperiodic = {};
+            }
+
+            return *this;
+        }
+
+        // Copy constructor is required by aggregate initialization, but never
+        // invoked in this code since the content of this union is never
+        // switched.
+        EitherSolver(const EitherSolver&) {}
+        // Destructor needed and it invokes either member's destructor according
+        // to the tag "is_periodic";
+        ~EitherSolver() {
+            if (is_active_) {
+                if (is_periodic_) {
+                    solver_periodic.~BandLU<ExtendedBandMatrix<val_type>>();
+                } else {
+                    solver_aperiodic.~BandLU<BandMatrix<val_type>>();
+                }
+            }
+        }
+
+        union {
+            BandLU<BandMatrix<val_type>> solver_aperiodic;
+            BandLU<ExtendedBandMatrix<val_type>> solver_periodic;
+        };
+
+        bool is_active_;
+        // tag for union member
+        bool is_periodic_;
+    };
+
+    // solver for weights
+    DimArray<EitherSolver> solvers;
+
+    void __build_solver() {
+        const auto& order = base.order;
         // adjust dimension according to periodicity
         {
             DimArray<size_type> dim_size_tmp;
@@ -184,89 +323,13 @@ class InterpolationFunctionTemplate {
 #endif
 
             if (periodic) {
-                solver_periodic[d].compute(coef_mat);
+                solvers[d].solver_periodic.compute(coef_mat);
             } else {
-                solver_aperiodic[d].compute(
+                solvers[d].solver_aperiodic.compute(
                     static_cast<BandMatrix<val_type>>(coef_mat));
             }
         }
     }
-
-    /**
-     * @brief Construct a new 1D Interpolation Function Template object.
-     *
-     * @param order order of interpolation, the interpolated function is of
-     * $C^{order-1}$
-     * @param periodic whether to construct a periodic spline
-     * @param f_length point number of to-be-interpolated data
-     * @param x_range a pair of x_min and x_max
-     */
-    template <typename C1, typename C2>
-    InterpolationFunctionTemplate(size_type order,
-                                  bool periodicity,
-                                  size_type f_length,
-                                  std::pair<C1, C2> x_range)
-        : InterpolationFunctionTemplate(order,
-                                        {periodicity},
-                                        MeshDim{f_length},
-                                        x_range) {
-        static_assert(
-            dim == size_type{1},
-            "You can only use this overload of constructor in 1D case.");
-    }
-
-    template <typename C1, typename C2>
-    InterpolationFunctionTemplate(size_type order,
-                                  size_type f_length,
-                                  std::pair<C1, C2> x_range)
-        : InterpolationFunctionTemplate(order, false, f_length, x_range) {}
-
-    /**
-     * @brief Construct a new (aperiodic) Interpolation Function Template
-     * object
-     *
-     * @param order Order of BSpline
-     * @param interp_mesh_dimension The structure of coordinate mesh
-     * @param x_ranges Begin and end iterator/value pairs of each dimension
-     */
-    template <typename... Ts>
-    InterpolationFunctionTemplate(size_type order,
-                                  MeshDim interp_mesh_dimension,
-                                  std::pair<Ts, Ts>... x_ranges)
-        : InterpolationFunctionTemplate(order,
-                                        {},
-                                        interp_mesh_dimension,
-                                        x_ranges...) {}
-
-    template <typename MeshOrIterPair>
-    function_type interpolate(MeshOrIterPair&& mesh_or_iter_pair) const& {
-        function_type interp{base};
-        interp.__spline.load_ctrlPts(
-            __solve_for_control_points(Mesh<val_type, dim>{
-                std::forward<MeshOrIterPair>(mesh_or_iter_pair)}));
-        return interp;
-    }
-
-    template <typename MeshOrIterPair>
-    function_type interpolate(MeshOrIterPair&& mesh_or_iter_pair) && {
-        base.__spline.load_ctrlPts(
-            __solve_for_control_points(Mesh<val_type, dim>{
-                std::forward<MeshOrIterPair>(mesh_or_iter_pair)}));
-        return std::move(base);
-    }
-
-   private:
-    // input coordinates, needed only in nonuniform case
-    DimArray<typename function_type::spline_type::KnotContainer> input_coords;
-
-    MeshDim mesh_dimension;
-
-    // the base interpolation function with unspecified weights
-    function_type base;
-
-    // solver for weights
-    DimArray<BandLU<BandMatrix<val_type>>> solver_aperiodic;
-    DimArray<BandLU<ExtendedBandMatrix<val_type>>> solver_periodic;
 
     Mesh<val_type, dim> __solve_for_control_points(
         const Mesh<val_type, dim>& f_mesh) const {
@@ -315,12 +378,10 @@ class InterpolationFunctionTemplate {
                 // accordingly.
                 // auto iter = weights.begin(d, ind_arr);
                 if (base.periodicity(d)) {
-                    //     auto shifted_iter = util::make_cycle_vec(
-                    //         iter, weights.dim_size(d), -(int)(base.order /
-                    //         2));
-                    solver_periodic[d].solve(weights.begin(d, ind_arr));
+                    solvers[d].solver_periodic.solve(weights.begin(d, ind_arr));
                 } else {
-                    solver_aperiodic[d].solve(weights.begin(d, ind_arr));
+                    solvers[d].solver_aperiodic.solve(
+                        weights.begin(d, ind_arr));
                 }
             }
         }
