@@ -132,14 +132,15 @@ class InterpolationFunctionTemplate {
     // A union-like class storing BandLU solver for Either band matrix or
     // extended band matrix
     struct EitherSolver {
-        EitherSolver() : is_active_(false) {}
+        // set default active union member, or g++ compiled code will throw err
+        EitherSolver() {}
         // Active union member and tag it.
         EitherSolver(bool is_periodic)
             : is_active_(true), is_periodic_(is_periodic) {
             if (is_periodic_) {
-                solver_periodic = {};
+                new (&solver_periodic) BandLU<ExtendedBandMatrix<val_type>>;
             } else {
-                solver_aperiodic = {};
+                new (&solver_aperiodic) BandLU<BandMatrix<val_type>>;
             }
         }
         EitherSolver& operator=(bool is_periodic) {
@@ -150,9 +151,9 @@ class InterpolationFunctionTemplate {
             is_active_ = true;
             is_periodic_ = is_periodic;
             if (is_periodic_) {
-                solver_periodic = {};
+                new (&solver_periodic) BandLU<ExtendedBandMatrix<val_type>>;
             } else {
-                solver_aperiodic = {};
+                new (&solver_aperiodic) BandLU<BandMatrix<val_type>>;
             }
 
             return *this;
@@ -179,9 +180,9 @@ class InterpolationFunctionTemplate {
             BandLU<ExtendedBandMatrix<val_type>> solver_periodic;
         };
 
-        bool is_active_;
+        bool is_active_ = false;
         // tag for union member
-        bool is_periodic_;
+        bool is_periodic_ = false;
     };
 
     // solver for weights
