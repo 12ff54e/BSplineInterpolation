@@ -10,9 +10,9 @@ This library is standard C++11. CMake is required only for build and run tests.
 
 ## How to use
 
-Since the library is header only, include BSplineInterpolation and one can use all its functionality under namespace intp. Check test/interpolation-test.cpp and test/interpolation-template-test.cpp for more info.
+Since the library is header only, include the file intp and one can use all its functionality under the namespace intp. Check test/interpolation-test.cpp and test/interpolation-template-test.cpp for more info.
 
-PS: main branch is under-development and is unstable, checkout the latest tag.
+**PS: main branch is under-development and is unstable, checkout the latest tag.**
 
 ## Note
 

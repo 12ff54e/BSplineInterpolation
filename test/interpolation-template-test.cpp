@@ -50,7 +50,8 @@ int main() {
     std::vector<double> trig_vec{};
     trig_vec.reserve(len * len + 1);
     for (size_t i = 0; i < len * len + 1; ++i) {
-        trig_vec.emplace_back(std::sin(7 * (i * dx - M_PI)));
+        trig_vec.emplace_back(
+            std::sin(7 * (static_cast<double>(i) * dx - M_PI)));
     }
 
     std::vector<double> vals_1d;
@@ -73,19 +74,19 @@ int main() {
               << " points.\n\n";
     std::cout << "Phase\t\t\tTime\n";
     std::cout << "Mesh\t\t\t"
-              << duration_cast<microseconds>(t_after_vec - t_start_1d).count() /
-                     1000.
+              << duration<double, milliseconds::period>(t_after_vec -
+                                                        t_start_1d)
+                     .count()
               << "ms\n";
     std::cout << "Template\t\t"
-              << duration_cast<microseconds>(t_after_template_1d - t_after_vec)
-                         .count() /
-                     1000.
+              << duration<double, milliseconds::period>(t_after_template_1d -
+                                                        t_after_vec)
+                     .count()
               << "ms\n";
     std::cout << "Interpolate\t\t"
-              << duration_cast<microseconds>(t_after_interpolation_1d -
-                                             t_after_template_1d)
-                         .count() /
-                     1000.
+              << duration<double, milliseconds::period>(
+                     t_after_interpolation_1d - t_after_template_1d)
+                     .count()
               << "ms\n\n";
 
     double err_1d =
@@ -110,9 +111,11 @@ int main() {
     for (size_t i = 0; i <= len; ++i) {
         for (size_t j = 0; j <= len; ++j) {
             trig_mesh_2d_1(i, j) =
-                std::sin(i * dt - M_PI) * std::cos(j * dt - M_PI);
+                std::sin(static_cast<double>(i) * dt - M_PI) *
+                std::cos(static_cast<double>(j) * dt - M_PI);
             trig_mesh_2d_2(i, j) =
-                std::cos(2 * (i * dt - M_PI)) * std::sin(2 * (j * dt - M_PI));
+                std::cos(2 * (static_cast<double>(i) * dt - M_PI)) *
+                std::sin(2 * (static_cast<double>(j) * dt - M_PI));
         }
     }
 
@@ -142,21 +145,20 @@ int main() {
     std::cout << "\nInterpolation on a 2D mesh consisting "
               << trig_mesh_2d_1.size() << " points.\n\n";
     std::cout << "Phase\t\t\tTime\n";
-    std::cout
-        << "Mesh\t\t\t"
-        << duration_cast<microseconds>(t_after_mesh - t_start_2d).count() /
-               1000.
-        << "ms\n";
+    std::cout << "Mesh\t\t\t"
+              << duration<double, milliseconds::period>(t_after_mesh -
+                                                        t_start_2d)
+                     .count()
+              << "ms\n";
     std::cout << "Template\t\t"
-              << duration_cast<microseconds>(t_after_template - t_after_mesh)
-                         .count() /
-                     1000.
+              << duration<double, milliseconds::period>(t_after_template -
+                                                        t_after_mesh)
+                     .count()
               << "ms\n";
     std::cout << "Interpolate(2)\t\t"
-              << duration_cast<microseconds>(t_after_interpolation -
-                                             t_after_template)
-                         .count() /
-                     1000.
+              << duration<double, milliseconds::period>(t_after_interpolation -
+                                                        t_after_template)
+                     .count()
               << "ms\n\n";
 
     double err1 =
@@ -190,12 +192,14 @@ int main() {
     for (size_t i = 0; i <= lt; ++i) {
         for (size_t j = 0; j <= lt; ++j) {
             for (size_t k = 0; k < lz; ++k) {
-                mesh_3d_1(i, j, k) = std::sin(i * dt_3d - M_PI) *
-                                     std::cos(j * dt_3d - M_PI) *
-                                     std::exp(-std::pow(k * dz - .5, 2));
-                mesh_3d_2(i, j, k) = std::cos(2 * (i * dt_3d - M_PI)) *
-                                     std::sin(2 * (j * dt_3d - M_PI)) *
-                                     std::exp(-std::pow(k * dz - .5, 3));
+                mesh_3d_1(i, j, k) =
+                    std::sin(static_cast<double>(i) * dt_3d - M_PI) *
+                    std::cos(static_cast<double>(j) * dt_3d - M_PI) *
+                    std::exp(-std::pow(static_cast<double>(k) * dz - .5, 2));
+                mesh_3d_2(i, j, k) =
+                    std::cos(2 * (static_cast<double>(i) * dt_3d - M_PI)) *
+                    std::sin(2 * (static_cast<double>(j) * dt_3d - M_PI)) *
+                    std::exp(-std::pow(static_cast<double>(k) * dz - .5, 3));
             }
         }
     }
@@ -229,22 +233,20 @@ int main() {
     std::cout << "\nInterpolation on a 3D mesh consisting " << mesh_3d_1.size()
               << " points.\n\n";
     std::cout << "Phase\t\t\tTime\n";
-    std::cout
-        << "Mesh\t\t\t"
-        << duration_cast<microseconds>(t_after_mesh_3d - t_start_3d).count() /
-               1000.
-        << "ms\n";
+    std::cout << "Mesh\t\t\t"
+              << duration<double, milliseconds::period>(t_after_mesh_3d -
+                                                        t_start_3d)
+                     .count()
+              << "ms\n";
     std::cout << "Template\t\t"
-              << duration_cast<microseconds>(t_after_template_3d -
-                                             t_after_mesh_3d)
-                         .count() /
-                     1000.
+              << duration<double, milliseconds::period>(t_after_template_3d -
+                                                        t_after_mesh_3d)
+                     .count()
               << "ms\n";
     std::cout << "Interpolate(2)\t\t"
-              << duration_cast<microseconds>(t_after_interpolation_3d -
-                                             t_after_template_3d)
-                         .count() /
-                     1000.
+              << duration<double, milliseconds::period>(
+                     t_after_interpolation_3d - t_after_template_3d)
+                     .count()
               << "ms\n\n";
 
     double err1_3d =

@@ -26,6 +26,7 @@ class InterpolationFunctionTemplate {
     using size_type = typename function_type::size_type;
     using coord_type = typename function_type::coord_type;
     using val_type = typename function_type::val_type;
+    using diff_type = typename function_type::diff_type;
 
     static constexpr size_type dim = D;
 
@@ -48,13 +49,17 @@ class InterpolationFunctionTemplate {
                                   DimArray<bool> periodicity,
                                   MeshDim interp_mesh_dimension,
                                   std::pair<Ts, Ts>... x_ranges)
-        : input_coords{},
-          mesh_dimension(interp_mesh_dimension),
-          base(order, periodicity, input_coords, mesh_dimension, x_ranges...),
-          solvers{} {
+        : input_coords_{},
+          mesh_dimension_(interp_mesh_dimension),
+          base_(order,
+                periodicity,
+                input_coords_,
+                mesh_dimension_,
+                x_ranges...),
+          solvers_{} {
         // active union member accordingly
-        for (size_type i = 0; i < dim; ++i) { solvers[i] = periodicity[i]; }
-        __build_solver();
+        for (size_type i = 0; i < dim; ++i) { solvers_[i] = periodicity[i]; }
+        build_solver_();
     }
 
     /**
@@ -62,7 +67,7 @@ class InterpolationFunctionTemplate {
      *
      * @param order order of interpolation, the interpolated function is of
      * $C^{order-1}$
-     * @param periodic whether to construct a periodic spline
+     * @param periodicity whether to construct a periodic spline
      * @param f_length point number of to-be-interpolated data
      * @param x_range a pair of x_min and x_max
      */
@@ -105,29 +110,29 @@ class InterpolationFunctionTemplate {
 
     template <typename MeshOrIterPair>
     function_type interpolate(MeshOrIterPair&& mesh_or_iter_pair) const& {
-        function_type interp{base};
-        interp.__spline.load_ctrlPts(
-            __solve_for_control_points(Mesh<val_type, dim>{
+        function_type interp{base_};
+        interp.spline_.load_ctrlPts(
+            solve_for_control_points_(Mesh<val_type, dim>{
                 std::forward<MeshOrIterPair>(mesh_or_iter_pair)}));
         return interp;
     }
 
     template <typename MeshOrIterPair>
     function_type interpolate(MeshOrIterPair&& mesh_or_iter_pair) && {
-        base.__spline.load_ctrlPts(
-            __solve_for_control_points(Mesh<val_type, dim>{
+        base_.spline_.load_ctrlPts(
+            solve_for_control_points_(Mesh<val_type, dim>{
                 std::forward<MeshOrIterPair>(mesh_or_iter_pair)}));
-        return std::move(base);
+        return std::move(base_);
     }
 
    private:
     // input coordinates, needed only in nonuniform case
-    DimArray<typename function_type::spline_type::KnotContainer> input_coords;
+    DimArray<typename function_type::spline_type::KnotContainer> input_coords_;
 
-    MeshDim mesh_dimension;
+    MeshDim mesh_dimension_;
 
     // the base interpolation function with unspecified weights
-    function_type base;
+    function_type base_;
 
     // A union-like class storing BandLU solver for Either band matrix or
     // extended band matrix
@@ -186,33 +191,33 @@ class InterpolationFunctionTemplate {
     };
 
     // solver for weights
-    DimArray<EitherSolver> solvers;
+    DimArray<EitherSolver> solvers_;
 
-    void __build_solver() {
-        const auto& order = base.order;
+    void build_solver_() {
+        const auto& order = base_.order;
         // adjust dimension according to periodicity
         {
             DimArray<size_type> dim_size_tmp;
             for (size_type d = 0; d < dim; ++d) {
-                dim_size_tmp[d] =
-                    mesh_dimension.dim_size(d) - (base.periodicity(d) ? 1 : 0);
+                dim_size_tmp[d] = mesh_dimension_.dim_size(d) -
+                                  (base_.periodicity(d) ? 1 : 0);
             }
-            mesh_dimension.resize(dim_size_tmp);
+            mesh_dimension_.resize(dim_size_tmp);
         }
 
         DimArray<typename function_type::spline_type::BaseSpline>
             base_spline_vals_per_dim;
 
-        const auto& spline = base.spline();
+        const auto& spline = base_.spline();
 
         // pre-calculate base spline of periodic dimension, since it never
         // changes due to its even-spaced knots
         for (size_type d = 0; d < dim; ++d) {
-            if (base.periodicity(d) && base.uniform(d)) {
+            if (base_.periodicity(d) && base_.uniform(d)) {
                 base_spline_vals_per_dim[d] = spline.base_spline_value(
-                    d, spline.knots_begin(d) + order,
-                    spline.knots_begin(d)[order] +
-                        (1 - order % 2) * base.__dx[d] * .5);
+                    d, spline.knots_begin(d) + static_cast<diff_type>(order),
+                    spline.knots_begin(d)[static_cast<diff_type>(order)] +
+                        (1 - order % 2) * base_.dx_[d] * .5);
             }
         }
 
@@ -222,9 +227,9 @@ class InterpolationFunctionTemplate {
 
         // loop through each dimension to construct coefficient matrix
         for (size_type d = 0; d < dim; ++d) {
-            bool periodic = base.periodicity(d);
-            bool uniform = base.uniform(d);
-            auto mat_dim = mesh_dimension.dim_size(d);
+            bool periodic = base_.periodicity(d);
+            bool uniform = base_.uniform(d);
+            auto mat_dim = mesh_dimension_.dim_size(d);
             auto band_width = periodic ? order / 2 : order - 1;
             ExtendedBandMatrix<val_type> coef_mat{mat_dim, band_width,
                                                   band_width};
@@ -234,12 +239,12 @@ class InterpolationFunctionTemplate {
             std::cout << "[TRACE] {0, 0} -> 1\n";
 #endif
 
-            for (size_type i = 0; i < mesh_dimension.dim_size(d); ++i) {
+            for (size_type i = 0; i < mesh_dimension_.dim_size(d); ++i) {
                 if (!periodic) {
                     // In aperiodic case, first and last data point can only
                     // be covered by one base spline, and the base spline at
                     // these ending points eval to 1.
-                    if (i == 0 || i == mesh_dimension.dim_size(d) - 1) {
+                    if (i == 0 || i == mesh_dimension_.dim_size(d) - 1) {
                         coef_mat.main_bands_val(i, i) = 1;
                         continue;
                     }
@@ -253,7 +258,7 @@ class InterpolationFunctionTemplate {
                 // flag for internal points in uniform aperiodic case
                 const bool is_internal =
                     i > order / 2 &&
-                    i < mesh_dimension.dim_size(d) - order / 2 - 1;
+                    i < mesh_dimension_.dim_size(d) - order / 2 - 1;
 
                 if (uniform) {
                     knot_ind =
@@ -266,26 +271,32 @@ class InterpolationFunctionTemplate {
                             knot_ind >= knot_num - 2 * order - 2) {
                             // out of the zone of even-spaced knots, update base
                             // spline
-                            const auto iter = spline.knots_begin(d) + knot_ind;
+                            const auto iter = spline.knots_begin(d) +
+                                              static_cast<diff_type>(knot_ind);
                             const coord_type x =
-                                spline.range(d).first + i * base.__dx[d];
+                                spline.range(d).first +
+                                static_cast<coord_type>(i) * base_.dx_[d];
                             base_spline_vals_per_dim[d] =
                                 spline.base_spline_value(d, iter, x);
                         }
                     }
                 } else {
-                    coord_type x = input_coords[d][i];
+                    coord_type x = input_coords_[d][i];
                     // using BSpline::get_knot_iter to find current
                     // knot_ind
                     const auto iter =
-                        periodic ? spline.knots_begin(d) + i + order
-                        : i == 0 ? spline.knots_begin(d) + order
-                        : i == input_coords[d].size() - 1
-                            ? spline.knots_end(d) - order - 2
+                        periodic ? spline.knots_begin(d) +
+                                       static_cast<diff_type>(i + order)
+                        : i == 0 ? spline.knots_begin(d) +
+                                       static_cast<diff_type>(order)
+                        : i == input_coords_[d].size() - 1
+                            ? spline.knots_end(d) -
+                                  static_cast<diff_type>(order + 2)
                             : spline.get_knot_iter(
                                   d, x, i + 1,
                                   std::min(knot_num - order - 1, i + order));
-                    knot_ind = iter - spline.knots_begin(d);
+                    knot_ind =
+                        static_cast<size_type>(iter - spline.knots_begin(d));
                     base_spline_vals_per_dim[d] =
                         spline.base_spline_value(d, iter, x);
                 }
@@ -297,9 +308,9 @@ class InterpolationFunctionTemplate {
                                                                  : order + 1;
                 for (size_type j = 0; j < s_num; ++j) {
                     if (periodic) {
-                        coef_mat((i + band_width) % mesh_dimension.dim_size(d),
+                        coef_mat((i + band_width) % mesh_dimension_.dim_size(d),
                                  (knot_ind - order + j) %
-                                     mesh_dimension.dim_size(d)) =
+                                     mesh_dimension_.dim_size(d)) =
                             base_spline_vals_per_dim[d][j];
                     } else {
                         coef_mat.main_bands_val(i, knot_ind - order + j) =
@@ -309,42 +320,42 @@ class InterpolationFunctionTemplate {
                     std::cout
                         << "[TRACE] {"
                         << (periodic
-                                ? (i + band_width) % mesh_dimension.dim_size(d)
+                                ? (i + band_width) % mesh_dimension_.dim_size(d)
                                 : i)
                         << ", "
-                        << (knot_ind - order + j) % mesh_dimension.dim_size(d)
+                        << (knot_ind - order + j) % mesh_dimension_.dim_size(d)
                         << "} -> " << base_spline_vals_per_dim[d][j] << '\n';
 #endif
                 }
             }
 
 #ifdef _TRACE
-            std::cout << "[TRACE] {" << mesh_dimension.dim_size(d) - 1 << ", "
-                      << mesh_dimension.dim_size(d) - 1 << "} -> 1\n";
+            std::cout << "[TRACE] {" << mesh_dimension_.dim_size(d) - 1 << ", "
+                      << mesh_dimension_.dim_size(d) - 1 << "} -> 1\n";
 #endif
 
             if (periodic) {
-                solvers[d].solver_periodic.compute(coef_mat);
+                solvers_[d].solver_periodic.compute(coef_mat);
             } else {
-                solvers[d].solver_aperiodic.compute(
+                solvers_[d].solver_aperiodic.compute(
                     static_cast<BandMatrix<val_type>>(coef_mat));
             }
         }
     }
 
-    Mesh<val_type, dim> __solve_for_control_points(
+    Mesh<val_type, dim> solve_for_control_points_(
         const Mesh<val_type, dim>& f_mesh) const {
-        Mesh<val_type, dim> weights{mesh_dimension};
+        Mesh<val_type, dim> weights{mesh_dimension_};
 
         auto check_idx =
             [&](typename Mesh<val_type, dim>::index_type& indices) {
                 bool keep_flag = true;
                 for (size_type d = 0; d < dim; ++d) {
-                    if (base.periodicity(d)) {
+                    if (base_.periodicity(d)) {
                         // Skip last point of periodic dimension
                         keep_flag = indices[d] != weights.dim_size(d);
                         indices[d] = (indices[d] + weights.dim_size(d) +
-                                      base.order / 2) %
+                                      base_.order / 2) %
                                      weights.dim_size(d);
                     }
                 }
@@ -378,10 +389,11 @@ class InterpolationFunctionTemplate {
                 // diagonal dominate so weights column should be shifted
                 // accordingly.
                 // auto iter = weights.begin(d, ind_arr);
-                if (base.periodicity(d)) {
-                    solvers[d].solver_periodic.solve(weights.begin(d, ind_arr));
+                if (base_.periodicity(d)) {
+                    solvers_[d].solver_periodic.solve(
+                        weights.begin(d, ind_arr));
                 } else {
-                    solvers[d].solver_aperiodic.solve(
+                    solvers_[d].solver_aperiodic.solve(
                         weights.begin(d, ind_arr));
                 }
             }
@@ -403,7 +415,7 @@ class InterpolationFunctionTemplate1D
                                     bool periodicity = false)
         : InterpolationFunctionTemplate1D(
               std::make_pair(
-                  (typename base::coord_type){},
+                  typename base::coord_type{},
                   static_cast<typename base::coord_type>(f_length - 1)),
               f_length,
               order,

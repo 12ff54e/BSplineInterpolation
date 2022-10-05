@@ -11,6 +11,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(MSVC)
     set(CMAKE_CXX_FLAGS "/W4 /EHsc")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
+    set(CMAKE_CXX_FLAGS "-Weverything -Wno-c++98-compat -Wno-padded")
 else()
     set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 endif()

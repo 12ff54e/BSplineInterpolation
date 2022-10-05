@@ -15,22 +15,22 @@ class MeshDimension {
     using index_type = std::array<size_type, dim>;
 
    private:
-    index_type __dim_size;
+    index_type dim_size_;
     /**
      * @brief The i-th element stores the sub-mesh size when the first (dim-i)
      * coordinates are specified.
      */
-    std::array<size_type, dim + 1> __dim_acc_size;
+    std::array<size_type, dim + 1> dim_acc_size_;
 
     /**
-     * @brief Set the __dim_acc_size object. Check description of __dim_acc_size
+     * @brief Set the dim_acc_size_ object. Check description of dim_acc_size_
      * for details.
      */
     void set_dim_acc_size() {
         for (size_type d = 0; d <= dim; ++d) {
-            __dim_acc_size[d] = 1;
+            dim_acc_size_[d] = 1;
             for (size_type i = 0; i < d; ++i) {
-                __dim_acc_size[d] *= __dim_size[dim - i - 1];
+                dim_acc_size_[d] *= dim_size_[dim - i - 1];
             }
         }
     }
@@ -39,36 +39,35 @@ class MeshDimension {
     MeshDimension() = default;
 
     MeshDimension(std::initializer_list<size_type> il) {
-        std::copy(il.begin(), il.end(), __dim_size.begin());
+        std::copy(il.begin(), il.end(), dim_size_.begin());
         set_dim_acc_size();
     }
 
     MeshDimension(size_type n) {
-        std::fill(__dim_size.begin(), __dim_size.end(), n);
+        std::fill(dim_size_.begin(), dim_size_.end(), n);
         set_dim_acc_size();
     }
 
     // properties
 
-    size_type size() const { return __dim_acc_size.back(); }
+    size_type size() const { return dim_acc_size_.back(); }
 
-    size_type dim_size(size_type dim_ind) const { return __dim_size[dim_ind]; }
+    size_type dim_size(size_type dim_ind) const { return dim_size_[dim_ind]; }
 
     size_type dim_acc_size(size_type dim_ind) const {
-        return __dim_acc_size[dim_ind];
+        return dim_acc_size_[dim_ind];
     }
 
     /**
      * @brief Convert multi-dimension index to one dimension index in storage
      * vector.
      *
-     * @param ind
-     * @param indices
      * @return size_type
      */
-    template <typename... _Indices>
-    size_type indexing(size_type ind, _Indices... indices) const {
-        return ind * __dim_acc_size[sizeof...(indices)] + indexing(indices...);
+    template <typename T, typename... Indices>
+    size_type indexing(T ind, Indices... indices) const {
+        return static_cast<size_type>(ind) * dim_acc_size_[sizeof...(indices)] +
+               indexing(indices...);
     }
 
     constexpr size_type indexing() const { return 0; }
@@ -76,7 +75,7 @@ class MeshDimension {
     size_type indexing(index_type ind_arr) const {
         size_type ind{};
         for (size_type d = 0; d < dim; ++d) {
-            ind += ind_arr[d] * __dim_acc_size[dim - d - 1];
+            ind += ind_arr[d] * dim_acc_size_[dim - d - 1];
         }
         return ind;
     }
@@ -85,15 +84,13 @@ class MeshDimension {
      * @brief Convert one dimension index in storage vector to multi-dimension
      * indices
      *
-     * @param total_ind
-     * @return std::array<size_type, dim>
      */
     index_type dimwise_indices(size_type total_ind) const {
         index_type indices;
 
         for (size_type d = 0; d < dim; ++d) {
-            indices[d] = total_ind / __dim_acc_size[dim - d - 1];
-            total_ind %= __dim_acc_size[dim - d - 1];
+            indices[d] = total_ind / dim_acc_size_[dim - d - 1];
+            total_ind %= dim_acc_size_[dim - d - 1];
         }
 
         return indices;
@@ -102,7 +99,7 @@ class MeshDimension {
     // modifiers
 
     void resize(index_type sizes) {
-        __dim_size = sizes;
+        dim_size_ = sizes;
         set_dim_acc_size();
     }
 };
@@ -137,12 +134,12 @@ class Mesh {
         using iterator_category = std::random_access_iterator_tag;
 
        private:
-        pointer ptr;
-        size_type step_length;
+        pointer ptr_;
+        difference_type step_length_;
 
        public:
-        skip_iterator(value_type* ptr, size_type step_length)
-            : ptr(ptr), step_length(step_length) {}
+        skip_iterator(value_type* ptr, difference_type step_length)
+            : ptr_(ptr), step_length_(step_length) {}
 
         // allow iterator to const_iterator conversion
         template <typename V>
@@ -151,21 +148,21 @@ class Mesh {
                 std::is_same<V, typename std::remove_const<value_type>::type>::
                     value,
                 V>::type> other)
-            : ptr(other.ptr), step_length(other.step_length) {}
+            : ptr_(other.ptr_), step_length_(other.step_length_) {}
 
         // forward iterator requirement
 
-        reference operator*() { return *ptr; }
-        reference operator->() { return ptr; }
+        reference operator*() { return *ptr_; }
+        reference operator->() { return ptr_; }
 
         bool operator==(skip_iterator other) {
-            return this->ptr == other.ptr &&
-                   this->step_length == other.step_length;
+            return this->ptr_ == other.ptr_ &&
+                   this->step_length_ == other.step_length_;
         }
         bool operator!=(skip_iterator other) { return !operator==(other); }
 
         skip_iterator& operator++() {
-            ptr += step_length;
+            ptr_ += step_length_;
             return *this;
         }
         skip_iterator operator++(int) {
@@ -177,7 +174,7 @@ class Mesh {
         // bidirectional iterator requirement
 
         skip_iterator& operator--() {
-            ptr -= step_length;
+            ptr_ -= step_length_;
             return *this;
         }
         skip_iterator operator--(int) {
@@ -189,7 +186,7 @@ class Mesh {
         // random access iterator requirement
 
         skip_iterator& operator+=(difference_type n) {
-            ptr += n * step_length;
+            ptr_ += n * step_length_;
             return *this;
         }
         skip_iterator operator+(difference_type n) {
@@ -201,7 +198,7 @@ class Mesh {
         }
 
         skip_iterator& operator-=(difference_type n) {
-            ptr -= n * step_length;
+            ptr_ -= n * step_length_;
             return *this;
         }
         skip_iterator operator-(difference_type n) {
@@ -210,11 +207,11 @@ class Mesh {
         }
 
         difference_type operator-(skip_iterator other) {
-            return (ptr - other.ptr) / step_length;
+            return (ptr_ - other.ptr_) / step_length_;
         }
 
         reference operator[](difference_type n) {
-            return *(ptr + n * step_length);
+            return *(ptr_ + n * step_length_);
         }
 
         bool operator<(skip_iterator other) { return other - *this > 0; }
@@ -226,25 +223,25 @@ class Mesh {
     /**
      * @brief Stores the mesh content in row-major format.
      */
-    container_type storage;
+    container_type storage_;
 
-    MeshDimension<dim> __dimension;
+    MeshDimension<dim> dimension_;
 
    public:
     explicit Mesh(const MeshDimension<dim>& mesh_dimension)
-        : __dimension(mesh_dimension) {
-        storage.resize(__dimension.size(), val_type{});
+        : dimension_(mesh_dimension) {
+        storage_.resize(dimension_.size(), val_type{});
     }
 
     explicit Mesh(std::initializer_list<size_type> il,
                   const allocator_type& alloc = allocator_type())
-        : storage(alloc), __dimension(il) {
-        storage.resize(__dimension.size(), val_type{});
+        : storage_(alloc), dimension_(il) {
+        storage_.resize(dimension_.size(), val_type{});
     }
 
     explicit Mesh(size_type n, const allocator_type& alloc = allocator_type())
-        : storage(alloc), __dimension(n) {
-        storage.resize(__dimension.size(), val_type{});
+        : storage_(alloc), dimension_(n) {
+        storage_.resize(dimension_.size(), val_type{});
     }
 
     template <typename InputIter,
@@ -255,8 +252,8 @@ class Mesh {
                                       std::input_iterator_tag>::value>::type>
     explicit Mesh(std::pair<InputIter, InputIter> range,
                   const allocator_type& alloc = allocator_type())
-        : storage(range.first, range.second, alloc),
-          __dimension{(size_type)storage.size()} {}
+        : storage_(range.first, range.second, alloc),
+          dimension_{static_cast<size_type>(storage_.size())} {}
 
     template <typename Array,
               typename = typename std::enable_if<
@@ -268,38 +265,38 @@ class Mesh {
    public:
     // properties
 
-    size_type size() const { return storage.size(); }
+    size_type size() const { return storage_.size(); }
 
     size_type dim_size(size_type dim_ind) const {
-        return __dimension.dim_size(dim_ind);
+        return dimension_.dim_size(dim_ind);
     }
 
     /**
      * @brief Get the underlying mesh dimension object
      *
      */
-    const MeshDimension<dim>& dimension() const { return __dimension; }
+    const MeshDimension<dim>& dimension() const { return dimension_; }
 
     // modifiers
 
     void resize(index_type sizes) {
-        __dimension.resize(sizes);
-        storage.resize(__dimension.size());
+        dimension_.resize(sizes);
+        storage_.resize(dimension_.size());
     }
 
     // element access
 
-    template <typename... _Indices>
-    val_type& operator()(_Indices... indices) {
-        return storage[__dimension.indexing(indices...)];
+    template <typename... Indices>
+    val_type& operator()(Indices... indices) {
+        return storage_[dimension_.indexing(indices...)];
     }
 
-    template <typename... _Indices>
-    val_type operator()(_Indices... indices) const {
-        return storage[__dimension.indexing(indices...)];
+    template <typename... Indices>
+    const val_type& operator()(Indices... indices) const {
+        return storage_[dimension_.indexing(indices...)];
     }
 
-    const val_type* data() const { return storage.data(); }
+    const val_type* data() const { return storage_.data(); }
 
     // iterator
 
@@ -308,43 +305,47 @@ class Mesh {
      *
      * @return iterator
      */
-    const_iterator begin() const { return storage.cbegin(); }
+    const_iterator begin() const { return storage_.cbegin(); }
     /**
      * @brief End const_iterator to underlying container.
      *
      * @return iterator
      */
-    const_iterator end() const { return storage.cend(); }
+    const_iterator end() const { return storage_.cend(); }
 
     skip_iterator<val_type> begin(size_type dim_ind, index_type indices) {
         indices[dim_ind] = 0;
         return skip_iterator<val_type>(
-            storage.data() + __dimension.indexing(indices),
-            __dimension.dim_acc_size(dim - dim_ind - 1));
+            storage_.data() + dimension_.indexing(indices),
+            static_cast<typename skip_iterator<val_type>::difference_type>(
+                dimension_.dim_acc_size(dim - dim_ind - 1)));
     }
     skip_iterator<val_type> end(size_type dim_ind, index_type indices) {
-        indices[dim_ind] = __dimension.dim_size(dim_ind);
+        indices[dim_ind] = dimension_.dim_size(dim_ind);
         return skip_iterator<val_type>(
-            storage.data() + __dimension.indexing(indices),
-            __dimension.dim_acc_size(dim - dim_ind - 1));
+            storage_.data() + dimension_.indexing(indices),
+            static_cast<typename skip_iterator<val_type>::difference_type>(
+                dimension_.dim_acc_size(dim - dim_ind - 1)));
     }
     skip_iterator<const val_type> begin(size_type dim_ind,
                                         index_type indices) const {
         indices[dim_ind] = 0;
         return skip_iterator<const val_type>(
-            storage.data() + __dimension.indexing(indices),
-            __dimension.dim_acc_size(dim - dim_ind - 1));
+            storage_.data() + dimension_.indexing(indices),
+            static_cast<typename skip_iterator<val_type>::difference_type>(
+                dimension_.dim_acc_size(dim - dim_ind - 1)));
     }
     skip_iterator<const val_type> end(size_type dim_ind,
                                       index_type indices) const {
-        indices[dim_ind] = __dimension.dim_size(dim_ind);
+        indices[dim_ind] = dimension_.dim_size(dim_ind);
         return skip_iterator<const val_type>(
-            storage.data() + indexing(indices),
-            __dimension.dim_acc_size(dim - dim_ind - 1));
+            storage_.data() + indexing(indices),
+            dimension_.dim_acc_size(dim - dim_ind - 1));
     }
 
     index_type iter_indices(const_iterator iter) const {
-        return __dimension.dimwise_indices(std::distance(begin(), iter));
+        return dimension_.dimwise_indices(
+            static_cast<size_type>(std::distance(begin(), iter)));
     }
 };
 

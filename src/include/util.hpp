@@ -13,7 +13,6 @@ namespace util {
 /**
  * @brief Polyfill for C++14 integer_sequence, but with [T = size_t] only
  *
- * @tparam Indices
  */
 template <size_t... Indices>
 struct index_sequence {
@@ -39,9 +38,6 @@ using make_index_sequence_for = make_index_sequence<sizeof...(T)>;
 /**
  * @brief Compile time power for unsigned exponent
  *
- * @param base
- * @param exp
- * @return base^exp in type of base
  */
 template <typename T1, typename T2>
 constexpr typename std::enable_if<std::is_unsigned<T2>::value, T1>::type pow(
@@ -63,8 +59,6 @@ void dispatch_indexed_helper(index_sequence<indices...>,
  * @brief dispatch_indexed(f, x0, x1, ...) invokes f(0, x0), f(1, x1), ..., and
  * ignores their return values.
  *
- * @param func
- * @param args
  */
 template <typename Func, typename... Args>
 void dispatch_indexed(Func&& func, Args&&... args) {
@@ -154,28 +148,28 @@ bool operator!=(const stack_allocator<T, N>& lhs,
 #endif
 
 struct _is_iterable_impl {
-    template <typename _T,
+    template <typename T_,
               typename = typename std::enable_if<std::is_convertible<
                   typename std::iterator_traits<
-                      decltype(std::declval<_T&>().begin())>::iterator_category,
+                      decltype(std::declval<T_&>().begin())>::iterator_category,
                   std::input_iterator_tag>::value>::type,
               typename = typename std::enable_if<std::is_convertible<
                   typename std::iterator_traits<
-                      decltype(std::declval<_T&>().end())>::iterator_category,
+                      decltype(std::declval<T_&>().end())>::iterator_category,
                   std::input_iterator_tag>::value>::type>
-    static std::true_type __test(int);
+    static std::true_type test_(int);
 
     template <typename>
-    static std::false_type __test(...);
+    static std::false_type test_(...);
 };
 
 struct _is_indexed_impl {
-    template <typename _T,
-              typename = decltype(std::declval<const _T&>().operator[](0))>
-    static std::true_type __test(int);
+    template <typename T_,
+              typename = decltype(std::declval<const T_&>().operator[](0))>
+    static std::true_type test_(int);
 
     template <typename>
-    static std::false_type __test(...);
+    static std::false_type test_(...);
 };
 
 /**
@@ -185,27 +179,26 @@ struct _is_indexed_impl {
  */
 template <typename T>
 struct is_iterable : _is_iterable_impl {
-    static constexpr bool value = decltype(__test<T>(0))::value;
+    static constexpr bool value = decltype(test_<T>(0))::value;
 };
 
 template <typename T>
 struct is_indexed : _is_indexed_impl {
-    static constexpr bool value = decltype(__test<T>(0))::value;
+    static constexpr bool value = decltype(test_<T>(0))::value;
 };
 
 /**
  * @brief Polyfill for C++20 stl function with the same name
  *
- * @tparam Vec
  */
-template <typename Vec>
+template <typename Iter>
 using remove_cvref_t =
-    typename std::remove_cv<typename std::remove_reference<Vec>::type>::type;
+    typename std::remove_cv<typename std::remove_reference<Iter>::type>::type;
 
 #if __cplusplus >= 201402L
-#define _CPP14_CONSTEXPR_ constexpr
+#define CPP14_CONSTEXPR_ constexpr
 #else
-#define _CPP14_CONSTEXPR_
+#define CPP14_CONSTEXPR_
 #endif
 
 /**
@@ -214,10 +207,34 @@ using remove_cvref_t =
  */
 template <typename T, typename...>
 struct CRTP {
-    _CPP14_CONSTEXPR_ T& cast() { return static_cast<T&>(*this); }
-    _CPP14_CONSTEXPR_ const T& cast() const {
+    CPP14_CONSTEXPR_ T& cast() { return static_cast<T&>(*this); }
+    CPP14_CONSTEXPR_ const T& cast() const {
         return static_cast<const T&>(*this);
     }
+};
+
+template <bool B,
+          template <typename...>
+          class TrueTemplate,
+          template <typename...>
+          class FalseTemplate,
+          typename... Args>
+struct lazy_conditional;
+
+template <template <typename...> class TrueTemplate,
+          template <typename...>
+          class FalseTemplate,
+          typename... Args>
+struct lazy_conditional<true, TrueTemplate, FalseTemplate, Args...> {
+    using type = TrueTemplate<Args...>;
+};
+
+template <template <typename...> class TrueTemplate,
+          template <typename...>
+          class FalseTemplate,
+          typename... Args>
+struct lazy_conditional<false, TrueTemplate, FalseTemplate, Args...> {
+    using type = FalseTemplate<Args...>;
 };
 
 #ifdef _DEBUG

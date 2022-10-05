@@ -41,8 +41,9 @@ int main() {
     // linear interpolation results
     std::vector<double> vals_1d_linear;
     for (auto&& coord : coords_1d) {
-        const size_t idx = std::floor(coord);
-        const double val = f[idx] + (f[idx + 1] - f[idx]) * (coord - idx);
+        const std::size_t idx = static_cast<std::size_t>(std::floor(coord));
+        const double val =
+            f[idx] + (f[idx + 1] - f[idx]) * (coord - static_cast<double>(idx));
         vals_1d_linear.push_back(val);
     }
 
@@ -102,8 +103,8 @@ int main() {
     }
 
     InterpolationFunction<double, 2> interp2{
-        3, f2d, make_pair(0., f2d.dim_size(0) - 1.),
-        make_pair(0., f2d.dim_size(1) - 1.)};
+        3, f2d, make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
+        make_pair(0., static_cast<double>(f2d.dim_size(1)) - 1.)};
 
     // some random points
     constexpr array<array<double, 2>, 10> coords_2d{
@@ -248,9 +249,9 @@ int main() {
     }
 
     InterpolationFunction<double, 3> interp3(
-        3, f3d, make_pair(0., f3d.dim_size(0) - 1.),
-        make_pair(0., f3d.dim_size(1) - 1.),
-        make_pair(0., f3d.dim_size(2) - 1.));
+        3, f3d, make_pair(0., static_cast<double>(f3d.dim_size(0)) - 1.),
+        make_pair(0., static_cast<double>(f3d.dim_size(1)) - 1.),
+        make_pair(0., static_cast<double>(f3d.dim_size(2)) - 1.));
 
     // some random points
     constexpr array<array<double, 3>, 10> coords_3d{
@@ -297,9 +298,9 @@ int main() {
     // linear interpolation results
     std::vector<double> vals_1d_periodic_linear;
     for (auto&& coord : coords_1d) {
-        const size_t idx = std::floor(coord);
-        const double val =
-            f[idx] + (f[(idx + 1) % (f.size() - 1)] - f[idx]) * (coord - idx);
+        const std::size_t idx = static_cast<std::size_t>(std::floor(coord));
+        const double val = f[idx] + (f[(idx + 1) % (f.size() - 1)] - f[idx]) *
+                                        (coord - static_cast<double>(idx));
         vals_1d_periodic_linear.push_back(val);
     }
 
@@ -335,8 +336,9 @@ int main() {
     std::cout << "\n2D Interpolation with one Periodic Boundary Test:\n";
 
     InterpolationFunction<double, 2> interp2_periodic(
-        3, {false, true}, f2d, make_pair(0., f2d.dim_size(0) - 1.),
-        make_pair(0., f2d.dim_size(1) - 1.));
+        3, {false, true}, f2d,
+        make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
+        make_pair(0., static_cast<double>(f2d.dim_size(1)) - 1.));
 
     auto vals_2d_periodic = {-0.5456439415470818, 0.7261218483070795,
                              0.21577722210958022, -1.6499933881987376,
@@ -445,7 +447,8 @@ int main() {
     for (auto&& coord : coords_1d) {
         const auto iter = std::lower_bound(input_coords_1d.begin(),
                                            input_coords_1d.end(), coord);
-        const size_t idx = iter - input_coords_1d.begin();
+        const std::size_t idx =
+            static_cast<std::size_t>(iter - input_coords_1d.begin());
         const double val = f[idx - 1] + (f[idx] - f[idx - 1]) *
                                             (coord - *std::prev(iter)) /
                                             (*iter - *std::prev(iter));
@@ -487,7 +490,8 @@ int main() {
     for (auto&& coord : coords_1d) {
         const auto iter = std::lower_bound(input_coords_1d.begin(),
                                            input_coords_1d.end(), coord);
-        const size_t idx = iter - input_coords_1d.begin();
+        const std::size_t idx =
+            static_cast<std::size_t>(iter - input_coords_1d.begin());
         const double val = f[idx - 1] + (f[idx % (f.size() - 1)] - f[idx - 1]) *
                                             (coord - *std::prev(iter)) /
                                             (*iter - *std::prev(iter));
@@ -516,7 +520,8 @@ int main() {
     auto nonuniform_coord_for_2d = {0., 1.329905262345947, 2.200286645200226,
                                     3.1202827237815516, 4.};
     InterpolationFunction<double, 2> interp2_X_periodic_Y_nonuniform(
-        3, {true, false}, f2d, std::make_pair(0., f2d.dim_size(0) - 1.),
+        3, {true, false}, f2d,
+        std::make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
         util::get_range(nonuniform_coord_for_2d));
 
     auto vals_2d_X_periodic_Y_nonuniform = {

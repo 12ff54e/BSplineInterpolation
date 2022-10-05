@@ -16,7 +16,7 @@ void check_solver(Mat&& mat, const Vec& b, Assertion& assertion) {
     auto x = solver.solve(b);
     auto bb = mat * x;
 
-    double d = rel_err([](double x) { return x; },
+    double d = rel_err([](double x_) { return x_; },
                        std::make_pair(bb.begin(), bb.end()),
                        std::make_pair(b.begin(), b.end()));
 

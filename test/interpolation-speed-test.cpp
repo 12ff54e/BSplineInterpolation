@@ -48,12 +48,13 @@ int main() {
     {
         const auto t_start_1d = high_resolution_clock::now();
 
-        const size_t len_1d = len * len * len;
+        constexpr size_t len_1d = len * len * len;
         constexpr double dx = 2 * M_PI / (len_1d);
         std::vector<double> vec_1d{};
         vec_1d.reserve(len_1d + 1);
         for (size_t i = 0; i <= len_1d; ++i) {
-            vec_1d.emplace_back(std::sin(13 * (i * dx - M_PI)));
+            vec_1d.emplace_back(
+                std::sin(13 * (static_cast<double>(i) * dx - M_PI)));
         }
 
         std::vector<double> vals_1d;
@@ -85,22 +86,20 @@ int main() {
                   << " points. Then evaluate the function on " << eval_count
                   << " points.\n\n";
         std::cout << "Phase\t\t\tTime\n";
-        std::cout
-            << "Mesh\t\t\t"
-            << duration_cast<microseconds>(t_after_vec - t_start_1d).count() /
-                   1000.
-            << "ms\n";
+        std::cout << "Mesh\t\t\t"
+                  << duration<double, milliseconds::period>(t_after_vec -
+                                                            t_start_1d)
+                         .count()
+                  << "ms\n";
         std::cout << "Interpolate\t\t"
-                  << duration_cast<microseconds>(t_after_interpolation -
-                                                 t_after_vec)
-                             .count() /
-                         1000.
+                  << duration<double, milliseconds::period>(
+                         t_after_interpolation - t_after_vec)
+                         .count()
                   << "ms\n";
         std::cout << "Evaluate\t\t"
-                  << duration_cast<microseconds>(t_after_eval -
-                                                 t_after_interpolation)
-                             .count() /
-                         1000.
+                  << duration<double, milliseconds::period>(
+                         t_after_eval - t_after_interpolation)
+                         .count()
                   << "ms\n\n";
     }
 
@@ -109,13 +108,14 @@ int main() {
         const auto t_start_2d = high_resolution_clock::now();
 
         const size_t len_2d = static_cast<std::size_t>(std::pow(len, 1.5));
-        const double dt = 2 * M_PI / len_2d;
+        const double dt = 2 * M_PI / static_cast<double>(len_2d);
 
         Mesh<double, 2> trig_mesh_2d(len_2d + 1);
         for (size_t i = 0; i <= len_2d; ++i) {
             for (size_t j = 0; j <= len_2d; ++j) {
                 trig_mesh_2d(i, j) =
-                    std::sin(i * dt - M_PI) * std::cos(j * dt - M_PI);
+                    std::sin(static_cast<double>(i) * dt - M_PI) *
+                    std::cos(static_cast<double>(j) * dt - M_PI);
             }
         }
 
@@ -152,22 +152,20 @@ int main() {
                   << " points. Then evaluate the function on " << eval_count
                   << " points\n\n";
         std::cout << "Phase\t\t\tTime\n";
-        std::cout
-            << "Mesh\t\t\t"
-            << duration_cast<microseconds>(t_after_mesh - t_start_2d).count() /
-                   1000.
-            << "ms\n";
+        std::cout << "Mesh\t\t\t"
+                  << duration<double, milliseconds::period>(t_after_mesh -
+                                                            t_start_2d)
+                         .count()
+                  << "ms\n";
         std::cout << "Interpolate\t\t"
-                  << duration_cast<microseconds>(t_after_interpolation -
-                                                 t_after_mesh)
-                             .count() /
-                         1000.
+                  << duration<double, milliseconds::period>(
+                         t_after_interpolation - t_after_mesh)
+                         .count()
                   << "ms\n";
         std::cout << "Evaluate\t\t"
-                  << duration_cast<microseconds>(t_after_eval -
-                                                 t_after_interpolation)
-                             .count() /
-                         1000.
+                  << duration<double, milliseconds::period>(
+                         t_after_eval - t_after_interpolation)
+                         .count()
                   << "ms\n\n";
     }
 
@@ -183,9 +181,10 @@ int main() {
             for (size_t j = 0; j <= len; ++j) {
                 for (size_t k = 0; k < len; ++k) {
                     mesh_3d(i, j, k) =
-                        std::sin(i * dt_3d - M_PI) *
-                        std::cos(j * dt_3d - M_PI) *
-                        std::exp(-std::pow(k * dt_3d_aperiodic - .5, 2));
+                        std::sin(static_cast<double>(i) * dt_3d - M_PI) *
+                        std::cos(static_cast<double>(j) * dt_3d - M_PI) *
+                        std::exp(-std::pow(
+                            static_cast<double>(k) * dt_3d_aperiodic - .5, 2));
                 }
             }
         }
@@ -225,21 +224,19 @@ int main() {
                   << " points\n\n";
         std::cout << "Phase\t\t\tTime\n";
         std::cout << "Mesh\t\t\t"
-                  << duration_cast<microseconds>(t_after_mesh_3d - t_start_3d)
-                             .count() /
-                         1000.
+                  << duration<double, milliseconds::period>(t_after_mesh_3d -
+                                                            t_start_3d)
+                         .count()
                   << "ms\n";
         std::cout << "Interpolate\t\t"
-                  << duration_cast<microseconds>(t_after_interpolation -
-                                                 t_after_mesh_3d)
-                             .count() /
-                         1000.
+                  << duration<double, milliseconds::period>(
+                         t_after_interpolation - t_after_mesh_3d)
+                         .count()
                   << "ms\n";
         std::cout << "Evaluate\t\t"
-                  << duration_cast<microseconds>(t_after_eval -
-                                                 t_after_interpolation)
-                             .count() /
-                         1000.
+                  << duration<double, milliseconds::period>(
+                         t_after_eval - t_after_interpolation)
+                         .count()
                   << "ms\n\n";
     }
 
