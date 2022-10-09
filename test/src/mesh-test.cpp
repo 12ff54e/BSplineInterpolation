@@ -1,7 +1,7 @@
 #include <iterator>
 
-#include "../src/include/Mesh.hpp"
-#include "Assertion.hpp"
+#include <Mesh.hpp>
+#include "include/Assertion.hpp"
 
 int main() {
     using namespace std;
@@ -54,7 +54,7 @@ int main() {
 
     auto dim_it = mesh.begin(0, {0, 6, 2});
     for (auto it = dim_it; it != mesh.end(0, {0, 6, 2}); ++it) {
-        *it =static_cast<int>(it - dim_it);
+        *it = static_cast<int>(it - dim_it);
     }
 
     dim_it = mesh.begin(1, {4, 0, 4});

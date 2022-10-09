@@ -1,6 +1,6 @@
-#include "../src/include/Interpolation.hpp"
-#include "./Assertion.hpp"
-#include "./rel_err.hpp"
+#include <Interpolation.hpp>
+#include "include/Assertion.hpp"
+#include "include/rel_err.hpp"
 
 #include <algorithm>
 #include <iostream>

@@ -1,12 +1,12 @@
+#include <BandLU.hpp>
+#include <BandMatrix.hpp>
+#include "include/Assertion.hpp"
+#include "include/rel_err.hpp"
+
 #include <chrono>
 #include <cmath>
 #include <iostream>
 #include <random>
-
-#include "../src/include/BandLU.hpp"
-#include "../src/include/BandMatrix.hpp"
-#include "./Assertion.hpp"
-#include "./rel_err.hpp"
 
 template <typename Mat, typename Vec>
 void check_solver(Mat&& mat, const Vec& b, Assertion& assertion) {

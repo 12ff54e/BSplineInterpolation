@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.12.0)
 project(
     BSplineInterpolation
-    VERSION 1.2.0
-    HOMEPAGE_URL "https://github.com/12ff54e/BSplineInterpolation.git")
+    VERSION 1.2.1
+    HOMEPAGE_URL "https://github.com/12ff54e/BSplineInterpolation.git"
+    LANGUAGES CXX)
 include(CTest)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -46,7 +47,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Requires c++17 and no compiler extension.
+# Requires c++17 and no compiler extension, but not mandetory.
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -59,25 +60,10 @@ else()
     set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 endif()
 
-add_compile_definitions($<$<CONFIG:Debug>:_DEBUG>)
 # add_compile_definitions(_TRACE)
-
-# Specify tests
-list(APPEND tests util-test mesh-test band-matrix-and-solver-test bspline-test interpolation-test interpolation-speed-test interpolation-template-test)
-
-list(LENGTH tests test_num)
-message(STATUS)
-message(STATUS  ${test_num} " tests found: ")
-enable_testing()
-foreach(test ${tests})
-    string(JOIN "" test_src_file test/ ${test} .cpp)
-    add_executable(${test} ${test_src_file})
-
-    string(JOIN "-" test_name intp ${test})
-    add_test(${test_name} ${test})
-    message(STATUS ${test} " from source file " ${test_src_file})
-endforeach(test ${tests})
-message(STATUS)
+message(STATUS "Entering test directory ...")
+add_subdirectory(test)
+message(STATUS "Leaving test directory ...")
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
