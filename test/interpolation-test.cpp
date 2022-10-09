@@ -517,6 +517,8 @@ int main() {
 
     // 2D non-uniform with one dimension being periodic boundary
 
+    std::cout << "\n2D nonuniform Interpolation Test with Periodic Boundary:\n";
+
     auto nonuniform_coord_for_2d = {0., 1.329905262345947, 2.200286645200226,
                                     3.1202827237815516, 4.};
     InterpolationFunction<double, 2> interp2_X_periodic_Y_nonuniform(
