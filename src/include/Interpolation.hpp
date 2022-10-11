@@ -315,7 +315,7 @@ class InterpolationFunction {  // TODO: Add integration
           spline_(periodicity, spline_order),
           periodicity_(periodicity) {
         // load knots into spline
-        create_knots_(util::make_index_sequence_for<Ts...>{},
+        create_knots_(util::index_sequence_for<Ts...>{},
                       std::move(mesh_dimension), input_coords, x_ranges...);
     }
 
@@ -325,7 +325,7 @@ class InterpolationFunction {  // TODO: Add integration
      * @param x coordinates
      */
     template <typename... Coords,
-              typename Indices = util::make_index_sequence_for<Coords...>,
+              typename Indices = util::index_sequence_for<Coords...>,
               typename = typename std::enable_if<std::is_arithmetic<
                   typename std::common_type<Coords...>::type>::value>::type>
     val_type operator()(Coords... x) const {
@@ -358,7 +358,7 @@ class InterpolationFunction {  // TODO: Add integration
      * @param x coordinates
      */
     template <typename... Coords,
-              typename Indices = util::make_index_sequence_for<Coords...>,
+              typename Indices = util::index_sequence_for<Coords...>,
               typename = typename std::enable_if<std::is_arithmetic<
                   typename std::common_type<Coords...>::type>::value>::type>
     val_type at(Coords... x) const {

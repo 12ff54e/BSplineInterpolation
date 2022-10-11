@@ -10,6 +10,7 @@ namespace intp {
 
 namespace util {
 
+#if __cplusplus < 201402L
 /**
  * @brief Polyfill for C++14 integer_sequence, but with [T = size_t] only
  *
@@ -34,6 +35,16 @@ using make_index_sequence = typename make_index_sequence_impl<N>::type;
 
 template <typename... T>
 using make_index_sequence_for = make_index_sequence<sizeof...(T)>;
+#else
+template <size_t... Indices>
+using index_sequence = std::index_sequence<Indices...>;
+
+template <size_t N>
+using make_index_sequence = std::make_index_sequence<N>;
+
+template <typename... T>
+using index_sequence_for = std::index_sequence_for<T...>;
+#endif
 
 /**
  * @brief Compile time power for unsigned exponent
@@ -50,9 +61,13 @@ template <typename Func, typename... Args, unsigned... indices>
 void dispatch_indexed_helper(index_sequence<indices...>,
                              Func& func,
                              Args&&... args) {
+#if __cplusplus >= 201703L
+    (func(indices, std::forward<Args>(args)), ...);
+#else
     // polyfill of C++17 fold expression over comma
-    std::array<std::nullptr_t, sizeof...(Args)>{
-        (func(indices, std::forward<Args>(args)), nullptr)...};
+    static_cast<void>(std::array<std::nullptr_t, sizeof...(Args)>{
+        (func(indices, std::forward<Args>(args)), nullptr)...});
+#endif
 }
 
 /**
@@ -62,7 +77,7 @@ void dispatch_indexed_helper(index_sequence<indices...>,
  */
 template <typename Func, typename... Args>
 void dispatch_indexed(Func&& func, Args&&... args) {
-    dispatch_indexed_helper(util::make_index_sequence_for<Args...>{}, func,
+    dispatch_indexed_helper(util::index_sequence_for<Args...>{}, func,
                             std::forward<Args>(args)...);
 }
 
@@ -191,9 +206,9 @@ struct is_indexed : _is_indexed_impl {
  * @brief Polyfill for C++20 stl function with the same name
  *
  */
-template <typename Iter>
+template <typename T>
 using remove_cvref_t =
-    typename std::remove_cv<typename std::remove_reference<Iter>::type>::type;
+    typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 
 #if __cplusplus >= 201402L
 #define CPP14_CONSTEXPR_ constexpr
@@ -237,6 +252,15 @@ struct lazy_conditional<false, TrueTemplate, FalseTemplate, Args...> {
     using type = FalseTemplate<Args...>;
 };
 
+template <bool B,
+          template <typename...>
+          class TrueTemplate,
+          template <typename...>
+          class FalseTemplate,
+          typename... Args>
+using lazy_conditional_t =
+    typename lazy_conditional<B, TrueTemplate, FalseTemplate, Args...>::type;
+
 #ifdef _DEBUG
 #define CUSTOM_ASSERT(assertion, msg) \
     if (!(assertion)) { throw std::runtime_error(msg); }
@@ -256,6 +280,38 @@ inline auto get_range(T& c)
     // Use trailing return type to be C++11 compatible.
     return std::make_pair(c.begin(), c.end());
 }
+
+#if __cplusplus >= 202002L
+template <typename T, size_t n>
+struct n_pairs {
+    template <typename U, size_t m>
+    using one_pair = std::pair<U, U>;
+
+    using type = decltype(([]<size_t... ns>(index_sequence<ns...>) {
+        return std::tuple<one_pair<T, ns>...>{};
+    })(make_index_sequence<n>{}));
+};
+
+template <typename T, size_t n>
+using n_pairs_t = typename n_pairs<T, n>::type;
+#else
+
+template <typename T, typename S>
+struct n_pairs_aux;
+template <typename T, size_t... ns>
+struct n_pairs_aux<T, util::index_sequence<ns...> > {
+    template <typename U, size_t n>
+    using one_pair = std::pair<U, U>;
+
+    using type = std::tuple<one_pair<T, ns>...>;
+};
+
+template <typename T, size_t n>
+using n_pairs = n_pairs_aux<T, util::make_index_sequence<n> >;
+
+template <typename T, size_t n>
+using n_pairs_t = typename n_pairs<T, n>::type;
+#endif
 
 }  // namespace util
 

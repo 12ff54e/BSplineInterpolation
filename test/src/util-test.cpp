@@ -5,6 +5,11 @@
 #include <util.hpp>
 #include "include/Assertion.hpp"
 
+template <typename T>
+using get_size_type = typename T::size_type;
+template <typename T>
+using get_diff_type = typename T::difference_type;
+
 int main() {
     using namespace intp;
 
@@ -56,6 +61,27 @@ int main() {
 
     assertion(util::is_indexed<std::vector<int>>::value);
     assertion(!util::is_indexed<std::initializer_list<int>>::value);
+
+    assertion(
+        std::is_same<util::remove_cvref_t<const volatile int&>, int>::value);
+
+    assertion(
+        std::is_same<util::lazy_conditional_t<true, get_size_type,
+                                              get_diff_type, std::vector<int>>,
+                     std::size_t>::value);
+    assertion(
+        std::is_same<util::lazy_conditional_t<false, get_size_type,
+                                              get_diff_type, std::vector<int>>,
+                     std::ptrdiff_t>::value);
+
+    std::array<int, 42> arr;
+    auto range = util::get_range(arr);
+    assertion(range.second - range.first == 42, "Issues on get_range.");
+
+    assertion(std::is_same<
+                  util::n_pairs_t<int, 2>,
+                  std::tuple<std::pair<int, int>, std::pair<int, int>>>::value,
+              "Issues on n_pairs type builder.");
 
     return assertion.status();
 }

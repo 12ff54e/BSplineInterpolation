@@ -292,9 +292,8 @@ class BSpline {
      * @param coord_with_hints a bunch of (coordinate, position hint) pairs
      * @return val_type
      */
-    template <
-        typename... CoordWithHints,
-        typename Indices = util::make_index_sequence_for<CoordWithHints...>>
+    template <typename... CoordWithHints,
+              typename Indices = util::index_sequence_for<CoordWithHints...>>
     typename std::enable_if<
         std::is_arithmetic<typename std::common_type<
             typename CoordWithHints::first_type...>::type>::value &&
@@ -376,9 +375,9 @@ class BSpline {
      * order, position hint) tuple
      * @return val_type
      */
-    template <typename... CoordDeriOrderHintTuple,
-              typename Indices =
-                  util::make_index_sequence_for<CoordDeriOrderHintTuple...>>
+    template <
+        typename... CoordDeriOrderHintTuple,
+        typename Indices = util::index_sequence_for<CoordDeriOrderHintTuple...>>
     typename std::enable_if<std::tuple_size<typename std::common_type<
                                 CoordDeriOrderHintTuple...>::type>::value == 3,
                             val_type>::type

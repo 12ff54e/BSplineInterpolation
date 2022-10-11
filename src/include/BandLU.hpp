@@ -60,11 +60,10 @@ class BandLUBase : public util::CRTP<Solver<Matrix>> {
     template <typename U>
     using get_difference_type = typename U::difference_type;
     template <typename U>
-    using ind_type_ =
-        typename util::lazy_conditional<util::is_iterable<U>::value,
-                                        get_size_type,
-                                        get_difference_type,
-                                        U>::type;
+    using ind_type_ = util::lazy_conditional_t<util::is_iterable<U>::value,
+                                               get_size_type,
+                                               get_difference_type,
+                                               U>;
 };
 
 template <typename>
