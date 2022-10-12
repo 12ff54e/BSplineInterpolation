@@ -35,6 +35,20 @@ class InterpolationFunctionTemplate {
 
     using MeshDim = MeshDimension<dim>;
 
+    InterpolationFunctionTemplate(
+        MeshDim interp_mesh_dimension,
+        util::n_pairs_t<coord_type, dim> xs_ranges,
+        typename function_type::InputParameters parameters)
+        : mesh_dimension_(std::move(interp_mesh_dimension)),
+          base_(mesh_dimension_, xs_ranges, input_coords_, parameters),
+          solvers_{} {
+        // active union member accordingly
+        for (size_type i = 0; i < dim; ++i) {
+            solvers_[i] = parameters.periodicity[i];
+        }
+        build_solver_();
+    }
+
     /**
      * @brief Construct a new Interpolation Function Template object, all other
      * constructors delegate to this one
@@ -49,8 +63,7 @@ class InterpolationFunctionTemplate {
                                   DimArray<bool> periodicity,
                                   MeshDim interp_mesh_dimension,
                                   std::pair<Ts, Ts>... x_ranges)
-        : input_coords_{},
-          mesh_dimension_(interp_mesh_dimension),
+        : mesh_dimension_(interp_mesh_dimension),
           base_(order,
                 periodicity,
                 input_coords_,
@@ -127,7 +140,8 @@ class InterpolationFunctionTemplate {
 
    private:
     // input coordinates, needed only in nonuniform case
-    DimArray<typename function_type::spline_type::KnotContainer> input_coords_;
+    DimArray<typename function_type::spline_type::KnotContainer> input_coords_ =
+        {};
 
     MeshDim mesh_dimension_;
 
@@ -194,7 +208,7 @@ class InterpolationFunctionTemplate {
     DimArray<EitherSolver> solvers_;
 
     void build_solver_() {
-        const auto& order = base_.order;
+        const auto& order = base_.order();
         // adjust dimension according to periodicity
         {
             DimArray<size_type> dim_size_tmp;
@@ -355,7 +369,7 @@ class InterpolationFunctionTemplate {
                         // Skip last point of periodic dimension
                         keep_flag = indices[d] != weights.dim_size(d);
                         indices[d] = (indices[d] + weights.dim_size(d) +
-                                      base_.order / 2) %
+                                      base_.order() / 2) %
                                      weights.dim_size(d);
                     }
                 }

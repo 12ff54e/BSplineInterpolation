@@ -135,6 +135,10 @@ int main() {
         3, {true, true}, trig_mesh_2d_1.dimension(),
         std::make_pair(-M_PI, M_PI), std::make_pair(-M_PI, M_PI));
 
+    InterpolationFunctionTemplate<double, 2> i2t(trig_mesh_2d_1.dimension(),
+                                                 {{-M_PI, M_PI}, {-M_PI, M_PI}},
+                                                 {3, {true, true}});
+
     const auto t_after_template = high_resolution_clock::now();
 
     auto interp2d_1 = interp2d_template.interpolate(trig_mesh_2d_1);

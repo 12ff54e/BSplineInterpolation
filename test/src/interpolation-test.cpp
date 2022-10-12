@@ -102,9 +102,8 @@ int main() {
         for (size_t j = 0; j < f2d.dim_size(1); ++j) { f2d(i, j) = f2[i][j]; }
     }
 
-    InterpolationFunction<double, 2> interp2{
-        3, f2d, make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
-        make_pair(0., static_cast<double>(f2d.dim_size(1)) - 1.)};
+    InterpolationFunction<double, 2> interp2(
+        f2d, {{0, f2d.dim_size(0) - 1}, {0, f2d.dim_size(1) - 1}});
 
     // some random points
     constexpr array<array<double, 2>, 10> coords_2d{
@@ -248,10 +247,9 @@ int main() {
         }
     }
 
-    InterpolationFunction<double, 3> interp3(
-        3, f3d, make_pair(0., static_cast<double>(f3d.dim_size(0)) - 1.),
-        make_pair(0., static_cast<double>(f3d.dim_size(1)) - 1.),
-        make_pair(0., static_cast<double>(f3d.dim_size(2)) - 1.));
+    InterpolationFunction<double, 3> interp3(f3d, {{0, f3d.dim_size(0) - 1},
+                                                   {0., f3d.dim_size(1) - 1},
+                                                   {0., f3d.dim_size(2) - 1}});
 
     // some random points
     constexpr array<array<double, 3>, 10> coords_3d{
@@ -335,10 +333,15 @@ int main() {
     // 2D interpolation test with one dimension being periodic boundary
     std::cout << "\n2D Interpolation with one Periodic Boundary Test:\n";
 
+#if __cplusplus >= 202002L
     InterpolationFunction<double, 2> interp2_periodic(
-        3, {false, true}, f2d,
-        make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
-        make_pair(0., static_cast<double>(f2d.dim_size(1)) - 1.));
+        f2d, {{0, f2d.dim_size(0) - 1}, {0, f2d.dim_size(1) - 1}},
+        {.periodicity = {false, true}});
+#else
+    InterpolationFunction<double, 2> interp2_periodic(
+        f2d, {{0, f2d.dim_size(0) - 1}, {0, f2d.dim_size(1) - 1}},
+        {3, {false, true}});
+#endif
 
     auto vals_2d_periodic = {-0.5456439415470818, 0.7261218483070795,
                              0.21577722210958022, -1.6499933881987376,

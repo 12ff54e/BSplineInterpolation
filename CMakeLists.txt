@@ -48,14 +48,14 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Requires c++17 and no compiler extension, but not mandetory.
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Add options according to compiler.
 if(MSVC)
     set(CMAKE_CXX_FLAGS "/W4 /EHsc")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
-    set(CMAKE_CXX_FLAGS "-Weverything -Wno-c++98-compat -Wno-padded")
+    set(CMAKE_CXX_FLAGS "-Weverything -Wno-c++98-compat -Wno-pre-c++20-compat-pedantic -Wno-padded")
 else()
     set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 endif()
