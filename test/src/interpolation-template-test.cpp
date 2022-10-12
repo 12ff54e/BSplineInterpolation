@@ -135,9 +135,15 @@ int main() {
         3, {true, true}, trig_mesh_2d_1.dimension(),
         std::make_pair(-M_PI, M_PI), std::make_pair(-M_PI, M_PI));
 
+#if __cplusplus >= 202002L
+    InterpolationFunctionTemplate<double, 2> i2t(trig_mesh_2d_1.dimension(),
+                                                 {{-M_PI, M_PI}, {-M_PI, M_PI}},
+                                                 {.periodicity = {true, true}});
+#else
     InterpolationFunctionTemplate<double, 2> i2t(trig_mesh_2d_1.dimension(),
                                                  {{-M_PI, M_PI}, {-M_PI, M_PI}},
                                                  {3, {true, true}});
+#endif
 
     const auto t_after_template = high_resolution_clock::now();
 
@@ -222,10 +228,15 @@ int main() {
 
     const auto t_after_mesh_3d = high_resolution_clock::now();
 
+#if __cplusplus >= 202002L
     InterpolationFunctionTemplate<double, 3> interp3d_template(
-        3, {true, true, false}, mesh_3d_1.dimension(),
-        std::make_pair(-M_PI, M_PI), std::make_pair(-M_PI, M_PI),
-        std::make_pair(-.5, .5));
+        mesh_3d_1.dimension(), {{-M_PI, M_PI}, {-M_PI, M_PI}, {-.5, .5}},
+        {.periodicity = {true, true, false}});
+#else
+    InterpolationFunctionTemplate<double, 3> interp3d_template(
+        mesh_3d_1.dimension(), {{-M_PI, M_PI}, {-M_PI, M_PI}, {-.5, .5}},
+        {3, {true, true, false}});
+#endif
 
     const auto t_after_template_3d = high_resolution_clock::now();
 

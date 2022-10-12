@@ -128,9 +128,14 @@ int main() {
 
         const auto t_after_mesh = high_resolution_clock::now();
 
-        InterpolationFunction<double, 2> interp2d(3, {true, true}, trig_mesh_2d,
-                                                  std::make_pair(-M_PI, M_PI),
-                                                  std::make_pair(-M_PI, M_PI));
+#if __cplusplus >= 202002L
+        InterpolationFunction<double, 2> interp2d(
+            trig_mesh_2d, {{-M_PI, M_PI}, {-M_PI, M_PI}},
+            {.periodicity = {true, true}});
+#else
+        InterpolationFunction<double, 2> interp2d(
+            trig_mesh_2d, {{-M_PI, M_PI}, {-M_PI, M_PI}}, {3, {true, true}});
+#endif
 
         const auto t_after_interpolation = high_resolution_clock::now();
 
@@ -199,9 +204,15 @@ int main() {
 
         const auto t_after_mesh_3d = high_resolution_clock::now();
 
+#if __cplusplus >= 202002L
         InterpolationFunction<double, 3> interp3d(
-            3, {true, true, false}, mesh_3d, std::make_pair(-M_PI, M_PI),
-            std::make_pair(-M_PI, M_PI), std::make_pair(-.5, .5));
+            mesh_3d, {{-M_PI, M_PI}, {-M_PI, M_PI}, {-.5, .5}},
+            {.periodicity = {true, true, false}});
+#else
+        InterpolationFunction<double, 3> interp3d(
+            mesh_3d, {{-M_PI, M_PI}, {-M_PI, M_PI}, {-.5, .5}},
+            {3, {true, true, false}});
+#endif
 
         const auto t_after_interpolation = high_resolution_clock::now();
 
