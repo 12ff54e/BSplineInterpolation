@@ -39,8 +39,29 @@ class InterpolationFunctionTemplate {
         MeshDim interp_mesh_dimension,
         util::n_pairs_t<coord_type, dim> xs_ranges,
         typename function_type::InputParameters parameters)
-        : mesh_dimension_(std::move(interp_mesh_dimension)),
-          base_(mesh_dimension_, xs_ranges, input_coords_, parameters),
+        : mesh_dimension_(interp_mesh_dimension),
+          base_(std::move(mesh_dimension_),
+                std::move(xs_ranges),
+                input_coords_,
+                std::move(parameters)),
+          solvers_{} {
+        // active union member accordingly
+        for (size_type i = 0; i < dim; ++i) {
+            solvers_[i] = parameters.periodicity[i];
+        }
+        build_solver_();
+    }
+
+    template <typename... Ts>
+    InterpolationFunctionTemplate(
+        MeshDim interp_mesh_dimension,
+        std::tuple<std::pair<Ts, Ts>...> xs_ranges,
+        typename function_type::InputParameters parameters)
+        : mesh_dimension_(interp_mesh_dimension),
+          base_(std::move(mesh_dimension_),
+                std::move(xs_ranges),
+                input_coords_,
+                std::move(parameters)),
           solvers_{} {
         // active union member accordingly
         for (size_type i = 0; i < dim; ++i) {
@@ -74,35 +95,6 @@ class InterpolationFunctionTemplate {
         for (size_type i = 0; i < dim; ++i) { solvers_[i] = periodicity[i]; }
         build_solver_();
     }
-
-    /**
-     * @brief Construct a new 1D Interpolation Function Template object.
-     *
-     * @param order order of interpolation, the interpolated function is of
-     * $C^{order-1}$
-     * @param periodicity whether to construct a periodic spline
-     * @param f_length point number of to-be-interpolated data
-     * @param x_range a pair of x_min and x_max
-     */
-    template <typename C1, typename C2>
-    InterpolationFunctionTemplate(size_type order,
-                                  bool periodicity,
-                                  size_type f_length,
-                                  std::pair<C1, C2> x_range)
-        : InterpolationFunctionTemplate(order,
-                                        {periodicity},
-                                        MeshDim{f_length},
-                                        x_range) {
-        static_assert(
-            dim == size_type{1},
-            "You can only use this overload of constructor in 1D case.");
-    }
-
-    template <typename C1, typename C2>
-    InterpolationFunctionTemplate(size_type order,
-                                  size_type f_length,
-                                  std::pair<C1, C2> x_range)
-        : InterpolationFunctionTemplate(order, false, f_length, x_range) {}
 
     /**
      * @brief Construct a new (aperiodic) Interpolation Function Template
@@ -424,23 +416,18 @@ class InterpolationFunctionTemplate1D
     using base = InterpolationFunctionTemplate<T, size_t{1}>;
 
    public:
-    InterpolationFunctionTemplate1D(typename base::size_type f_length,
-                                    typename base::size_type order = 3,
-                                    bool periodicity = false)
-        : InterpolationFunctionTemplate1D(
-              std::make_pair(
-                  typename base::coord_type{},
-                  static_cast<typename base::coord_type>(f_length - 1)),
-              f_length,
-              order,
-              periodicity) {}
-
     template <typename C1, typename C2>
-    InterpolationFunctionTemplate1D(std::pair<C1, C2> x_range,
-                                    typename base::size_type f_length,
-                                    typename base::size_type order = 3,
-                                    bool periodicity = false)
-        : base(order, periodicity, f_length, x_range) {}
+    InterpolationFunctionTemplate1D(
+        typename base::size_type f_length,
+        std::pair<C1, C2> x_range,
+        typename base::function_type::InputParameters parameters = {})
+        : base(f_length, x_range, parameters) {}
+
+    InterpolationFunctionTemplate1D(
+        typename base::size_type f_length,
+        std::pair<typename base::coord_type, typename base::coord_type> x_range,
+        typename base::function_type::InputParameters parameters = {})
+        : base(f_length, x_range, parameters) {}
 };
 
 }  // namespace intp

@@ -52,51 +52,6 @@ class InterpolationFunction {  // TODO: Add integration
 
    public:
     /**
-     * @brief Construct a new 1D Interpolation Function object, mimicking
-     * Mathematica's `Interpolation` function, with option `Method->"Spline"`.
-     *
-     * @param spline_order order of interpolation, the interpolated function is
-     * of $C^{order-1}$
-     * @param periodic whether to construct a periodic spline
-     * @param f_range a pair of iterators defining to-be-interpolated data
-     * @param x_range a pair of x_min and x_max
-     */
-    template <
-        typename InputIter,
-        typename C1,
-        typename C2,
-        typename std::enable_if<
-            dim == 1u &&
-            std::is_convertible<
-                typename std::iterator_traits<InputIter>::iterator_category,
-                std::input_iterator_tag>::value>::type* = nullptr>
-    InterpolationFunction(size_type spline_order,
-                          bool periodic,
-                          std::pair<InputIter, InputIter> f_range,
-                          std::pair<C1, C2> x_range)
-        : InterpolationFunction(
-              spline_order,
-              {periodic},
-              Mesh<val_type, 1u>{std::make_pair(f_range.first, f_range.second)},
-              static_cast<std::pair<typename std::common_type<C1, C2>::type,
-                                    typename std::common_type<C1, C2>::type>>(
-                  x_range)) {}
-
-    template <
-        typename InputIter,
-        typename C1,
-        typename C2,
-        typename std::enable_if<
-            dim == 1u &&
-            std::is_convertible<
-                typename std::iterator_traits<InputIter>::iterator_category,
-                std::input_iterator_tag>::value>::type* = nullptr>
-    InterpolationFunction(size_type spline_order,
-                          std::pair<InputIter, InputIter> f_range,
-                          std::pair<C1, C2> x_range)
-        : InterpolationFunction(spline_order, false, f_range, x_range) {}
-
-    /**
      * @brief Construct a new nD Interpolation Function object, mimicking
      * Mathematica's `Interpolation` function, with option `Method->"Spline"`.
      * Notice: last value of periodic dimension will be discarded since it is
@@ -141,8 +96,10 @@ class InterpolationFunction {  // TODO: Add integration
                       std::move(mesh_dimension), input_coords, x_ranges...);
     }
 
-    // constructor for partial construction, that is, without interpolated
-    // values
+    // New constructors
+
+    // Constructor for partial construction, that is, without interpolated
+    // values. This overload can only be used in uniform case.
     InterpolationFunction(
         MeshDimension<dim> mesh_dimension,
         util::n_pairs_t<coord_type, dim> xs_ranges,
@@ -153,6 +110,22 @@ class InterpolationFunction {  // TODO: Add integration
         // load knots into spline
         create_knots_(util::make_index_sequence<dim>{},
                       std::move(mesh_dimension), input_coords,
+                      std::move(xs_ranges));
+    }
+
+    // Constructor for partial construction, that is, without interpolated
+    // values.
+    template <typename... Ts>
+    InterpolationFunction(
+        MeshDimension<dim> mesh_dimensions,
+        std::tuple<std::pair<Ts, Ts>...> xs_ranges,
+        DimArray<typename spline_type::KnotContainer>& input_coords,
+        InputParameters parameters)
+        : parameters_{parameters},
+          spline_(parameters.periodicity, parameters.order) {
+        // load knots into spline
+        create_knots_(util::index_sequence_for<Ts...>{},
+                      std::move(mesh_dimensions), input_coords,
                       std::move(xs_ranges));
     }
 
@@ -171,6 +144,14 @@ class InterpolationFunction {  // TODO: Add integration
      */
     InterpolationFunction(const Mesh<val_type, dim>& f_mesh,
                           util::n_pairs_t<coord_type, dim> xs_ranges,
+                          InputParameters parameters = {})
+        : InterpolationFunction(
+              template_type(f_mesh.dimension(), xs_ranges, parameters)
+                  .interpolate(f_mesh)) {}
+
+    template <typename... Ts>
+    InterpolationFunction(const Mesh<val_type, dim>& f_mesh,
+                          std::tuple<std::pair<Ts, Ts>...> xs_ranges,
                           InputParameters parameters = {})
         : InterpolationFunction(
               template_type(f_mesh.dimension(), xs_ranges, parameters)
@@ -516,12 +497,12 @@ class InterpolationFunction {  // TODO: Add integration
 #endif
     }
 
-    template <size_type... di>
+    template <typename... Ts, size_type... di>
     void create_knots_(
         util::index_sequence<di...> indices,
         MeshDimension<dim> mesh_dimension,
         DimArray<typename spline_type::KnotContainer>& input_coords,
-        util::n_pairs_t<coord_type, dim> xs_ranges) {
+        std::tuple<std::pair<Ts, Ts>...> xs_ranges) {
         create_knots_(indices, std::move(mesh_dimension), input_coords,
                       std::get<di>(xs_ranges)...);
     }
@@ -543,24 +524,22 @@ class InterpolationFunction1D : public InterpolationFunction<T, size_t{1}> {
     using base = InterpolationFunction<T, size_t{1}>;
 
    public:
-    template <typename InputIter>
-    InterpolationFunction1D(std::pair<InputIter, InputIter> f_range,
-                            typename base::size_type order = 3,
-                            bool periodicity = false)
-        : InterpolationFunction1D(
-              std::make_pair(typename base::coord_type{},
-                             static_cast<typename base::coord_type>(
-                                 (f_range.second - f_range.first) - 1)),
-              f_range,
-              order,
-              periodicity) {}
-
     template <typename C1, typename C2, typename InputIter>
-    InterpolationFunction1D(std::pair<C1, C2> x_range,
-                            std::pair<InputIter, InputIter> f_range,
-                            typename base::size_type order = 3,
-                            bool periodicity = false)
-        : base(order, periodicity, f_range, x_range) {}
+    InterpolationFunction1D(std::pair<InputIter, InputIter> f_range,
+                            std::pair<C1, C2> x_range,
+                            typename base::InputParameters parameter = {})
+        : base(Mesh<typename base::val_type, 1u>{std::move(f_range)},
+               std::make_tuple(x_range),
+               parameter) {}
+
+    template <typename InputIter>
+    InterpolationFunction1D(
+        std::pair<InputIter, InputIter> f_range,
+        std::pair<typename base::coord_type, typename base::coord_type> x_range,
+        typename base::InputParameters parameter = {})
+        : base(Mesh<typename base::val_type, 1u>{std::move(f_range)},
+               std::make_tuple(x_range),
+               parameter) {}
 };
 
 }  // namespace intp

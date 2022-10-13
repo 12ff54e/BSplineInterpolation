@@ -60,8 +60,13 @@ int main() {
 
     const auto t_after_vec = high_resolution_clock::now();
 
+#if __cplusplus >= 202002L
     InterpolationFunctionTemplate1D<> interp1d_template(
-        std::make_pair(-M_PI, M_PI), trig_vec.size(), 3, true);
+        trig_vec.size(), {-M_PI, M_PI}, {.periodicity = {true}});
+#else
+    InterpolationFunctionTemplate1D<> interp1d_template(
+        trig_vec.size(), {-M_PI, M_PI}, {3, {true}});
+#endif
 
     const auto t_after_template_1d = high_resolution_clock::now();
 
@@ -131,18 +136,14 @@ int main() {
 
     const auto t_after_mesh = high_resolution_clock::now();
 
-    InterpolationFunctionTemplate<double, 2> interp2d_template(
-        3, {true, true}, trig_mesh_2d_1.dimension(),
-        std::make_pair(-M_PI, M_PI), std::make_pair(-M_PI, M_PI));
-
 #if __cplusplus >= 202002L
-    InterpolationFunctionTemplate<double, 2> i2t(trig_mesh_2d_1.dimension(),
-                                                 {{-M_PI, M_PI}, {-M_PI, M_PI}},
-                                                 {.periodicity = {true, true}});
+    InterpolationFunctionTemplate<double, 2> interp2d_template(
+        trig_mesh_2d_1.dimension(), {{-M_PI, M_PI}, {-M_PI, M_PI}},
+        {.periodicity = {true, true}});
 #else
-    InterpolationFunctionTemplate<double, 2> i2t(trig_mesh_2d_1.dimension(),
-                                                 {{-M_PI, M_PI}, {-M_PI, M_PI}},
-                                                 {3, {true, true}});
+    InterpolationFunctionTemplate<double, 2> interp2d_template(
+        trig_mesh_2d_1.dimension(), {{-M_PI, M_PI}, {-M_PI, M_PI}},
+        {3, {true, true}});
 #endif
 
     const auto t_after_template = high_resolution_clock::now();

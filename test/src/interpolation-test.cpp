@@ -20,10 +20,15 @@ int main() {
                          0.262974, 0.423888, -0.562671, -0.915567, -0.261017,
                          -0.47915, -0.00939326, -0.445962}};
 
-    InterpolationFunction1D<> interp1_linear(util::get_range(f), 1);
-
-    InterpolationFunction1D<> interp1{std::make_pair(0, .5 * (f.size() - 1)),
-                                      util::get_range(f)};
+#if __cplusplus >= 202002L
+    InterpolationFunction1D<> interp1_linear(util::get_range(f),
+                                             {0, f.size() - 1}, {.order = 1});
+#else
+    InterpolationFunction1D<> interp1_linear(util::get_range(f),
+                                             {0, f.size() - 1}, {1});
+#endif
+    InterpolationFunction1D<> interp1(util::get_range(f),
+                                      {0, .5 * (f.size() - 1)});
 
     auto coords_1d_half = {1.968791374707961,  0.23397112295047862,
                            4.183162505803409,  5.744438451300649,
@@ -248,8 +253,8 @@ int main() {
     }
 
     InterpolationFunction<double, 3> interp3(f3d, {{0, f3d.dim_size(0) - 1},
-                                                   {0., f3d.dim_size(1) - 1},
-                                                   {0., f3d.dim_size(2) - 1}});
+                                                   {0, f3d.dim_size(1) - 1},
+                                                   {0, f3d.dim_size(2) - 1}});
 
     // some random points
     constexpr array<array<double, 3>, 10> coords_3d{
@@ -288,10 +293,21 @@ int main() {
     // dimension, thus we can use the origin non-periodic data to interpolate a
     // periodic spline function
 
-    InterpolationFunction1D<> interp1_periodic_linear(util::get_range(f), 1,
-                                                      true);
+#if __cplusplus >= 202002L
+    InterpolationFunction1D<> interp1_periodic_linear(
+        util::get_range(f), {0, f.size() - 1},
+        {.order = 1, .periodicity = {true}});
 
-    InterpolationFunction1D<> interp1_periodic(util::get_range(f), 4, true);
+    InterpolationFunction1D<> interp1_periodic(
+        util::get_range(f), {0, f.size() - 1},
+        {.order = 4, .periodicity = {true}});
+#else
+    InterpolationFunction1D<> interp1_periodic_linear(
+        util::get_range(f), {0, f.size() - 1}, {1, {true}});
+
+    InterpolationFunction1D<> interp1_periodic(util::get_range(f),
+                                               {0, f.size() - 1}, {4, {true}});
+#endif
 
     // linear interpolation results
     std::vector<double> vals_1d_periodic_linear;
@@ -439,11 +455,15 @@ int main() {
                             11.440973163521294,
                             12.};
 
+#if __cplusplus >= 202002L
     InterpolationFunction1D<> interp1_nonuniform_linear(
-        util::get_range(input_coords_1d), util::get_range(f), 1);
-
+        util::get_range(f), util::get_range(input_coords_1d), {.order = 1});
+#else
+    InterpolationFunction1D<> interp1_nonuniform_linear(
+        util::get_range(f), util::get_range(input_coords_1d), {1});
+#endif
     InterpolationFunction1D<> interp1_nonuniform(
-        util::get_range(input_coords_1d), util::get_range(f));
+        util::get_range(f), util::get_range(input_coords_1d));
 
     // linear interpolation results
     std::vector<double> vals_1d_nonuniform_linear;
@@ -482,11 +502,21 @@ int main() {
 
     // 1D non-uniform periodic interpolation test
 
+#if __cplusplus >= 202002L
     InterpolationFunction1D<> interp1_nonuniform_periodic_linear(
-        util::get_range(input_coords_1d), util::get_range(f), 1, true);
+        util::get_range(f), util::get_range(input_coords_1d),
+        {.order = 1, .periodicity = {true}});
 
     InterpolationFunction1D<> interp1_nonuniform_periodic(
-        util::get_range(input_coords_1d), util::get_range(f), 4, true);
+        util::get_range(f), util::get_range(input_coords_1d),
+        {.order = 4, .periodicity = {true}});
+#else
+    InterpolationFunction1D<> interp1_nonuniform_periodic_linear(
+        util::get_range(f), util::get_range(input_coords_1d), {1, {true}});
+
+    InterpolationFunction1D<> interp1_nonuniform_periodic(
+        util::get_range(f), util::get_range(input_coords_1d), {4, {true}});
+#endif
 
     // linear interpolation results
     std::vector<double> vals_1d_nonuniform_periodic_linear;
@@ -524,10 +554,22 @@ int main() {
 
     auto nonuniform_coord_for_2d = {0., 1.329905262345947, 2.200286645200226,
                                     3.1202827237815516, 4.};
+
+#if __cplusplus >= 202002L
     InterpolationFunction<double, 2> interp2_X_periodic_Y_nonuniform(
-        3, {true, false}, f2d,
-        std::make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
-        util::get_range(nonuniform_coord_for_2d));
+        f2d,
+        std::make_tuple(
+            std::make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
+            util::get_range(nonuniform_coord_for_2d)),
+        {.periodicity = {true, false}});
+#else
+    InterpolationFunction<double, 2> interp2_X_periodic_Y_nonuniform(
+        f2d,
+        std::make_tuple(
+            std::make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
+            util::get_range(nonuniform_coord_for_2d)),
+        {3, {true, false}});
+#endif
 
     auto vals_2d_X_periodic_Y_nonuniform = {
         -0.7160424002258807,  0.6702846215275077,  0.04933393138376427,

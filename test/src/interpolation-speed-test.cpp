@@ -63,9 +63,13 @@ int main() {
 
         const auto t_after_vec = high_resolution_clock::now();
 
+#if __cplusplus >= 202002L
         InterpolationFunction1D<> interp1d(
-            std::make_pair(-M_PI, M_PI),
-            std::make_pair(vec_1d.begin(), vec_1d.end()), 3, true);
+            util::get_range(vec_1d), {-M_PI, M_PI}, {.periodicity = {true}});
+#else
+        InterpolationFunction1D<> interp1d(util::get_range(vec_1d),
+                                           {-M_PI, M_PI}, {3, {true}});
+#endif
 
         const auto t_after_interpolation = high_resolution_clock::now();
 
