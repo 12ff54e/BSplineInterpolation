@@ -1,7 +1,7 @@
 #include <iterator>
 
-#include "../src/include/Mesh.hpp"
-#include "Assertion.hpp"
+#include <Mesh.hpp>
+#include "include/Assertion.hpp"
 
 int main() {
     using namespace std;
@@ -34,7 +34,7 @@ int main() {
 
     auto dim_it = mesh.begin(0, {0, 6, 2});
     for (auto it = dim_it; it != mesh.end(0, {0, 6, 2}); ++it) {
-        *it =static_cast<int>(it - dim_it);
+        *it = static_cast<int>(it - dim_it);
     }
 
     dim_it = mesh.begin(1, {4, 0, 4});
@@ -47,15 +47,15 @@ int main() {
         *it = static_cast<int>(it - dim_it);
     }
 
-    for (int dim_ind = 0; dim_ind < 3; ++dim_ind) {
-        for (unsigned i = 0; i < mesh.dim_size(dim_ind); ++i) {
-            unsigned val;
+    for (std::size_t dim_ind = 0; dim_ind < 3; ++dim_ind) {
+        for (std::size_t i = 0; i < mesh.dim_size(dim_ind); ++i) {
+            std::size_t val;
             if (dim_ind == 0) {
-                assertion((val = mesh(i, 6, 2)) == i);
+                assertion((val = static_cast<std::size_t>(mesh(i, 6, 2))) == i);
             } else if (dim_ind == 1) {
-                assertion((val = mesh(4, i, 4)) == i);
+                assertion((val = static_cast<std::size_t>(mesh(4, i, 4))) == i);
             } else {
-                assertion((val = mesh(9, 7, i)) == i);
+                assertion((val = static_cast<std::size_t>(mesh(9, 7, i))) == i);
             }
             if (assertion.last_status() != 0) {
                 std::cout << "Dimension-wise iterator fails at dimension-"
@@ -76,10 +76,9 @@ int main() {
 
     // test special constructor for 1D case
 
-    std::vector<double> vec{1, 1, 2, 3, 5, 8, 13, 21};
-    Mesh<double, 1> mesh_1d_from_container(vec);
-    Mesh<double, 1> mesh_1d_from_iterator(
-        std::make_pair(vec.begin(), vec.end()));
+    std::vector<int> vec{1, 1, 2, 3, 5, 8, 13, 21};
+    Mesh<int, 1> mesh_1d_from_container(vec);
+    Mesh<int, 1> mesh_1d_from_iterator(std::make_pair(vec.begin(), vec.end()));
 
     for (unsigned i = 0; i < vec.size(); ++i) {
         assertion(mesh_1d_from_container(i) == vec[i] &&

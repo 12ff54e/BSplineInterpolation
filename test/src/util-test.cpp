@@ -2,8 +2,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "../src/include/util.hpp"
-#include "Assertion.hpp"
+#include <util.hpp>
+#include "include/Assertion.hpp"
 
 int main() {
     using namespace intp;

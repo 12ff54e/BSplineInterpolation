@@ -24,18 +24,18 @@ class BandMatrix {
 
     // Create a zero band matrix with given dimension, lower and upper
     // bandwidth.
-    BandMatrix(size_type dim, size_type lower, size_type upper)
-        : n(dim), p(lower), q(upper), __bands{n, 1 + p + q} {}
+    BandMatrix(size_type n, size_type p, size_type q)
+        : n_(n), p_(p), q_(q), bands_{n_, 1 + p_ + q_} {}
 
     BandMatrix() : BandMatrix(0, 0, 0) {}
 
     // properties
 
-    size_type dim() const noexcept { return n; }
+    size_type dim() const noexcept { return n_; }
 
-    size_type lower_band_width() const noexcept { return p; }
+    size_type lower_band_width() const noexcept { return p_; }
 
-    size_type upper_band_width() const noexcept { return q; }
+    size_type upper_band_width() const noexcept { return q_; }
 
     /**
      * @brief Return read/write reference to matrix element, indices are
@@ -46,30 +46,29 @@ class BandMatrix {
      * @return val_type&
      */
     val_type& operator()(size_type i, size_type j) {
-        CUSTOM_ASSERT(j + p >= i && i + q >= j,
+        CUSTOM_ASSERT(j + p_ >= i && i + q_ >= j,
                       "Given i and j not in main bands.");
-        return __bands(j, i + q - j);
+        return bands_(j, i + q_ - j);
     }
 
     val_type operator()(size_type i, size_type j) const {
-        CUSTOM_ASSERT(j + p >= i && i + q >= j,
+        CUSTOM_ASSERT(j + p_ >= i && i + q_ >= j,
                       "Given i and j not in main bands.");
-        return __bands(j, i + q - j);
+        return bands_(j, i + q_ - j);
     }
 
     /**
      * @brief Matrix-Vector multiplication
      *
-     * @tparam Vec
-     * @param x
+     * @param x vector to be multiplied
      */
-    template <typename Vec>
-    util::remove_cvref_t<Vec> operator*(const Vec& x) const {
-        util::remove_cvref_t<Vec> xx(x.size());
+    template <typename Iter>
+    util::remove_cvref_t<Iter> operator*(const Iter& x) const {
+        util::remove_cvref_t<Iter> xx(x.size());
         for (size_type i = 0; i < x.size(); ++i) {
-            for (size_type j = p > i ? p - i : 0, k = i > p ? i - p : 0;
-                 j < std::min(p + q + 1, n + p - i); ++j, ++k) {
-                xx[i] += __bands(i, j) * x[k];
+            for (size_type j = p_ > i ? p_ - i : 0, k = i > p_ ? i - p_ : 0;
+                 j < std::min(p_ + q_ + 1, n_ + p_ - i); ++j, ++k) {
+                xx[i] += bands_(i, j) * x[k];
             }
         }
         return xx;
@@ -78,14 +77,11 @@ class BandMatrix {
     /**
      * @brief Insertion operator, used for debug mostly.
      *
-     * @param os
-     * @param mat
-     * @return std::ostream&
      */
     friend std::ostream& operator<<(std::ostream& os, const BandMatrix& mat) {
-        for (size_t i = 0; i < mat.n; ++i) {
-            for (size_t j = i > mat.p ? i - mat.p : 0;
-                 j<i + mat.q + 1> mat.n ? mat.n : i + mat.q + 1; ++j) {
+        for (size_t i = 0; i < mat.n_; ++i) {
+            for (size_t j = i > mat.p_ ? i - mat.p_ : 0;
+                 j<i + mat.q_ + 1> mat.n_ ? mat.n_ : i + mat.q_ + 1; ++j) {
                 os << "{" << i << ", " << j << "}->" << mat(i, j) << '\n';
             }
         }
@@ -93,9 +89,9 @@ class BandMatrix {
     }
 
    protected:
-    size_type n;
-    size_type p, q;
-    Mesh<val_type, 2> __bands;
+    size_type n_;
+    size_type p_, q_;
+    Mesh<val_type, 2> bands_;
 };
 
 template <typename T>
@@ -107,8 +103,8 @@ class ExtendedBandMatrix : public BandMatrix<T> {
 
     ExtendedBandMatrix(size_type dim, size_type lower, size_type upper)
         : base_type(dim, lower, upper),
-          __right_side_bands{dim - upper - 1, lower},
-          __bottom_side_bands{dim - lower - 1, upper} {}
+          right_side_bands_{dim - upper - 1, lower},
+          bottom_side_bands_{dim - lower - 1, upper} {}
 
     ExtendedBandMatrix() : ExtendedBandMatrix(1, 0, 0) {}
 
@@ -121,51 +117,51 @@ class ExtendedBandMatrix : public BandMatrix<T> {
     }
 
     val_type& side_bands_val(size_type i, size_type j) {
-        CUSTOM_ASSERT(
-            j >= std::max(n - p, i + q + 1) || i >= std::max(n - q, j + p + 1),
-            "Given i and j not in side bands.");
-        return j > i + q ? __right_side_bands(i, j + p - n)
-                         : __bottom_side_bands(j, i + q - n);
+        CUSTOM_ASSERT(j >= std::max(n_ - p_, i + q_ + 1) ||
+                          i >= std::max(n_ - q_, j + p_ + 1),
+                      "Given i and j not in side bands.");
+        return j > i + q_ ? right_side_bands_(i, j + p_ - n_)
+                          : bottom_side_bands_(j, i + q_ - n_);
     }
 
     val_type side_bands_val(size_type i, size_type j) const {
-        CUSTOM_ASSERT(
-            j >= std::max(n - p, i + q + 1) || i >= std::max(n - q, j + p + 1),
-            "Given i and j not in side bands.");
-        return j > i + q ? __right_side_bands(i, j + p - n)
-                         : __bottom_side_bands(j, i + q - n);
+        CUSTOM_ASSERT(j >= std::max(n_ - p_, i + q_ + 1) ||
+                          i >= std::max(n_ - q_, j + p_ + 1),
+                      "Given i and j not in side bands.");
+        return j > i + q_ ? right_side_bands_(i, j + p_ - n_)
+                          : bottom_side_bands_(j, i + q_ - n_);
     }
 
     val_type& operator()(size_type i, size_type j) {
-        return j > i + q || i > j + p ? side_bands_val(i, j)
-                                      : main_bands_val(i, j);
+        return j > i + q_ || i > j + p_ ? side_bands_val(i, j)
+                                        : main_bands_val(i, j);
     }
 
     val_type operator()(size_type i, size_type j) const {
-        return j > i + q || i > j + p ? side_bands_val(i, j)
-                                      : main_bands_val(i, j);
+        return j > i + q_ || i > j + p_ ? side_bands_val(i, j)
+                                        : main_bands_val(i, j);
     }
 
-    template <typename Vec>
-    util::remove_cvref_t<Vec> operator*(const Vec& x) const {
-        util::remove_cvref_t<Vec> xx(x.size());
+    template <typename Iter>
+    util::remove_cvref_t<Iter> operator*(const Iter& x) const {
+        util::remove_cvref_t<Iter> xx(x.size());
         for (size_type i = 0; i < x.size(); ++i) {
-            for (size_type j = i > p ? i - p : 0; j < std::min(i + q + 1, n);
-                 ++j) {
+            for (size_type j = i > p_ ? i - p_ : 0;
+                 j < std::min(i + q_ + 1, n_); ++j) {
                 xx[i] += main_bands_val(i, j) * x[j];
             }
 
             // right side bands
-            if (i < n - q - 1) {
-                for (size_type j = std::max(n - p, i + q + 1); j < n; ++j) {
+            if (i < n_ - q_ - 1) {
+                for (size_type j = std::max(n_ - p_, i + q_ + 1); j < n_; ++j) {
                     xx[i] += side_bands_val(i, j) * x[j];
                 }
             }
         }
 
         // bottom side bands
-        for (size_type j = 0; j < n - p - 1; ++j) {
-            for (size_type i = std::max(n - q, j + p + 1); i < n; ++i) {
+        for (size_type j = 0; j < n_ - p_ - 1; ++j) {
+            for (size_type i = std::max(n_ - q_, j + p_ + 1); i < n_; ++i) {
                 xx[i] += side_bands_val(i, j) * x[j];
             }
         }
@@ -173,12 +169,12 @@ class ExtendedBandMatrix : public BandMatrix<T> {
     }
 
    private:
-    Mesh<val_type, 2> __right_side_bands;
-    Mesh<val_type, 2> __bottom_side_bands;
+    Mesh<val_type, 2> right_side_bands_;
+    Mesh<val_type, 2> bottom_side_bands_;
 
-    using base_type::n;
-    using base_type::p;
-    using base_type::q;
+    using base_type::n_;
+    using base_type::p_;
+    using base_type::q_;
 };
 
 }  // namespace intp
