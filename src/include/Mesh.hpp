@@ -227,6 +227,9 @@ class Mesh {
 
     MeshDimension<dim> dimension_;
 
+    template <typename M>
+    friend class MeshView;  // friend class forward declaration
+
    public:
     explicit Mesh(const MeshDimension<dim>& mesh_dimension)
         : dimension_(mesh_dimension) {
@@ -262,7 +265,6 @@ class Mesh {
                   const allocator_type& alloc = allocator_type())
         : Mesh(std::make_pair(array.begin(), array.end()), alloc) {}
 
-   public:
     // properties
 
     size_type size() const { return storage_.size(); }
@@ -346,6 +348,61 @@ class Mesh {
     index_type iter_indices(const_iterator iter) const {
         return dimension_.dimwise_indices(
             static_cast<size_type>(std::distance(begin(), iter)));
+    }
+};
+
+/**
+ * @brief A view on its underlying mesh. It stores a reference of a Mesh object
+ * and may cause dangling reference issue if use improperly.
+ *
+ */
+template <typename M>
+class MeshView {
+   public:
+    using mesh_type = M;
+    using size_type = typename mesh_type::size_type;
+    using val_type = typename mesh_type::val_type;
+    const static size_type dim = mesh_type::dim;
+    using index_type = typename mesh_type::index_type;
+
+    explicit MeshView(mesh_type mesh, index_type begin, index_type end)
+        : offset_(begin),
+          limit_(end),
+          mesh_(mesh),
+          free_dim_(check_free_dim_()) {}
+
+    template <typename... Indices>
+    val_type& operator()(Indices... indices) {
+        index_type actual_ind{offset_};
+        index_type view_ind{indices...};
+        for (size_t d = 0, vd = 0; d < dim; ++d) {
+            if (free_dim_[d]) { actual_ind[d] += view_ind[vd++]; }
+        }
+        return mesh_.storage_[mesh_.dimension_.indexing(actual_ind)];
+    }
+
+    template <typename... Indices>
+    const val_type& operator()(Indices... indices) const {
+        index_type actual_ind{offset_};
+        index_type view_ind{indices...};
+        for (size_t d = 0, vd = 0; d < dim; ++d) {
+            if (free_dim_[d]) { actual_ind[d] += view_ind[vd++]; }
+        }
+        return mesh_.storage_[mesh_.dimension_.indexing(actual_ind)];
+    }
+
+   private:
+    index_type offset_;
+    index_type limit_;
+    mesh_type& mesh_;
+    std::array<bool, dim> free_dim_;
+
+    std::array<bool, dim> check_free_dim_() {
+        std::array<bool, dim> free_dim;
+        for (size_t d = 0; d < dim; ++d) {
+            free_dim[d] = offset_[d] != limit_[d];
+        }
+        return free_dim;
     }
 };
 

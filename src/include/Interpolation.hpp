@@ -37,8 +37,8 @@ class InterpolationFunction {  // TODO: Add integration
      *
      */
     struct InputParameters {
-        size_type order = 3;
-        DimArray<bool> periodicity = {};
+        size_type order = 3;              // default interpolation order: 3
+        DimArray<bool> periodicity = {};  // default periodicity: aperiodic
     };
 
     /**

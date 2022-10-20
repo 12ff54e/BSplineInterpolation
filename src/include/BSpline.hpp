@@ -570,12 +570,12 @@ class BSpline {
     }
 
 #ifdef _DEBUG
-    void __debug_output() const {
+    void debug_output_() const {
         std::cout << "\n[DEBUG] Control Points (raw data):\n";
 
         // 17 digits for double precision
         std::cout.precision(17);
-        int idx = 1;
+        size_type idx = 1;
         for (auto v : control_points_) {
             if (idx % control_points_.dim_size(dim - 1) == 1) {
                 std::cout << "[DEBUG] ";

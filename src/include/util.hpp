@@ -263,7 +263,7 @@ using lazy_conditional_t =
 
 #ifdef _DEBUG
 #define CUSTOM_ASSERT(assertion, msg) \
-    if (!(assertion)) { throw std::runtime_error(msg); }
+    static_cast<void>((assertion) || (throw std::runtime_error(msg), true))
 #else
 #define CUSTOM_ASSERT(assertion, msg)
 #endif

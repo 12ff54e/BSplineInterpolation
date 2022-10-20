@@ -112,7 +112,32 @@ int main() {
 
     Mesh<int, 4> mesh_4d(5);
     assertion(mesh_4d.size() == util::pow(5u, 4u),
-              "Equal length on each dimension mesh size wrong.");
+              "Equal length on each dimension mesh size wrong.\n");
+
+    // mesh view test
+
+    for (size_t i = 0; i < mesh_4d.dim_size(0); ++i) {
+        for (size_t j = 0; j < mesh_4d.dim_size(1); ++j) {
+            for (size_t k = 0; k < mesh_4d.dim_size(2); ++k) {
+                for (size_t l = 0; l < mesh_4d.dim_size(3); ++l) {
+                    mesh_4d(i, j, k, l) =
+                        static_cast<int>(1000 * i + 100 * j + 10 * k + l);
+                }
+            }
+        }
+    }
+
+    const MeshView<Mesh<int, 4>> mesh_4d_view(mesh_4d, {1, 2, 0, 0},
+                                              {1, 2, 4, 4});
+    for (size_t i = 0; i < mesh_4d.dim_size(0); ++i) {
+        for (size_t j = 0; j < mesh_4d.dim_size(0); ++j) {
+            assertion(mesh_4d_view(i, j) ==
+                      static_cast<int>(1200 + 10 * i + j));
+            if (assertion.last_status() != 0) {
+                std::cout << "Mesh view test failed.\n";
+            }
+        }
+    }
 
     return assertion.status();
 }
