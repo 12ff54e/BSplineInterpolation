@@ -32,7 +32,7 @@ class MeshDimension {
 
     size_type size() const {
         size_type s = 1;
-        for (auto&& d : dim_size_) { s *= d; };
+        for (auto&& d : dim_size_) { s *= d; }
         return s;
     }
 
@@ -47,6 +47,11 @@ class MeshDimension {
     }
 
     /**
+     * @brief Convert to underlying dimensions array.
+     */
+    operator index_type() const { return dim_size_; }
+
+    /**
      * @brief Convert multi-dimension index to one dimension index in storage
      * vector.
      *
@@ -56,8 +61,6 @@ class MeshDimension {
     size_type indexing(Indices... indices) const {
         return indexing(index_type{static_cast<size_type>(indices)...});
     }
-
-    // constexpr size_type indexing() const { return 0; }
 
     size_type indexing(const index_type& ind_arr) const {
         size_type ind{};

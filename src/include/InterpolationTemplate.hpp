@@ -349,6 +349,9 @@ class InterpolationFunctionTemplate {
     ctrl_pt_type solve_for_control_points_(
         const Mesh<val_type, dim>& f_mesh) const {
         ctrl_pt_type weights{mesh_dimension_};
+        // auxilary weight for swapping between
+        ctrl_pt_type weights_tmp(1);
+        if (dim > 1) { weights_tmp.resize(mesh_dimension_); }
 
         auto check_idx =
             [&](typename Mesh<val_type, dim>::index_type& indices) {
@@ -372,37 +375,69 @@ class InterpolationFunctionTemplate {
             if (check_idx(f_indices)) { weights(f_indices) = *it; }
         }
 
+        auto array_right_shift = [](DimArray<size_type> arr) {
+            DimArray<size_type> new_arr{};
+            for (size_type d_ = 0; d_ < dim; ++d_) {
+                new_arr[d_] = arr[(d_ + dim - 1) % dim];
+            }
+            return new_arr;
+        };
+
         // loop through each dimension to solve for control points
         for (size_type d = 0; d < dim; ++d) {
-            // size of hyperplane when given dimension is fixed
-            size_type hyperplane_size = weights.size() / weights.dim_size(d);
+            ctrl_pt_type& old_weight = d % 2 == 0 ? weights : weights_tmp;
+            ctrl_pt_type& new_weight = d % 2 != 0 ? weights : weights_tmp;
+
+            // size of hyperplane orthogonal to last dim axis
+            size_type hyperplane_size =
+                old_weight.size() / old_weight.dim_size(dim - 1);
 
             // loop over each point (representing a 1D spline) of hyperplane
             for (size_type i = 0; i < hyperplane_size; ++i) {
                 DimArray<size_type> ind_arr{};
-                for (size_type d_ = 0, total_ind = i; d_ < dim; ++d_) {
-                    if (d_ == d) { continue; }
-                    ind_arr[d_] = total_ind % weights.dim_size(d_);
-                    total_ind /= weights.dim_size(d_);
+                for (size_type d_ = 1, total_ind = i; d_ < dim; ++d_) {
+                    // iterate from the last but one index
+                    ind_arr[dim - d_ - 1] =
+                        total_ind % old_weight.dim_size(dim - d_ - 1);
+                    total_ind /= old_weight.dim_size(dim - d_ - 1);
                 }
 
                 // Loop through one dimension, update interpolating value to
                 // control points.
-                // In periodic case, rows are shifted to make coefficient matrix
-                // diagonal dominate so weights column should be shifted
-                // accordingly.
-                // auto iter = weights.begin(d, ind_arr);
-                if (base_.periodicity(d)) {
-                    solvers_[d].solver_periodic.solve(
-                        weights.begin(d, ind_arr));
+                if (base_.periodicity(dim - 1 - d)) {
+                    solvers_[dim - 1 - d].solver_periodic.solve(
+                        old_weight.begin(dim - 1, ind_arr));
                 } else {
-                    solvers_[d].solver_aperiodic.solve(
-                        weights.begin(d, ind_arr));
+                    solvers_[dim - 1 - d].solver_aperiodic.solve(
+                        old_weight.begin(dim - 1, ind_arr));
+                }
+#if __cplusplus >= 201703L
+                if constexpr (dim > 1) {
+#else
+                if (dim > 1) {
+#endif
+                    new_weight.resize(
+                        array_right_shift(old_weight.dimension()));
+                    for (auto old_it = old_weight.begin(dim - 1, ind_arr),
+                              new_it = new_weight.begin(
+                                  0, array_right_shift(ind_arr));
+                         old_it != old_weight.end(dim - 1, ind_arr);
+                         ++old_it, ++new_it) {
+                        *new_it = *old_it;
+                    }
                 }
             }
         }
 
-        return weights;
+#if __cplusplus >= 201703L
+        if constexpr (dim % 2 == 0 || dim == 1) {
+#else
+        if (dim % 2 == 0 || dim == 1) {
+#endif
+            return weights;
+        } else {
+            return weights_tmp;
+        }
     }
 };
 

@@ -22,16 +22,17 @@ enum class Alignment : std::size_t {
 };
 
 namespace detail {
-void* allocate_aligned_memory(std::size_t align, std::size_t size) {
+static inline void* allocate_aligned_memory(std::size_t align,
+                                            std::size_t size) {
     void* ptr;
 #ifdef _MSC_VER
     ptr = _aligned_malloc(size, align);
 #else
-    if (posix_memalign(&ptr, align, size)) ptr = 0;
+    if (posix_memalign(&ptr, align, size)) ptr = nullptr;
 #endif
     return ptr;
 }
-void deallocate_aligned_memory(void* ptr) noexcept {
+static inline void deallocate_aligned_memory(void* ptr) noexcept {
 #ifdef _MSC_VER
     _aligned_free(ptr);
 #else
@@ -92,7 +93,7 @@ class AlignedAllocator {
 
     pointer allocate(
         size_type n,
-        typename AlignedAllocator<void, Align>::const_pointer = 0) {
+        typename AlignedAllocator<void, Align>::const_pointer = nullptr) {
         const size_type alignment = static_cast<size_type>(Align);
         void* ptr = detail::allocate_aligned_memory(alignment, n * sizeof(T));
         if (ptr == nullptr) { throw std::bad_alloc(); }
