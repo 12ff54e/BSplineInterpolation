@@ -34,7 +34,11 @@ class BSpline {
 
     using KnotContainer = std::vector<knot_type>;
     using ControlPointContainer =
-        Mesh<val_type, D, AlignedAllocator<val_type, Alignment::AVX>>;
+        Mesh<val_type,
+             D,
+             util::default_init_allocator<
+                 val_type,
+                 AlignedAllocator<val_type, Alignment::AVX>>>;
 
     using BaseSpline = std::vector<knot_type>;
     using diff_type = KnotContainer::iterator::difference_type;

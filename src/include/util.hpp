@@ -257,6 +257,37 @@ inline auto get_range(T& c)
     return std::make_pair(c.begin(), c.end());
 }
 
+/**
+ * @brief An allocator adaptor to do default initialization instead of value
+ * initialization when argument list is empty.
+ *
+ */
+template <typename T, typename A = std::allocator<T>>
+struct default_init_allocator : public A {
+    template <typename U>
+    struct rebind {
+        using other = default_init_allocator<
+            U,
+            typename std::allocator_traits<A>::template rebind_alloc<U>>;
+    };
+
+    using A::A;
+
+    // default initialization
+    template <typename U>
+    void construct(U* ptr) noexcept(
+        std::is_nothrow_default_constructible<U>::value) {
+        ::new (static_cast<void*>(ptr)) U;
+    }
+
+    // delegate to constructor of A
+    template <typename U, typename... Args>
+    void construct(U* ptr, Args&&... args) {
+        std::allocator_traits<A>::construct(static_cast<A&>(*this), ptr,
+                                            std::forward<Args>(args)...);
+    }
+};
+
 }  // namespace util
 
 }  // namespace intp

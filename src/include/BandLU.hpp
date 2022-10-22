@@ -54,7 +54,7 @@ class BandLUBase : public util::CRTP<Solver<Matrix>> {
     matrix_type lu_store_;
 
     // Get the type of parameter in array subscript operator of given type U. It
-    // is assumed that type U is either a container () of an iterator.
+    // is assumed that type U is either a container or an iterator.
     template <typename U>
     using get_size_type = typename U::size_type;
     template <typename U>
@@ -83,9 +83,9 @@ class BandLU<BandMatrix<T>> : public BandLUBase<BandLU, BandMatrix<T>> {
     using base_type::lu_store_;
 
     void compute_impl() {
-        size_type n = lu_store_.dim();
-        size_type p = lu_store_.lower_band_width();
-        size_type q = lu_store_.upper_band_width();
+        const size_type n = lu_store_.dim();
+        const size_type p = lu_store_.lower_band_width();
+        const size_type q = lu_store_.upper_band_width();
 
         for (size_type k = 0; k < n - 1; ++k) {
             for (size_type i = k + 1; i < std::min(k + p + 1, n); ++i) {
@@ -101,9 +101,9 @@ class BandLU<BandMatrix<T>> : public BandLUBase<BandLU, BandMatrix<T>> {
 
     template <typename Iter>
     void solve_in_place_impl(Iter& iter) const {
-        size_type n = lu_store_.dim();
-        size_type p = lu_store_.lower_band_width();
-        size_type q = lu_store_.upper_band_width();
+        const size_type n = lu_store_.dim();
+        const size_type p = lu_store_.lower_band_width();
+        const size_type q = lu_store_.upper_band_width();
 
         using ind_type =
             typename base_type::template ind_type_<util::remove_cvref_t<Iter>>;
@@ -139,9 +139,9 @@ class BandLU<ExtendedBandMatrix<T>>
     using base_type::lu_store_;
 
     void compute_impl() {
-        size_type n = lu_store_.dim();
-        size_type p = lu_store_.lower_band_width();
-        size_type q = lu_store_.upper_band_width();
+        const size_type n = lu_store_.dim();
+        const size_type p = lu_store_.lower_band_width();
+        const size_type q = lu_store_.upper_band_width();
 
         for (size_type k = 0; k < n - 1; ++k) {
             // update main bands
@@ -196,9 +196,9 @@ class BandLU<ExtendedBandMatrix<T>>
 
     template <typename Iter>
     void solve_in_place_impl(Iter& iter) const {
-        size_type n = lu_store_.dim();
-        size_type p = lu_store_.lower_band_width();
-        size_type q = lu_store_.upper_band_width();
+        const size_type n = lu_store_.dim();
+        const size_type p = lu_store_.lower_band_width();
+        const size_type q = lu_store_.upper_band_width();
 
         using ind_type =
             typename base_type::template ind_type_<util::remove_cvref_t<Iter>>;
