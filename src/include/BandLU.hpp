@@ -44,7 +44,7 @@ class BandLUBase : public util::CRTP<Solver<Matrix>> {
         // But `return std::move(solve_in_place(vec_tmp));` will do extra moves.
     }
 
-    template <typename Iter>
+    template <typename Iter>  // TODO: Accept raw point
     void solve_in_place(Iter&& iter) const {
         this->cast().solve_in_place_impl(iter);
     }
@@ -70,11 +70,11 @@ class BandLUBase : public util::CRTP<Solver<Matrix>> {
 template <typename>
 class BandLU;
 
-template <typename T>
-class BandLU<BandMatrix<T>> : public BandLUBase<BandLU, BandMatrix<T>> {
+template <typename... Ts>
+class BandLU<BandMatrix<Ts...>> : public BandLUBase<BandLU, BandMatrix<Ts...>> {
    public:
-    using base_type = BandLUBase<intp::BandLU, BandMatrix<T>>;
-    using matrix_type = BandMatrix<T>;
+    using base_type = BandLUBase<intp::BandLU, BandMatrix<Ts...>>;
+    using matrix_type = typename base_type::matrix_type;
     using size_type = typename matrix_type::size_type;
 
    private:
@@ -125,12 +125,12 @@ class BandLU<BandMatrix<T>> : public BandLUBase<BandLU, BandMatrix<T>> {
     }
 };
 
-template <typename T>
-class BandLU<ExtendedBandMatrix<T>>
-    : public BandLUBase<BandLU, ExtendedBandMatrix<T>> {
+template <typename... Ts>
+class BandLU<ExtendedBandMatrix<Ts...>>
+    : public BandLUBase<BandLU, ExtendedBandMatrix<Ts...>> {
    public:
-    using base_type = BandLUBase<intp::BandLU, ExtendedBandMatrix<T>>;
-    using matrix_type = ExtendedBandMatrix<T>;
+    using base_type = BandLUBase<intp::BandLU, ExtendedBandMatrix<Ts...>>;
+    using matrix_type = typename base_type::matrix_type;
     using size_type = typename matrix_type::size_type;
 
    private:

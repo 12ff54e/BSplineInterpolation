@@ -3,6 +3,7 @@
 #include "BSpline.hpp"
 #include "BandLU.hpp"
 #include "Mesh.hpp"
+#include "util.hpp"
 
 #ifdef _TRACE
 #include <iostream>
@@ -129,6 +130,9 @@ class InterpolationFunctionTemplate {
     }
 
    private:
+    using base_solver_type = BandLU<BandMatrix<val_type>>;
+    using extended_solver_type = BandLU<ExtendedBandMatrix<val_type>>;
+
     // input coordinates, needed only in nonuniform case
     DimArray<typename function_type::spline_type::KnotContainer> input_coords_;
 
@@ -146,9 +150,9 @@ class InterpolationFunctionTemplate {
         EitherSolver(bool is_periodic)
             : is_active_(true), is_periodic_(is_periodic) {
             if (is_periodic_) {
-                new (&solver_periodic) BandLU<ExtendedBandMatrix<val_type>>;
+                new (&solver_periodic) extended_solver_type;
             } else {
-                new (&solver_aperiodic) BandLU<BandMatrix<val_type>>;
+                new (&solver_aperiodic) base_solver_type;
             }
         }
         EitherSolver& operator=(bool is_periodic) {
@@ -159,9 +163,9 @@ class InterpolationFunctionTemplate {
             is_active_ = true;
             is_periodic_ = is_periodic;
             if (is_periodic_) {
-                new (&solver_periodic) BandLU<ExtendedBandMatrix<val_type>>;
+                new (&solver_periodic) extended_solver_type;
             } else {
-                new (&solver_aperiodic) BandLU<BandMatrix<val_type>>;
+                new (&solver_aperiodic) base_solver_type;
             }
 
             return *this;
@@ -176,16 +180,16 @@ class InterpolationFunctionTemplate {
         ~EitherSolver() {
             if (is_active_) {
                 if (is_periodic_) {
-                    solver_periodic.~BandLU<ExtendedBandMatrix<val_type>>();
+                    solver_periodic.~extended_solver_type();
                 } else {
-                    solver_aperiodic.~BandLU<BandMatrix<val_type>>();
+                    solver_aperiodic.~base_solver_type();
                 }
             }
         }
 
         union {
-            BandLU<BandMatrix<val_type>> solver_aperiodic;
-            BandLU<ExtendedBandMatrix<val_type>> solver_periodic;
+            base_solver_type solver_aperiodic;
+            extended_solver_type solver_periodic;
         };
 
         bool is_active_ = false;
@@ -234,8 +238,8 @@ class InterpolationFunctionTemplate {
             bool uniform = base_.uniform(d);
             auto mat_dim = mesh_dimension_.dim_size(d);
             auto band_width = periodic ? order / 2 : order - 1;
-            ExtendedBandMatrix<val_type> coef_mat{mat_dim, band_width,
-                                                  band_width};
+            typename extended_solver_type::matrix_type coef_mat(
+                mat_dim, band_width, band_width);
 
 #ifdef _TRACE
             std::cout << "\n[TRACE] Dimension " << d << '\n';
@@ -341,7 +345,8 @@ class InterpolationFunctionTemplate {
                 solvers_[d].solver_periodic.compute(coef_mat);
             } else {
                 solvers_[d].solver_aperiodic.compute(
-                    static_cast<BandMatrix<val_type>>(coef_mat));
+                    static_cast<typename base_solver_type::matrix_type>(
+                        coef_mat));
             }
         }
     }

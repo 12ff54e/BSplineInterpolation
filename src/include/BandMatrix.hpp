@@ -15,12 +15,13 @@ namespace intp {
  *
  * @tparam T value type of matrix element
  */
-template <typename T>
+template <typename T, typename Alloc = std::allocator<T>>
 class BandMatrix {
    public:
     using size_type = size_t;
     using val_type = T;
-    using mat_type = BandMatrix<val_type>;
+    using allocator_type = Alloc;
+    using matrix_type = BandMatrix<val_type, allocator_type>;
 
     // Create a zero band matrix with given dimension, lower and upper
     // bandwidth.
@@ -91,15 +92,16 @@ class BandMatrix {
    protected:
     size_type n_;
     size_type p_, q_;
-    Mesh<val_type, 2> bands_;
+    Mesh<val_type, 2, allocator_type> bands_;
 };
 
-template <typename T>
-class ExtendedBandMatrix : public BandMatrix<T> {
+template <typename T, typename Alloc = std::allocator<T>>
+class ExtendedBandMatrix : public BandMatrix<T, Alloc> {
    public:
-    using base_type = BandMatrix<T>;
+    using base_type = BandMatrix<T, Alloc>;
     using size_type = typename base_type::size_type;
     using val_type = typename base_type::val_type;
+    using allocator_type = typename base_type::allocator_type;
 
     ExtendedBandMatrix(size_type dim, size_type lower, size_type upper)
         : base_type(dim, lower, upper),
@@ -169,8 +171,8 @@ class ExtendedBandMatrix : public BandMatrix<T> {
     }
 
    private:
-    Mesh<val_type, 2> right_side_bands_;
-    Mesh<val_type, 2> bottom_side_bands_;
+    Mesh<val_type, 2, allocator_type> right_side_bands_;
+    Mesh<val_type, 2, allocator_type> bottom_side_bands_;
 
     using base_type::n_;
     using base_type::p_;
