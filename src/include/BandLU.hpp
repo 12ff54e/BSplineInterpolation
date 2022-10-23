@@ -44,7 +44,7 @@ class BandLUBase : public util::CRTP<Solver<Matrix>> {
         // But `return std::move(solve_in_place(vec_tmp));` will do extra moves.
     }
 
-    template <typename Iter>  // TODO: Accept raw point
+    template <typename Iter>
     void solve_in_place(Iter&& iter) const {
         this->cast().solve_in_place_impl(iter);
     }
@@ -54,17 +54,31 @@ class BandLUBase : public util::CRTP<Solver<Matrix>> {
     matrix_type lu_store_;
 
     // Get the type of parameter in array subscript operator of given type U. It
-    // is assumed that type U is either a container or an iterator.
+    // is assumed that type U is either a container or an iterator, or a raw
+    // pointer.
     template <typename U>
-    using get_size_type = typename U::size_type;
-    template <typename U>
-    using get_difference_type = typename U::difference_type;
-    template <typename U>
-    using ind_type_ =
-        typename util::lazy_conditional<util::is_iterable<U>::value,
-                                        get_size_type,
-                                        get_difference_type,
-                                        U>::type;
+    struct ind_type_ {
+       private:
+        template <typename V>
+        using get_size_type = typename V::size_type;
+        template <typename V>
+        using get_iter_difference_type = typename V::difference_type;
+        template <typename V>
+        using get_ptr_difference_type = std::ptrdiff_t;
+        template <typename V>
+        using get_difference_type =
+            typename util::lazy_conditional<std::is_pointer<V>::value,
+                                            get_ptr_difference_type,
+                                            get_iter_difference_type,
+                                            V>::type;
+
+       public:
+        using type =
+            typename util::lazy_conditional<util::is_iterable<U>::value,
+                                            get_size_type,
+                                            get_difference_type,
+                                            U>::type;
+    };
 };
 
 template <typename>
@@ -105,8 +119,8 @@ class BandLU<BandMatrix<Ts...>> : public BandLUBase<BandLU, BandMatrix<Ts...>> {
         const size_type p = lu_store_.lower_band_width();
         const size_type q = lu_store_.upper_band_width();
 
-        using ind_type =
-            typename base_type::template ind_type_<util::remove_cvref_t<Iter>>;
+        using ind_type = typename base_type::template ind_type_<
+            util::remove_cvref_t<Iter>>::type;
         // applying l matrix
         for (size_type j = 0; j < n; ++j) {
             for (size_type i = j + 1; i < std::min(j + p + 1, n); ++i) {
@@ -200,8 +214,8 @@ class BandLU<ExtendedBandMatrix<Ts...>>
         const size_type p = lu_store_.lower_band_width();
         const size_type q = lu_store_.upper_band_width();
 
-        using ind_type =
-            typename base_type::template ind_type_<util::remove_cvref_t<Iter>>;
+        using ind_type = typename base_type::template ind_type_<
+            util::remove_cvref_t<Iter>>::type;
 
         // apply l matrix
         for (size_type j = 0; j < n; ++j) {
