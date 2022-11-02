@@ -63,9 +63,9 @@ class BandMatrix {
      *
      * @param x vector to be multiplied
      */
-    template <typename Iter>
-    util::remove_cvref_t<Iter> operator*(const Iter& x) const {
-        util::remove_cvref_t<Iter> xx(x.size());
+    template <typename Vec>
+    util::remove_cvref_t<Vec> operator*(const Vec& x) const {
+        util::remove_cvref_t<Vec> xx(x.size());
         for (size_type i = 0; i < x.size(); ++i) {
             for (size_type j = p_ > i ? p_ - i : 0, k = i > p_ ? i - p_ : 0;
                  j < std::min(p_ + q_ + 1, n_ + p_ - i); ++j, ++k) {
