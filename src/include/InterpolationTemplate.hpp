@@ -356,7 +356,7 @@ class InterpolationFunctionTemplate {
         ctrl_pt_type weights{mesh_dimension_};
         // auxilary weight for swapping between
         ctrl_pt_type weights_tmp(1);
-        if (dim > 1) { weights_tmp.resize(mesh_dimension_); }
+        if CPP17_CONSTEXPR_ (dim > 1) { weights_tmp.resize(mesh_dimension_); }
 
         auto check_idx =
             [&](typename Mesh<val_type, dim>::index_type& indices) {
@@ -416,11 +416,7 @@ class InterpolationFunctionTemplate {
                     solvers_[dim - 1 - d].solver_aperiodic.solve(
                         old_weight.begin(dim - 1, ind_arr));
                 }
-#if __cplusplus >= 201703L
-                if constexpr (dim > 1) {
-#else
-                if (dim > 1) {
-#endif
+                if CPP17_CONSTEXPR_ (dim > 1) {
                     new_weight.resize(
                         array_right_shift(old_weight.dimension()));
                     for (auto old_it = old_weight.begin(dim - 1, ind_arr),
@@ -434,11 +430,7 @@ class InterpolationFunctionTemplate {
             }
         }
 
-#if __cplusplus >= 201703L
-        if constexpr (dim % 2 == 0 || dim == 1) {
-#else
-        if (dim % 2 == 0 || dim == 1) {
-#endif
+        if CPP17_CONSTEXPR_ (dim % 2 == 0 || dim == 1) {
             return weights;
         } else {
             return weights_tmp;

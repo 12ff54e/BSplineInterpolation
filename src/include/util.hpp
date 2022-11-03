@@ -201,6 +201,12 @@ using remove_cvref_t =
 #define CPP14_CONSTEXPR_
 #endif
 
+#if __cplusplus >= 201703L
+#define CPP17_CONSTEXPR_ constexpr
+#else
+#define CPP17_CONSTEXPR_
+#endif
+
 /**
  * @brief CRTP helper, used for downward casting.
  *
