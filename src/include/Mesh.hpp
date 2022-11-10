@@ -144,11 +144,13 @@ class Mesh {
         reference operator*() { return *ptr_; }
         reference operator->() { return ptr_; }
 
-        bool operator==(skip_iterator other) {
+        bool operator==(const skip_iterator& other) const {
             return this->ptr_ == other.ptr_ &&
                    this->step_length_ == other.step_length_;
         }
-        bool operator!=(skip_iterator other) { return !operator==(other); }
+        bool operator!=(const skip_iterator& other) const {
+            return !operator==(other);
+        }
 
         skip_iterator& operator++() {
             ptr_ += step_length_;
@@ -203,10 +205,18 @@ class Mesh {
             return *(ptr_ + n * step_length_);
         }
 
-        bool operator<(skip_iterator other) { return other - *this > 0; }
-        bool operator>(skip_iterator other) { return other < *this; }
-        bool operator<=(skip_iterator other) { return !(*this > other); }
-        bool operator>=(skip_iterator other) { return !(*this < other); }
+        bool operator<(const skip_iterator& other) const {
+            return other - *this > 0;
+        }
+        bool operator>(const skip_iterator& other) const {
+            return other < *this;
+        }
+        bool operator<=(const skip_iterator& other) const {
+            return !(*this > other);
+        }
+        bool operator>=(const skip_iterator& other) const {
+            return !(*this < other);
+        }
     };
 
     /**

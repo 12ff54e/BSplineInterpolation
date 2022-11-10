@@ -21,6 +21,8 @@ endif()
 add_compile_definitions($<$<CONFIG:Debug>:_DEBUG>)
 # add_compile_definitions($<$<CONFIG:Debug>:_TRACE>)
 
+add_compile_definitions($<$<CONFIG:Release>:_MULTITHREAD>)
+
 # Specify tests
 list(APPEND tests "util-test" "mesh-test" "band-matrix-and-solver-test" "bspline-test" "interpolation-test" "interpolation-speed-test" "interpolation-template-test")
 

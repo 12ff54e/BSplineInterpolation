@@ -2,6 +2,7 @@
 
 #include "BSpline.hpp"
 #include "BandLU.hpp"
+#include "DedicatedThreadPool.hpp"
 #include "Mesh.hpp"
 #include "util.hpp"
 
@@ -353,9 +354,13 @@ class InterpolationFunctionTemplate {
 
     ctrl_pt_type solve_for_control_points_(
         const Mesh<val_type, dim>& f_mesh) const {
+#ifdef _MULTITHREAD
+        DedicatedThreadPool<void> thread_pool(8);  // initial a thread pool
+        std::vector<std::future<decltype(thread_pool)::return_type>>
+            futures;  // stores futures for waiting
+#endif
         ctrl_pt_type weights{mesh_dimension_};
-        // auxilary weight for swapping between
-        ctrl_pt_type weights_tmp(1);
+        ctrl_pt_type weights_tmp(1);  // auxilary weight for swapping between
         if CPP17_CONSTEXPR_ (dim > 1) { weights_tmp.resize(mesh_dimension_); }
 
         auto check_idx =
@@ -393,6 +398,10 @@ class InterpolationFunctionTemplate {
             ctrl_pt_type& old_weight = d % 2 == 0 ? weights : weights_tmp;
             ctrl_pt_type& new_weight = d % 2 != 0 ? weights : weights_tmp;
 
+            if CPP17_CONSTEXPR_ (dim > 1) {
+                new_weight.resize(array_right_shift(old_weight.dimension()));
+            }
+
             // size of hyperplane orthogonal to last dim axis
             size_type hyperplane_size =
                 old_weight.size() / old_weight.dim_size(dim - 1);
@@ -407,27 +416,42 @@ class InterpolationFunctionTemplate {
                     total_ind /= old_weight.dim_size(dim - d_ - 1);
                 }
 
-                // Loop through one dimension, update interpolating value to
-                // control points.
-                if (base_.periodicity(dim - 1 - d)) {
-                    solvers_[dim - 1 - d].solver_periodic.solve(
-                        old_weight.begin(dim - 1, ind_arr));
-                } else {
-                    solvers_[dim - 1 - d].solver_aperiodic.solve(
-                        old_weight.begin(dim - 1, ind_arr));
-                }
-                if CPP17_CONSTEXPR_ (dim > 1) {
-                    new_weight.resize(
-                        array_right_shift(old_weight.dimension()));
-                    for (auto old_it = old_weight.begin(dim - 1, ind_arr),
-                              new_it = new_weight.begin(
-                                  0, array_right_shift(ind_arr));
-                         old_it != old_weight.end(dim - 1, ind_arr);
-                         ++old_it, ++new_it) {
-                        *new_it = *old_it;
+                // prepare variables being captured by lambda
+                bool periodicity = base_.periodicity(dim - 1 - d);
+                auto& solver_wrapper = solvers_[dim - 1 - d];
+                auto old_iter_begin = old_weight.begin(dim - 1, ind_arr);
+                auto old_iter_end = old_weight.end(dim - 1, ind_arr);
+                auto new_iter_begin =
+                    new_weight.begin(0, array_right_shift(ind_arr));
+
+                // use capture to create a lambda with no parameters (solver is
+                // too large thus captured by reference)
+                auto solve_and_rearrange = [=, &solver_wrapper]() {
+                    if (periodicity) {
+                        solver_wrapper.solver_periodic.solve(old_iter_begin);
+                    } else {
+                        solver_wrapper.solver_aperiodic.solve(old_iter_begin);
                     }
-                }
+                    if CPP17_CONSTEXPR_ (dim > 1) {
+                        for (auto old_it = old_iter_begin,
+                                  new_it = new_iter_begin;
+                             old_it != old_iter_end; ++old_it, ++new_it) {
+                            *new_it = *old_it;
+                        }
+                    }
+                };
+#ifdef _MULTITHREAD
+                // add task to thread pool
+                futures.push_back(
+                    thread_pool.queue_task(std::move(solve_and_rearrange)));
+#else
+                solve_and_rearrange();
+#endif
             }
+#ifdef _MULTITHREAD
+            for (auto&& f : futures) { f.get(); }
+            futures.clear();
+#endif
         }
 
         if CPP17_CONSTEXPR_ (dim % 2 == 0 || dim == 1) {
