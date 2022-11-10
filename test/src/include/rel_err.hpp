@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INTP_TEST_RELERR
+#define INTP_TEST_RELERR
 
 #include <cmath>
 #include <iostream>
@@ -46,3 +47,5 @@ double rel_err(const Func& interp,
 
     return std::sqrt(err / l2);
 }
+
+#endif

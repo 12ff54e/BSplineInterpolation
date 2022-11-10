@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INTP_BANDMATRIX
+#define INTP_BANDMATRIX
 
 #include <iostream>
 #include <type_traits>
@@ -178,3 +179,5 @@ class ExtendedBandMatrix : public BandMatrix<T> {
 };
 
 }  // namespace intp
+
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INTP_TEMPLATE
+#define INTP_TEMPLATE
 
 #include "BSpline.hpp"
 #include "BandLU.hpp"
@@ -430,3 +431,5 @@ class InterpolationFunctionTemplate1D
 };
 
 }  // namespace intp
+
+#endif

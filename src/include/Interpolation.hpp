@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INTP_INTERPOLATION
+#define INTP_INTERPOLATION
 
 #include <cmath>  // ceil
 #include <initializer_list>
@@ -493,3 +494,5 @@ class InterpolationFunction1D : public InterpolationFunction<T, size_t{1}> {
 };
 
 }  // namespace intp
+
+#endif

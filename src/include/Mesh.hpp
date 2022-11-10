@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INTP_MESH
+#define INTP_MESH
 
 #include <array>
 #include <vector>
@@ -350,3 +351,5 @@ class Mesh {
 };
 
 }  // namespace intp
+
+#endif

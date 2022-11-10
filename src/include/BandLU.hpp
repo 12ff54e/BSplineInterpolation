@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INTP_BANDLU
+#define INTP_BANDLU
 
 #include <type_traits>
 
@@ -242,3 +243,5 @@ class BandLU<ExtendedBandMatrix<T>>
 };
 
 }  // namespace intp
+
+#endif

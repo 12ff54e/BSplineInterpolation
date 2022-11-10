@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INTP_UTIL
+#define INTP_UTIL
 
 #include <array>
 #include <memory>
@@ -260,3 +261,5 @@ inline auto get_range(T& c)
 }  // namespace util
 
 }  // namespace intp
+
+#endif

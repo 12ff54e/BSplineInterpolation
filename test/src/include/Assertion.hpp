@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INTP_TEST_ASSERTION
+#define INTP_TEST_ASSERTION
 
 #include <iostream>
 #include <string>
@@ -22,3 +23,5 @@ class Assertion {
     int last_status() const { return last_err; }
     int status() const { return err; }
 };
+
+#endif

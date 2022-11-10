@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INTP_BSPLINE
+#define INTP_BSPLINE
 
 #include <algorithm>  // upper_bound
 #include <array>
@@ -592,3 +593,5 @@ class BSpline {
 };
 
 }  // namespace intp
+
+#endif
