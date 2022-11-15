@@ -9,7 +9,7 @@ if(MSVC)
 else()
     set(debug_flags " -fsanitize=address")
     if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
-        set(CMAKE_CXX_FLAGS "-Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-padded")
+        set(CMAKE_CXX_FLAGS "-Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-padded -Wno-exit-time-destructors")
     else()
         set(CMAKE_CXX_FLAGS "-Wall -Wextra")
     endif()
@@ -21,7 +21,7 @@ endif()
 add_compile_definitions($<$<CONFIG:Debug>:_DEBUG>)
 # add_compile_definitions($<$<CONFIG:Debug>:_TRACE>)
 
-add_compile_definitions($<$<CONFIG:Release>:_MULTITHREAD>)
+add_compile_definitions($<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:_MULTITHREAD>)
 
 # Specify tests
 list(APPEND tests "util-test" "mesh-test" "band-matrix-and-solver-test" "bspline-test" "interpolation-test" "interpolation-speed-test" "interpolation-template-test")

@@ -354,11 +354,6 @@ class InterpolationFunctionTemplate {
 
     ctrl_pt_type solve_for_control_points_(
         const Mesh<val_type, dim>& f_mesh) const {
-#ifdef _MULTITHREAD
-        DedicatedThreadPool<void> thread_pool(8);  // initial a thread pool
-        std::vector<std::future<decltype(thread_pool)::return_type>>
-            futures;  // stores futures for waiting
-#endif
         ctrl_pt_type weights{mesh_dimension_};
         ctrl_pt_type weights_tmp(1);  // auxilary weight for swapping between
         if CPP17_CONSTEXPR_ (dim > 1) { weights_tmp.resize(mesh_dimension_); }
@@ -402,31 +397,24 @@ class InterpolationFunctionTemplate {
                 new_weight.resize(array_right_shift(old_weight.dimension()));
             }
 
+            const auto line_size = old_weight.dim_size(dim - 1);
             // size of hyperplane orthogonal to last dim axis
-            size_type hyperplane_size =
-                old_weight.size() / old_weight.dim_size(dim - 1);
+            const auto hyperplane_size = old_weight.size() / line_size;
 
-            // loop over each point (representing a 1D spline) of hyperplane
-            for (size_type i = 0; i < hyperplane_size; ++i) {
-                DimArray<size_type> ind_arr{};
-                for (size_type d_ = 1, total_ind = i; d_ < dim; ++d_) {
-                    // iterate from the last but one index
-                    ind_arr[dim - d_ - 1] =
-                        total_ind % old_weight.dim_size(dim - d_ - 1);
-                    total_ind /= old_weight.dim_size(dim - d_ - 1);
-                }
+            // prepare variables being captured by lambda
+            bool periodicity = base_.periodicity(dim - 1 - d);
+            auto& solver_wrapper = solvers_[dim - 1 - d];
+            auto solve_and_rearrange_block = [&](size_type begin,
+                                                 size_type end) {
+                for (size_type j = begin; j < end; ++j) {
+                    auto ind_arr =
+                        old_weight.dimension().dimwise_indices(j * line_size);
 
-                // prepare variables being captured by lambda
-                bool periodicity = base_.periodicity(dim - 1 - d);
-                auto& solver_wrapper = solvers_[dim - 1 - d];
-                auto old_iter_begin = old_weight.begin(dim - 1, ind_arr);
-                auto old_iter_end = old_weight.end(dim - 1, ind_arr);
-                auto new_iter_begin =
-                    new_weight.begin(0, array_right_shift(ind_arr));
+                    auto old_iter_begin = old_weight.begin(dim - 1, ind_arr);
+                    auto old_iter_end = old_weight.end(dim - 1, ind_arr);
+                    auto new_iter_begin =
+                        new_weight.begin(0, array_right_shift(ind_arr));
 
-                // use capture to create a lambda with no parameters (solver is
-                // too large thus captured by reference)
-                auto solve_and_rearrange = [=, &solver_wrapper]() {
                     if (periodicity) {
                         solver_wrapper.solver_periodic.solve(old_iter_begin);
                     } else {
@@ -439,19 +427,34 @@ class InterpolationFunctionTemplate {
                             *new_it = *old_it;
                         }
                     }
-                };
+                }
+            };
+
 #ifdef _MULTITHREAD
-                // add task to thread pool
-                futures.push_back(
-                    thread_pool.queue_task(std::move(solve_and_rearrange)));
-#else
-                solve_and_rearrange();
-#endif
+            const size_type block_num = old_weight.size() / (1 << 13);
+            // const size_type block_num = hyperplane_size;
+            const size_type task_per_block =
+                block_num == 0 ? hyperplane_size : hyperplane_size / block_num;
+
+            auto& thread_pool = DedicatedThreadPool<void>::get_instance(8);
+            std::vector<std::future<void>> res;
+
+            for (size_type i = 0; i < block_num; ++i) {
+                // use thread pool here may seem to be a bit overhead
+                res.push_back(thread_pool.queue_task([=]() {
+                    solve_and_rearrange_block(i * task_per_block,
+                                              (i + 1) * task_per_block);
+                }));
             }
-#ifdef _MULTITHREAD
-            for (auto&& f : futures) { f.get(); }
-            futures.clear();
-#endif
+            // main thread deals with the remaining part in case hyperplane_size
+            // not divisible by thread_num
+            solve_and_rearrange_block(block_num * task_per_block,
+                                      hyperplane_size);
+            // wait for all tasks are complete
+            for (auto&& f : res) { f.get(); }
+#else
+            solve_and_rearrange_block(0, hyperplane_size);
+#endif  // _MULTITHREAD
         }
 
         if CPP17_CONSTEXPR_ (dim % 2 == 0 || dim == 1) {

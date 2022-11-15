@@ -31,6 +31,10 @@ class DedicatedThreadPool {
         for (std::size_t i = 0; i < thread_num; i++) {
             threads.emplace_back(&DedicatedThreadPool::thread_loop, this);
         }
+#ifdef _DEBUG
+        std::cout << "[DEBUG] Thread pool initialized with " << num
+                  << " threads.\n";
+#endif
     }
 
     ~DedicatedThreadPool() {
@@ -69,6 +73,18 @@ class DedicatedThreadPool {
             queue_empty = tasks.empty();
         }
         return queue_empty;
+    }
+
+    /**
+     * @brief Singleton style instance getter
+     *
+     * @param num Thread number in the pool, default to be
+     * hardware_concurrency()
+     */
+    static DedicatedThreadPool& get_instance(
+        std::size_t num = std::thread::hardware_concurrency()) {
+        static DedicatedThreadPool thread_pool(num);
+        return thread_pool;
     }
 
    private:
