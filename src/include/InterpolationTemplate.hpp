@@ -431,7 +431,8 @@ class InterpolationFunctionTemplate {
             };
 
 #ifdef _MULTITHREAD
-            const size_type block_num = old_weight.size() / (1 << 13);
+            const size_type block_num = static_cast<size_type>(
+                std::sqrt(static_cast<double>(hyperplane_size)));
             // const size_type block_num = hyperplane_size;
             const size_type task_per_block =
                 block_num == 0 ? hyperplane_size : hyperplane_size / block_num;
