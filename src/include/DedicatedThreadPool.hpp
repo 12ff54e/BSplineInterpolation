@@ -28,9 +28,19 @@ class DedicatedThreadPool {
      */
     struct shared_working_queue {
        public:
+#ifdef _DEBUG
+        size_t submitted{};
+        size_t executed{};
+        size_t stolen{};
+        size_t stealing{};
+#endif
+
         shared_working_queue() = default;
         void push(task_type&& task) {
             lock_type lk(deq_mutex);
+#ifdef _DEBUG
+            ++submitted;
+#endif
             deq.push_back(std::move(task));
         }
         bool try_pop(task_type& task) {
@@ -38,6 +48,9 @@ class DedicatedThreadPool {
             if (deq.empty()) { return false; }
             task = std::move(deq.back());
             deq.pop_back();
+#ifdef _DEBUG
+            ++executed;
+#endif
             return true;
         }
         bool try_steal(task_type& task) {
@@ -45,6 +58,9 @@ class DedicatedThreadPool {
             if (deq.empty()) { return false; }
             task = std::move(deq.front());
             deq.pop_front();
+#ifdef _DEBUG
+            ++stolen;
+#endif
             return true;
         }
         bool empty() const {
@@ -61,27 +77,24 @@ class DedicatedThreadPool {
         mutable std::mutex deq_mutex;
     };
 
-   public:
-    using return_type = T;
-
     /**
      * @brief Construct a new Thread Pool
      *
      * @param num Thread number in the pool
      */
-    DedicatedThreadPool(std::size_t num = std::thread::hardware_concurrency())
+    DedicatedThreadPool(size_t num = std::thread::hardware_concurrency())
         : join_threads(threads) {
         auto t_num = num == 0 ? DEFAULT_THREAD_NUM : num;
         try {
-            for (std::size_t i = 0; i < t_num; i++) {
+            for (size_t i = 0; i < t_num; i++) {
                 worker_queues.emplace_back(new shared_working_queue{});
             }
-            for (std::size_t i = 0; i < t_num; i++) {
+            for (size_t i = 0; i < t_num; i++) {
                 threads.emplace_back(&DedicatedThreadPool::thread_loop, this,
                                      i);
             }
 #ifdef _DEBUG
-            std::cout << "[DEBUG] Thread pool initialized with " << num
+            std::cout << "[DEBUG] Thread pool initialized with " << t_num
                       << " threads.\n";
 #endif
         } catch (...) {  // in this case dtor is not called, so threads
@@ -92,9 +105,28 @@ class DedicatedThreadPool {
         }
     }
 
+   public:
+    using return_type = T;
+
     ~DedicatedThreadPool() {
         should_terminate = true;
         cv.notify_all();
+
+#ifdef _DEBUG
+        std::cout << "\n[DEBUG] The thread pool has " << thread_num()
+                  << " threads.\n"
+                  << "[DEBUG]    Main queue has " << submitted
+                  << " submission.\n"
+                  << "[DEBUG] Worker queue stats:\n"
+                  << "[DEBUG]\t\tSubmitted  Executed  Stolen  Stealing\n";
+        for (size_t i = 0; i < worker_queues.size(); ++i) {
+            auto ptr = worker_queues[i].get();
+            std::cout << "[DEBUG] Thread " << i << ": \t" << ptr->submitted
+                      << '\t' << ptr->executed + ptr->stealing << '\t'
+                      << ptr->stolen << '\t' << ptr->stealing << '\n';
+        }
+        std::cout << "[DEBUG] NOTE: Submitted = Executed - Stolen + Stealing\n";
+#endif
     }
 
     /**
@@ -108,6 +140,9 @@ class DedicatedThreadPool {
         {
             lock_type lk(main_queue_mutex);
             main_queue.push(std::move(task));
+#ifdef _DEBUG
+            ++submitted;
+#endif
         }
         cv.notify_one();
         return res;
@@ -126,7 +161,7 @@ class DedicatedThreadPool {
         return queue_empty;
     }
 
-    std::size_t thread_num() const {
+    size_t thread_num() const {
         return threads.size();
     }
 
@@ -137,14 +172,14 @@ class DedicatedThreadPool {
      * hardware_concurrency()
      */
     static DedicatedThreadPool& get_instance(
-        std::size_t num = std::thread::hardware_concurrency()) {
+        size_t num = std::thread::hardware_concurrency()) {
         static DedicatedThreadPool thread_pool(num);
         return thread_pool;
     }
 
    private:
-    static constexpr std::size_t DEFAULT_THREAD_NUM = 8;
-    static constexpr std::size_t BATCH_SIZE = 16;
+    static constexpr size_t DEFAULT_THREAD_NUM = 8;
+    static constexpr size_t BATCH_SIZE = 16;
 
     /**
      * @brief Hold a ref of thread vector, use RAII to ensure all the threads is
@@ -169,7 +204,7 @@ class DedicatedThreadPool {
         {
             lock_type lk(main_queue_mutex);
             if (main_queue.empty()) { return false; }
-            std::size_t c{};
+            size_t c{};
             while (c++ < BATCH_SIZE && !main_queue.empty()) {
                 worker_queue_ptr->push(std::move(main_queue.front()));
                 main_queue.pop();
@@ -179,9 +214,14 @@ class DedicatedThreadPool {
     }
 
     bool try_steal_from_others(task_type& task) {
-        for (std::size_t i = 0; i < worker_queues.size() - 1; ++i) {
+        for (size_t i = 0; i < worker_queues.size() - 1; ++i) {
             const auto idx = (thread_idx + i + 1) % worker_queues.size();
-            if (worker_queues[idx]->try_steal(task)) { return true; }
+            if (worker_queues[idx]->try_steal(task)) {
+#ifdef _DEBUG
+                ++(worker_queue_ptr->stealing);
+#endif
+                return true;
+            }
         }
         return false;
     }
@@ -190,7 +230,7 @@ class DedicatedThreadPool {
      * @brief  scheduler function
      *
      */
-    void thread_loop(std::size_t idx) {
+    void thread_loop(size_t idx) {
         thread_idx = idx;
         worker_queue_ptr = worker_queues[idx].get();
         task_type task;
@@ -212,18 +252,16 @@ class DedicatedThreadPool {
         }
     }
 
+#ifdef _DEBUG
+    size_t submitted{};
+#endif
     bool should_terminate = false;  // Tells threads to stop looking for tasks
-    std::mutex
-        main_queue_mutex;  // Prevents data races to the task queue, all ops
-                           // on tasks queue should be performed after locking
-                           // it. This mutex is not needed with the presence
-                           // of a thread safe queue for tasks.
-    std::condition_variable cv;
+    std::mutex main_queue_mutex;    // Protects main task queue
+    std::condition_variable cv;     // Signals for thread sleep/awake
     std::vector<std::thread> threads;  // Thread container
 
-    // Main queue for tasks
-    std::queue<task_type> main_queue;
-    inline static thread_local std::size_t thread_idx{};
+    std::queue<task_type> main_queue;  // Main queue for tasks
+    inline static thread_local size_t thread_idx{};
     // Local queue ptr for tasks
     inline static thread_local shared_working_queue* worker_queue_ptr{};
     std::vector<std::unique_ptr<shared_working_queue>> worker_queues;

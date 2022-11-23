@@ -18,9 +18,8 @@ else()
     endif()
 endif()
 
-add_compile_definitions($<$<CONFIG:Debug>:_DEBUG>)
-# add_compile_definitions($<$<CONFIG:Debug>:_TRACE>)
-
+add_compile_definitions($<$<CONFIG:Debug>:_TRACE>)
+add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:_DEBUG>)
 add_compile_definitions($<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:_MULTITHREAD>)
 
 # Specify tests

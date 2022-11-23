@@ -42,7 +42,6 @@ int main() {
     Assertion assertion;
     constexpr size_t len = 256;
     constexpr size_t eval_count = 1 << 20;
-    const double eps = std::sqrt(std::numeric_limits<double>::epsilon());
 
     // 1D case
     {
@@ -78,6 +77,8 @@ int main() {
         double err_1d =
             rel_err(interp1d, std::make_pair(coord_1d.begin(), coord_1d.end()),
                     std::make_pair(vals_1d.begin(), vals_1d.end()));
+
+        constexpr double eps = .5e-14;
         assertion(err_1d < eps);
         std::cout << "Interpolation 1d trigonometric function with err = "
                   << err_1d << '\n';
@@ -143,6 +144,9 @@ int main() {
         double err_2d =
             rel_err(interp2d, std::make_pair(coord_2d.begin(), coord_2d.end()),
                     std::make_pair(vals_2d.begin(), vals_2d.end()));
+
+        const double eps =
+            std::pow(2 * M_PI / static_cast<double>(len_2d), 4) / 4;
         assertion(err_2d < eps);
         std::cout << "Interpolation 2d trigonometric function with err = "
                   << err_2d << '\n';
@@ -215,6 +219,8 @@ int main() {
         double err_3d =
             rel_err(interp3d, std::make_pair(coord_3d.begin(), coord_3d.end()),
                     std::make_pair(vals_3d.begin(), vals_3d.end()));
+
+        const double eps = std::pow(2 * M_PI / len, 4) / 2;
         assertion(err_3d < eps);
         std::cout << "Interpolation 3d trig-exp function with err = " << err_3d
                   << '\n';
@@ -237,7 +243,7 @@ int main() {
                   << duration<double, milliseconds::period>(
                          t_after_eval - t_after_interpolation)
                          .count()
-                  << "ms\n\n";
+                  << "ms\n";
     }
 
     return assertion.status();
