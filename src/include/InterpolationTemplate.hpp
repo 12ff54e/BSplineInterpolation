@@ -343,10 +343,10 @@ class InterpolationFunctionTemplate {
 #endif
 
             if (periodic) {
-                solvers_[d].solver_periodic.compute(coef_mat);
+                solvers_[d].solver_periodic.compute(std::move(coef_mat));
             } else {
                 solvers_[d].solver_aperiodic.compute(
-                    static_cast<typename base_solver_type::matrix_type>(
+                    static_cast<typename base_solver_type::matrix_type&&>(
                         coef_mat));
             }
         }
@@ -431,9 +431,9 @@ class InterpolationFunctionTemplate {
             };
 
 #ifdef _MULTITHREAD
+            // TODO: use a more robust task division strategy
             const size_type block_num = static_cast<size_type>(
                 std::sqrt(static_cast<double>(hyperplane_size)));
-            // const size_type block_num = hyperplane_size;
             const size_type task_per_block =
                 block_num == 0 ? hyperplane_size : hyperplane_size / block_num;
 
