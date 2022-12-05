@@ -5,6 +5,10 @@
 #include "BandLU.hpp"
 #include "Mesh.hpp"
 
+#if __cplusplus >= 201703L
+#include <variant>
+#endif
+
 #ifdef _TRACE
 #include <iostream>
 #endif
@@ -59,7 +63,15 @@ class InterpolationFunctionTemplate {
                 x_ranges...),
           solvers_{} {
         // active union member accordingly
-        for (size_type i = 0; i < dim; ++i) { solvers_[i] = periodicity[i]; }
+        for (size_type i = 0; i < dim; ++i) {
+#if __cplusplus >= 201703L
+            if (periodicity[i]) {
+                solvers_[i].template emplace<extended_solver_type>();
+            } else {
+                solvers_[i].template emplace<base_solver_type>();
+            }
+#endif
+        }
         build_solver_();
     }
 
@@ -127,6 +139,9 @@ class InterpolationFunctionTemplate {
     }
 
    private:
+    using base_solver_type = BandLU<BandMatrix<val_type>>;
+    using extended_solver_type = BandLU<ExtendedBandMatrix<val_type>>;
+
     // input coordinates, needed only in nonuniform case
     DimArray<typename function_type::spline_type::KnotContainer> input_coords_;
 
@@ -135,18 +150,22 @@ class InterpolationFunctionTemplate {
     // the base interpolation function with unspecified weights
     function_type base_;
 
+#if __cplusplus >= 201703L
+    using EitherSolver = std::variant<base_solver_type, extended_solver_type>;
+#else
     // A union-like class storing BandLU solver for Either band matrix or
     // extended band matrix
     struct EitherSolver {
-        // set default active union member, or g++ compiled code will throw err
+        // set default active union member, or g++ compiled code will throw
+        // err
         EitherSolver() {}
         // Active union member and tag it.
         EitherSolver(bool is_periodic)
             : is_active_(true), is_periodic_(is_periodic) {
             if (is_periodic_) {
-                new (&solver_periodic) BandLU<ExtendedBandMatrix<val_type>>;
+                new (&solver_periodic) extended_solver_type;
             } else {
-                new (&solver_aperiodic) BandLU<BandMatrix<val_type>>;
+                new (&solver_aperiodic) base_solver_type;
             }
         }
         EitherSolver& operator=(bool is_periodic) {
@@ -157,9 +176,9 @@ class InterpolationFunctionTemplate {
             is_active_ = true;
             is_periodic_ = is_periodic;
             if (is_periodic_) {
-                new (&solver_periodic) BandLU<ExtendedBandMatrix<val_type>>;
+                new (&solver_periodic) extended_solver_type;
             } else {
-                new (&solver_aperiodic) BandLU<BandMatrix<val_type>>;
+                new (&solver_aperiodic) base_solver_type;
             }
 
             return *this;
@@ -174,22 +193,23 @@ class InterpolationFunctionTemplate {
         ~EitherSolver() {
             if (is_active_) {
                 if (is_periodic_) {
-                    solver_periodic.~BandLU<ExtendedBandMatrix<val_type>>();
+                    solver_periodic.~extended_solver_type();
                 } else {
-                    solver_aperiodic.~BandLU<BandMatrix<val_type>>();
+                    solver_aperiodic.~base_solver_type();
                 }
             }
         }
 
         union {
-            BandLU<BandMatrix<val_type>> solver_aperiodic;
-            BandLU<ExtendedBandMatrix<val_type>> solver_periodic;
+            base_solver_type solver_aperiodic;
+            extended_solver_type solver_periodic;
         };
 
         bool is_active_ = false;
         // tag for union member
         bool is_periodic_ = false;
     };
+#endif
 
     // solver for weights
     DimArray<EitherSolver> solvers_;
@@ -232,8 +252,24 @@ class InterpolationFunctionTemplate {
             bool uniform = base_.uniform(d);
             auto mat_dim = mesh_dimension_.dim_size(d);
             auto band_width = periodic ? order / 2 : order - 1;
-            ExtendedBandMatrix<val_type> coef_mat{mat_dim, band_width,
-                                                  band_width};
+
+#if __cplusplus >= 201703L
+            std::variant<typename base_solver_type::matrix_type,
+                         typename extended_solver_type::matrix_type>
+                coef_mat;
+            if (periodic) {
+                coef_mat.template emplace<
+                    typename extended_solver_type::matrix_type>(
+                    mat_dim, band_width, band_width);
+            } else {
+                coef_mat
+                    .template emplace<typename base_solver_type::matrix_type>(
+                        mat_dim, band_width, band_width);
+            }
+#else
+            typename extended_solver_type::matrix_type coef_mat(
+                mat_dim, band_width, band_width);
+#endif
 
 #ifdef _TRACE
             std::cout << "\n[TRACE] Dimension " << d << '\n';
@@ -246,7 +282,11 @@ class InterpolationFunctionTemplate {
                     // be covered by one base spline, and the base spline at
                     // these ending points eval to 1.
                     if (i == 0 || i == mesh_dimension_.dim_size(d) - 1) {
+#if __cplusplus >= 201703L
+                        std::visit([i](auto& m) { m(i, i) = 1; }, coef_mat);
+#else
                         coef_mat.main_bands_val(i, i) = 1;
+#endif
                         continue;
                     }
                 }
@@ -308,6 +348,17 @@ class InterpolationFunctionTemplate {
                                         : uniform && is_internal ? order | 1
                                                                  : order + 1;
                 for (size_type j = 0; j < s_num; ++j) {
+                    const size_type row = (i + (periodic ? band_width : 0)) %
+                                          mesh_dimension_.dim_size(d);
+                    const size_type col =
+                        (knot_ind - order + j) % mesh_dimension_.dim_size(d);
+#if __cplusplus >= 201703L
+                    std::visit(
+                        [&](auto& m) {
+                            m(row, col) = base_spline_vals_per_dim[d][j];
+                        },
+                        coef_mat);
+#else
                     if (periodic) {
                         coef_mat((i + band_width) % mesh_dimension_.dim_size(d),
                                  (knot_ind - order + j) %
@@ -317,6 +368,7 @@ class InterpolationFunctionTemplate {
                         coef_mat.main_bands_val(i, knot_ind - order + j) =
                             base_spline_vals_per_dim[d][j];
                     }
+#endif
 #ifdef _TRACE
                     std::cout
                         << "[TRACE] {"
@@ -335,12 +387,23 @@ class InterpolationFunctionTemplate {
                       << mesh_dimension_.dim_size(d) - 1 << "} -> 1\n";
 #endif
 
+#if __cplusplus >= 201703L
+            std::visit(
+                [&](auto& solver) {
+                    using matrix_t = typename util::remove_cvref_t<
+                        decltype(solver)>::matrix_type;
+                    solver.compute(std::get<matrix_t>(std::move(coef_mat)));
+                },
+                solvers_[d]);
+#else
+            solvers_[d] = periodic;
             if (periodic) {
                 solvers_[d].solver_periodic.compute(coef_mat);
             } else {
                 solvers_[d].solver_aperiodic.compute(
                     static_cast<BandMatrix<val_type>>(coef_mat));
             }
+#endif
         }
     }
 
@@ -384,6 +447,13 @@ class InterpolationFunctionTemplate {
                     total_ind /= weights.dim_size(d_);
                 }
 
+#if __cplusplus >= 201703L
+                std::visit(
+                    [&](auto& solver) {
+                        solver.solve(weights.begin(d, ind_arr));
+                    },
+                    solvers_[d]);
+#else
                 // Loop through one dimension, update interpolating value to
                 // control points.
                 // In periodic case, rows are shifted to make coefficient matrix
@@ -397,6 +467,7 @@ class InterpolationFunctionTemplate {
                     solvers_[d].solver_aperiodic.solve(
                         weights.begin(d, ind_arr));
                 }
+#endif
             }
         }
 

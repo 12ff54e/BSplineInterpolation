@@ -21,6 +21,9 @@ class BandLUBase : public util::CRTP<Solver<Matrix>> {
 
     template <typename Mat_>
     BandLUBase(Mat_&& mat) : lu_store_(std::forward<Mat_>(mat)) {
+        static_assert(
+            std::is_same<util::remove_cvref_t<Mat_>, matrix_type>::value,
+            "Matrix type mismatch");
         this->cast().compute_impl();
         is_computed_ = true;
     }
