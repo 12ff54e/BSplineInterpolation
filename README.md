@@ -6,7 +6,7 @@ This library use B-spline to interpolate given data of any dimension on a Cartes
 
 ## Perquisite
 
-This library is standard C++11. CMake is required only for build and run tests.
+This library requires C++11. CMake is required only for build and run tests.
 
 ## How to use
 
