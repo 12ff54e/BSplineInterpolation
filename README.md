@@ -18,7 +18,6 @@ This library can be installed using CMake by executing the following commands:
 ```bash
 git clone https://github.com/12ff54e/BSplineInterpolation.git
 cd BSplineInterpolation
-git checkout 1.2.0
 
 cmake -B build -DCMAKE_INSTALL_PREFIX=/folder/you/want/to/install/in
 cmake --install build
@@ -45,8 +44,7 @@ Note: this project follows [Semantic Version 2.0.0](https://semver.org/) so the 
 
 ## Note
 
-- **Main branch is under-development and is unstable, checkout the latest version tag (not the "latest" tag, that's a mistake).**
-- Limited compiler support: only tested using g++ 10.0 and clang++ 11.0 (on WSL2 Ubuntu).
+- Limited compiler support: only tested using g++ 11.3 and clang++ 14.0 (on Ubuntu).
 - The Interpolation Template feature is not efficient in dimension 2 or higher.
 
 ## Known Issues
