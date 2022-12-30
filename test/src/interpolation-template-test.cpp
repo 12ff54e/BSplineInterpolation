@@ -225,8 +225,9 @@ int main() {
 
     const auto t_after_template_3d = high_resolution_clock::now();
 
-    auto interp3d_1 = interp3d_template.interpolate(mesh_3d_1);
-    auto interp3d_2 = interp3d_template.interpolate(mesh_3d_2);
+    decltype(interp3d_template)::function_type interp3d_1, interp3d_2;
+    interp3d_template.interpolate(interp3d_1, mesh_3d_1);
+    interp3d_template.interpolate(interp3d_2, mesh_3d_2);
 
     const auto t_after_interpolation_3d = high_resolution_clock::now();
 

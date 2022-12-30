@@ -138,6 +138,16 @@ class InterpolationFunctionTemplate {
         return std::move(base_);
     }
 
+    // modify the given interpolation function
+    template <typename MeshOrIterPair>
+    void interpolate(function_type& interp,
+                     MeshOrIterPair&& mesh_or_iter_pair) const& {
+        interp = base_;
+        interp.spline_.load_ctrlPts(
+            solve_for_control_points_(Mesh<val_type, dim>{
+                std::forward<MeshOrIterPair>(mesh_or_iter_pair)}));
+    }
+
    private:
     using base_solver_type = BandLU<BandMatrix<val_type>>;
     using extended_solver_type = BandLU<ExtendedBandMatrix<val_type>>;
@@ -215,7 +225,7 @@ class InterpolationFunctionTemplate {
     DimArray<EitherSolver> solvers_;
 
     void build_solver_() {
-        const auto& order = base_.order;
+        const auto& order = base_.order_;
         // adjust dimension according to periodicity
         {
             DimArray<size_type> dim_size_tmp;
@@ -419,7 +429,7 @@ class InterpolationFunctionTemplate {
                         // Skip last point of periodic dimension
                         keep_flag = indices[d] != weights.dim_size(d);
                         indices[d] = (indices[d] + weights.dim_size(d) +
-                                      base_.order / 2) %
+                                      base_.order_ / 2) %
                                      weights.dim_size(d);
                     }
                 }
