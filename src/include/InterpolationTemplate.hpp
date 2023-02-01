@@ -427,7 +427,8 @@ class InterpolationFunctionTemplate {
                 for (size_type d = 0; d < dim; ++d) {
                     if (base_.periodicity(d)) {
                         // Skip last point of periodic dimension
-                        keep_flag = indices[d] != weights.dim_size(d);
+                        keep_flag =
+                            keep_flag && indices[d] != weights.dim_size(d);
                         indices[d] = (indices[d] + weights.dim_size(d) +
                                       base_.order_ / 2) %
                                      weights.dim_size(d);
