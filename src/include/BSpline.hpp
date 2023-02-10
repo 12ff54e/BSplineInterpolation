@@ -56,13 +56,13 @@ class BSpline {
      * order
      * @return a reference to local buffer
      */
-    inline const BaseSpline& base_spline_value(
+    inline const BaseSpline base_spline_value(
         size_type,
         KnotContainer::const_iterator seg_idx_iter,
         knot_type x,
         size_type spline_order) const {
-        std::fill(base_spline_buf_.begin(), base_spline_buf_.end(), 0);
-        base_spline_buf_[order_] = 1;
+        BaseSpline base_spline(order_ + 1, 0);
+        base_spline[order_] = 1;
 
         for (size_type i = 1; i <= spline_order; ++i) {
             // Each iteration will expand buffer zone by one, from back
@@ -73,36 +73,24 @@ class BSpline {
                     seg_idx_iter - static_cast<diff_type>(i - j);
                 const auto right_iter =
                     seg_idx_iter + static_cast<diff_type>(j + 1);
-                base_spline_buf_[idx_begin + j] =
-                    (j == 0
-                         ? 0
-                         : base_spline_buf_[idx_begin + j] * (x - *left_iter) /
-                               (*(right_iter - 1) - *left_iter)) +
+                base_spline[idx_begin + j] =
+                    (j == 0 ? 0
+                            : base_spline[idx_begin + j] * (x - *left_iter) /
+                                  (*(right_iter - 1) - *left_iter)) +
                     (idx_begin + j == order_
                          ? 0
-                         : base_spline_buf_[idx_begin + j + 1] *
-                               (*right_iter - x) /
+                         : base_spline[idx_begin + j + 1] * (*right_iter - x) /
                                (*right_iter - *(left_iter + 1)));
             }
         }
-        // }
-        return base_spline_buf_;
+        return base_spline;
     }
 
-    inline const BaseSpline& base_spline_value(
+    inline const BaseSpline base_spline_value(
         size_type dim_ind,
         KnotContainer::const_iterator seg_idx_iter,
         knot_type x) const {
         return base_spline_value(dim_ind, seg_idx_iter, x, order_);
-    }
-
-    /**
-     * @brief Return the result of last call for this method
-     *
-     * @return a reference to local buffer
-     */
-    inline const std::vector<knot_type>& base_spline_value() const {
-        return base_spline_buf_;
     }
 
     /**
@@ -169,12 +157,10 @@ class BSpline {
     size_type order_;
 
     DimArray<bool> periodicity_;
-    DimArray<bool> uniform_;
 
     DimArray<KnotContainer> knots_;
     ControlPointContainer control_points_;
 
-    mutable BaseSpline base_spline_buf_;
     DimArray<std::pair<knot_type, knot_type>> range_;
 
     size_type buf_size_;
@@ -196,7 +182,7 @@ class BSpline {
      * @param coords a bunch of coordinates
      */
     template <typename... Coords, size_type... indices>
-    inline DimArray<decltype(base_spline_buf_)> calc_base_spline_vals(
+    inline DimArray<BaseSpline> calc_base_spline_vals(
         util::index_sequence<indices...>,
         const DimArray<KnotContainer::const_iterator>& knot_iters,
         const DimArray<size_type>& spline_order,
@@ -215,10 +201,7 @@ class BSpline {
         : order_(spline_order),
           periodicity_(periodicity),
           control_points_(size_type{}),
-          base_spline_buf_(order_ + 1, 0),
-          buf_size_(util::pow(order_ + 1, dim)) {
-        uniform_.fill(true);
-    }
+          buf_size_(util::pow(order_ + 1, dim)) {}
 
     /**
      * @brief Basically the default constructor, initialize an empty, non-closed
@@ -238,7 +221,6 @@ class BSpline {
           knots_{
               KnotContainer(knot_iter_pairs.first, knot_iter_pairs.second)...},
           control_points_(std::move(ctrl_points)),
-          base_spline_buf_(order_ + 1, 0),
           range_{std::make_pair(
               (knot_iter_pairs.first)[order_],
               (knot_iter_pairs.second)[-static_cast<int>(order_) - 1])...},
@@ -251,7 +233,6 @@ class BSpline {
                     "number.");
             }
         }
-        uniform_.fill(true);
     }
 
     template <typename... InputIters>
@@ -268,12 +249,11 @@ class BSpline {
         std::is_same<typename std::remove_reference<C>::type,
                      KnotContainer>::value,
         void>::type
-    load_knots(size_type dim_ind, C&& _knots, bool is_uniform = false) {
+    load_knots(size_type dim_ind, C&& _knots) {
         knots_[dim_ind] = std::forward<C>(_knots);
         range_[dim_ind].first = knots_[dim_ind][order_];
         range_[dim_ind].second =
             knots_[dim_ind][knots_[dim_ind].size() - order_ - (2 - order_ % 2)];
-        uniform_[dim_ind] = is_uniform;
     }
 
     template <typename C>
@@ -558,21 +538,11 @@ class BSpline {
      * @param dim_ind dimension index
      * @return a bool
      */
-    bool periodicity(size_type dim_ind) const {
+    inline bool periodicity(size_type dim_ind) const {
         return periodicity_[dim_ind];
     }
 
-    /**
-     * @brief Get uniformity of one dimension
-     *
-     * @param dim_ind dimension index
-     * @return a bool
-     */
-    bool uniform(size_type dim_ind) const {
-        return uniform_[dim_ind];
-    }
-
-    size_type order() const { return order_; }
+    inline size_type order() const { return order_; }
 
 #ifdef _DEBUG
     void __debug_output() const {
