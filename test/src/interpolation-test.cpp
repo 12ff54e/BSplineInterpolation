@@ -355,7 +355,7 @@ int main() {
 
 #ifdef _DEBUG
     if (assertion.last_status() != 0) {
-        interp2_periodic.spline().__debug_output();
+        interp2_periodic.spline().debug_output();
     }
 #endif
 

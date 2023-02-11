@@ -474,7 +474,6 @@ class InterpolationFunctionTemplate {
             const auto hyperplane_size = old_weight.size() / line_size;
 
             // prepare variables being captured by lambda
-            bool periodicity = base_.periodicity(dim - 1 - d);
             auto& solver_wrapper = solvers_[dim - 1 - d];
             auto solve_and_rearrange_block = [&](size_type begin,
                                                  size_type end) {
@@ -491,7 +490,7 @@ class InterpolationFunctionTemplate {
                         [&](auto& solver) { solver.solve(old_iter_begin); },
                         solver_wrapper);
 #else
-                    if (periodicity) {
+                    if (base_.periodicity(dim - 1 - d)) {
                         solver_wrapper.solver_periodic.solve(old_iter_begin);
                     } else {
                         solver_wrapper.solver_aperiodic.solve(old_iter_begin);

@@ -49,13 +49,13 @@ class BandMatrix {
      */
     val_type& operator()(size_type i, size_type j) {
         CUSTOM_ASSERT(j + p_ >= i && i + q_ >= j,
-                      "Given i and j not in main bands.");
+                      "Given i and j not in main bands.")
         return bands_(j, i + q_ - j);
     }
 
     val_type operator()(size_type i, size_type j) const {
         CUSTOM_ASSERT(j + p_ >= i && i + q_ >= j,
-                      "Given i and j not in main bands.");
+                      "Given i and j not in main bands.")
         return bands_(j, i + q_ - j);
     }
 
@@ -122,7 +122,7 @@ class ExtendedBandMatrix : public BandMatrix<T, Alloc> {
     val_type& side_bands_val(size_type i, size_type j) {
         CUSTOM_ASSERT(j >= std::max(n_ - p_, i + q_ + 1) ||
                           i >= std::max(n_ - q_, j + p_ + 1),
-                      "Given i and j not in side bands.");
+                      "Given i and j not in side bands.")
         return j > i + q_ ? right_side_bands_(i, j + p_ - n_)
                           : bottom_side_bands_(j, i + q_ - n_);
     }
@@ -130,7 +130,7 @@ class ExtendedBandMatrix : public BandMatrix<T, Alloc> {
     val_type side_bands_val(size_type i, size_type j) const {
         CUSTOM_ASSERT(j >= std::max(n_ - p_, i + q_ + 1) ||
                           i >= std::max(n_ - q_, j + p_ + 1),
-                      "Given i and j not in side bands.");
+                      "Given i and j not in side bands.")
         return j > i + q_ ? right_side_bands_(i, j + p_ - n_)
                           : bottom_side_bands_(j, i + q_ - n_);
     }
