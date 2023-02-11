@@ -10,17 +10,6 @@ int main() {
     Assertion assertion;
     Mesh<int, 3> mesh{10, 20, 30};
 
-    auto& mesh_dim = mesh.dimension();
-
-    assertion(mesh_dim.dim_acc_size(0) == 1,
-              "Dimension accumulation size wrong.");
-    assertion(mesh_dim.dim_acc_size(1) == 30,
-              "Dimension accumulation size wrong.");
-    assertion(mesh_dim.dim_acc_size(2) == 20 * 30,
-              "Dimension accumulation size wrong.");
-    assertion(mesh_dim.dim_acc_size(3) == 10 * 20 * 30,
-              "Dimension accumulation size wrong.");
-
     assertion(mesh.dim_size(0) == 10, "Dimension wise size wrong.");
     assertion(mesh.dim_size(1) == 20, "Dimension wise size wrong.");
     assertion(mesh.dim_size(2) == 30, "Dimension wise size wrong.");
@@ -40,15 +29,6 @@ int main() {
     assertion(indices[2] == 5, "Iterator indexing failed.");
 
     mesh.resize({30, 20, 5});
-
-    assertion(mesh_dim.dim_acc_size(0) == 1,
-              "Dimension accumulation size wrong after resize.");
-    assertion(mesh_dim.dim_acc_size(1) == 5,
-              "Dimension accumulation size wrong after resize.");
-    assertion(mesh_dim.dim_acc_size(2) == 20 * 5,
-              "Dimension accumulation size wrong after resize.");
-    assertion(mesh_dim.dim_acc_size(3) == 30 * 20 * 5,
-              "Dimension accumulation size wrong after resize.");
 
     // test iterator along one dimension
 

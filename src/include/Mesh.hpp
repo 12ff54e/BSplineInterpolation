@@ -17,47 +17,40 @@ class MeshDimension {
 
    private:
     index_type dim_size_;
-    /**
-     * @brief The i-th element stores the sub-mesh size when the first (dim-i)
-     * coordinates are specified.
-     */
-    std::array<size_type, dim + 1> dim_acc_size_;
-
-    /**
-     * @brief Set the dim_acc_size_ object. Check description of dim_acc_size_
-     * for details.
-     */
-    void set_dim_acc_size() {
-        for (size_type d = 0; d <= dim; ++d) {
-            dim_acc_size_[d] = 1;
-            for (size_type i = 0; i < d; ++i) {
-                dim_acc_size_[d] *= dim_size_[dim - i - 1];
-            }
-        }
-    }
 
    public:
     MeshDimension() = default;
 
     MeshDimension(std::initializer_list<size_type> il) {
         std::copy(il.begin(), il.end(), dim_size_.begin());
-        set_dim_acc_size();
     }
 
     MeshDimension(size_type n) {
         std::fill(dim_size_.begin(), dim_size_.end(), n);
-        set_dim_acc_size();
     }
 
     // properties
 
-    size_type size() const { return dim_acc_size_.back(); }
+    size_type size() const {
+        size_type s = 1;
+        for (auto&& d : dim_size_) { s *= d; }
+        return s;
+    }
 
     size_type dim_size(size_type dim_ind) const { return dim_size_[dim_ind]; }
 
     size_type dim_acc_size(size_type dim_ind) const {
-        return dim_acc_size_[dim_ind];
+        size_type das = 1;
+        for (size_type d = 0; d < dim_ind; ++d) {
+            das *= dim_size_[dim - d - 1];
+        }
+        return das;
     }
+
+    /**
+     * @brief Convert to underlying dimensions array.
+     */
+    operator index_type() const { return dim_size_; }
 
     /**
      * @brief Convert multi-dimension index to one dimension index in storage
@@ -65,18 +58,17 @@ class MeshDimension {
      *
      * @return size_type
      */
-    template <typename T, typename... Indices>
-    size_type indexing(T ind, Indices... indices) const {
-        return static_cast<size_type>(ind) * dim_acc_size_[sizeof...(indices)] +
-               indexing(indices...);
+    template <typename... Indices>
+    size_type indexing(Indices... indices) const {
+        return indexing(index_type{static_cast<size_type>(indices)...});
     }
 
-    constexpr size_type indexing() const { return 0; }
-
-    size_type indexing(index_type ind_arr) const {
+    size_type indexing(const index_type& ind_arr) const {
         size_type ind{};
+        size_type sub_mesh_size = 1;
         for (size_type d = 0; d < dim; ++d) {
-            ind += ind_arr[d] * dim_acc_size_[dim - d - 1];
+            ind += ind_arr[dim - d - 1] * sub_mesh_size;
+            sub_mesh_size *= dim_size_[dim - d - 1];
         }
         return ind;
     }
@@ -90,8 +82,8 @@ class MeshDimension {
         index_type indices;
 
         for (size_type d = 0; d < dim; ++d) {
-            indices[d] = total_ind / dim_acc_size_[dim - d - 1];
-            total_ind %= dim_acc_size_[dim - d - 1];
+            indices[dim - d - 1] = total_ind % dim_size_[dim - d - 1];
+            total_ind /= dim_size_[dim - d - 1];
         }
 
         return indices;
@@ -99,10 +91,7 @@ class MeshDimension {
 
     // modifiers
 
-    void resize(index_type sizes) {
-        dim_size_ = sizes;
-        set_dim_acc_size();
-    }
+    void resize(index_type sizes) { dim_size_ = sizes; }
 };
 
 /**
@@ -156,11 +145,13 @@ class Mesh {
         reference operator*() { return *ptr_; }
         reference operator->() { return ptr_; }
 
-        bool operator==(skip_iterator other) {
+        bool operator==(const skip_iterator& other) const {
             return this->ptr_ == other.ptr_ &&
                    this->step_length_ == other.step_length_;
         }
-        bool operator!=(skip_iterator other) { return !operator==(other); }
+        bool operator!=(const skip_iterator& other) const {
+            return !operator==(other);
+        }
 
         skip_iterator& operator++() {
             ptr_ += step_length_;
@@ -215,10 +206,18 @@ class Mesh {
             return *(ptr_ + n * step_length_);
         }
 
-        bool operator<(skip_iterator other) { return other - *this > 0; }
-        bool operator>(skip_iterator other) { return other < *this; }
-        bool operator<=(skip_iterator other) { return !(*this > other); }
-        bool operator>=(skip_iterator other) { return !(*this < other); }
+        bool operator<(const skip_iterator& other) const {
+            return other - *this > 0;
+        }
+        bool operator>(const skip_iterator& other) const {
+            return other < *this;
+        }
+        bool operator<=(const skip_iterator& other) const {
+            return !(*this > other);
+        }
+        bool operator>=(const skip_iterator& other) const {
+            return !(*this < other);
+        }
     };
 
     /**

@@ -202,6 +202,12 @@ using remove_cvref_t =
 #define CPP14_CONSTEXPR_
 #endif
 
+#if __cplusplus >= 201703L
+#define CPP17_CONSTEXPR_ constexpr
+#else
+#define CPP17_CONSTEXPR_
+#endif
+
 /**
  * @brief CRTP helper, used for downward casting.
  *
@@ -257,6 +263,37 @@ inline auto get_range(T& c)
     // Use trailing return type to be C++11 compatible.
     return std::make_pair(c.begin(), c.end());
 }
+
+/**
+ * @brief An allocator adaptor to do default initialization instead of value
+ * initialization when argument list is empty.
+ *
+ */
+template <typename T, typename A = std::allocator<T>>
+struct default_init_allocator : public A {
+    template <typename U>
+    struct rebind {
+        using other = default_init_allocator<
+            U,
+            typename std::allocator_traits<A>::template rebind_alloc<U>>;
+    };
+
+    using A::A;
+
+    // default initialization
+    template <typename U>
+    void construct(U* ptr) noexcept(
+        std::is_nothrow_default_constructible<U>::value) {
+        ::new (static_cast<void*>(ptr)) U;
+    }
+
+    // delegate to constructor of A
+    template <typename U, typename... Args>
+    void construct(U* ptr, Args&&... args) {
+        std::allocator_traits<A>::construct(static_cast<A&>(*this), ptr,
+                                            std::forward<Args>(args)...);
+    }
+};
 
 }  // namespace util
 
