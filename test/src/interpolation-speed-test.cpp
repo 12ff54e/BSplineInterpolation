@@ -43,6 +43,18 @@ int main() {
     constexpr size_t len = 256;
     constexpr size_t eval_count = 1 << 20;
 
+    std::vector<double> eval_coord_x;
+    std::vector<double> eval_coord_y;
+    std::vector<double> eval_coord_z;
+    eval_coord_x.reserve(eval_count);
+    eval_coord_y.reserve(eval_count);
+    eval_coord_z.reserve(eval_count);
+    for (size_t i = 0; i < eval_count; ++i) {
+        eval_coord_x.push_back(rand_dist(rand_gen));
+        eval_coord_y.push_back(rand_dist(rand_gen));
+        eval_coord_z.push_back(rand_dist2(rand_gen));
+    }
+
     // 1D case
     {
         const auto t_start_1d = high_resolution_clock::now();
@@ -68,9 +80,7 @@ int main() {
 
         const auto t_after_interpolation = high_resolution_clock::now();
 
-        for (size_t i = 0; i < eval_count; ++i) {
-            interp1d(rand_dist(rand_gen));
-        }
+        for (size_t i = 0; i < eval_count; ++i) { interp1d(eval_coord_x[i]); }
 
         const auto t_after_eval = high_resolution_clock::now();
 
@@ -136,7 +146,7 @@ int main() {
         const auto t_after_interpolation = high_resolution_clock::now();
 
         for (size_t i = 0; i < eval_count; ++i) {
-            interp2d(rand_dist(rand_gen), rand_dist(rand_gen));
+            interp2d(eval_coord_y[i], eval_coord_y[i]);
         }
 
         const auto t_after_eval = high_resolution_clock::now();
@@ -210,8 +220,7 @@ int main() {
         const auto t_after_interpolation = high_resolution_clock::now();
 
         for (size_t i = 0; i < eval_count; ++i) {
-            interp3d(rand_dist(rand_gen), rand_dist(rand_gen),
-                     rand_dist2(rand_gen));
+            interp3d(eval_coord_x[i], eval_coord_y[i], eval_coord_z[i]);
         }
 
         const auto t_after_eval = high_resolution_clock::now();
