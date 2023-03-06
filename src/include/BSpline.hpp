@@ -120,9 +120,8 @@ class BSpline {
             const knot_type period =
                 range(dim_ind).second - range(dim_ind).first;
             x = range(dim_ind).first +
-                (x < range(dim_ind).first
-                     ? std::fmod(x - range(dim_ind).first, period) + period
-                     : std::fmod(x - range(dim_ind).first, period));
+                std::fmod(x - range(dim_ind).first, period) +
+                (x < range(dim_ind).first ? period : knot_type{});
         }
 #ifdef _DEBUG
         if ((*iter > x || *(iter + 1) < x) && x >= range(dim_ind).first &&
@@ -381,13 +380,13 @@ class BSpline {
             if (o > order_) { return val_type{}; }
         }
 
-        // get knot point iter
+        // get knot point iter (out of boundary check also conducted here)
         const auto knot_iters = get_knot_iters(
             Indices{},
             std::make_pair(std::ref(std::get<0>(coord_deriOrder_hint_tuple)),
                            std::get<2>(coord_deriOrder_hint_tuple))...);
 
-        // calculate basic spline (out of boundary check also conducted here)
+        // calculate basic spline
         const auto base_spline_values_1d =
             calc_base_spline_vals(Indices{}, knot_iters, spline_order,
                                   std::get<0>(coord_deriOrder_hint_tuple)...);
@@ -428,7 +427,7 @@ class BSpline {
 
                 // check periodicity, put out-of-right-boundary index to left
                 if (periodicity_[d]) {
-                    ind_arr[d] %= (knots_num(d) - 2 * order_ - 1);
+                    ind_arr[d] %= control_points_.dim_size(d);
                 }
             }
 

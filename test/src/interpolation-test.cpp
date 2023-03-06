@@ -377,6 +377,23 @@ int main() {
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
+    auto vals_1d_derivative_periodic = {
+        -0.5956189309592923, 0.18879244402223305, 0.823542093101076,
+        0.9423837958144585,  -0.2574829498865512, 0.8141621781881445,
+        1.297682043678497,   0.2748905754634491,  0.20278909403301104,
+        -1.744727637863168};
+
+    d = rel_err(
+        [&](double x) {
+            return interp1_periodic.derivative_at(std::make_pair(x, 1));
+        },
+        util::get_range(coords_1d),
+        util::get_range(vals_1d_derivative_periodic));
+    assertion(d < tol);
+    std::cout << "\n1D test of derivative in periodic case "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
     // 2D interpolation derivative test
 
     std::cout << "\n2D Interpolation Derivative Test:\n";
