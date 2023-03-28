@@ -520,6 +520,10 @@ class BSpline {
 
     // properties
 
+    inline const ControlPointContainer& control_points() const {
+        return control_points_;
+    }
+
     /**
      * @brief Get range of one dimension
      *
