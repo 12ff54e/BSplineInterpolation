@@ -1,5 +1,6 @@
 #include <Interpolation.hpp>
 #include "include/Assertion.hpp"
+#include "include/Vec.hpp"
 #include "include/rel_err.hpp"
 
 #include <algorithm>
@@ -555,6 +556,33 @@ int main() {
     std::cout << "\n2D test with x-periodic and y-nonuniform "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << d << '\n';
+
+    // interpolation on vector
+    std::vector<Vec<2, float>> pts;
+    constexpr std::size_t pts_n = 31;
+    for (std::size_t i = 0; i <= pts_n; ++i) {
+        double theta = 2. * M_PI * static_cast<double>(i) / pts_n;
+        pts.emplace_back(std::cos(theta), std::sin(theta));
+    }
+    InterpolationFunction1D<Vec<2, float>, float> circle(util::get_range(pts),
+                                                         3, true);
+    {
+        constexpr std::size_t sample_n = 1024;
+        float err = 0;
+        for (std::size_t i = 0; i < sample_n; ++i) {
+#ifndef M_PIf
+#define M_PIf 3.14159265358979323846f
+#endif
+            float theta = 2.f * M_PIf * static_cast<float>(i) / sample_n;
+            err += std::abs(circle(theta).mag() - 1.f);
+        }
+        err /= sample_n;
+        assertion(err < 1.e-5f);
+        std::cout << "Interpolation of 2d points on a circle "
+                  << (assertion.last_status() == 0 ? "succeed" : "failed")
+                  << '\n';
+        std::cout << "Relative Error = " << err << '\n';
+    }
 
     return assertion.status();
 }

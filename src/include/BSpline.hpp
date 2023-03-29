@@ -26,12 +26,12 @@ namespace intp {
  * @tparam T Type of control point
  * @tparam D Dimension
  */
-template <typename T, size_t D>
+template <typename T, size_t D, typename U = double>
 class BSpline {
    public:
     using size_type = size_t;
     using val_type = T;
-    using knot_type = double;
+    using knot_type = U;
 
     using KnotContainer = std::vector<knot_type>;
     using ControlPointContainer =
@@ -42,7 +42,8 @@ class BSpline {
                  AlignedAllocator<val_type, Alignment::AVX>>>;
 
     using BaseSpline = std::vector<knot_type>;
-    using diff_type = KnotContainer::iterator::difference_type;
+    using diff_type = typename KnotContainer::iterator::difference_type;
+    using knot_const_iterator = typename KnotContainer::const_iterator;
 
     constexpr static size_type dim = D;
 
@@ -62,11 +63,10 @@ class BSpline {
      * order
      * @return a reference to local buffer
      */
-    inline const BaseSpline base_spline_value(
-        size_type,
-        KnotContainer::const_iterator seg_idx_iter,
-        knot_type x,
-        size_type spline_order) const {
+    inline const BaseSpline base_spline_value(size_type,
+                                              knot_const_iterator seg_idx_iter,
+                                              knot_type x,
+                                              size_type spline_order) const {
         BaseSpline base_spline(order_ + 1, 0);
         base_spline[order_] = 1;
 
@@ -92,10 +92,9 @@ class BSpline {
         return base_spline;
     }
 
-    inline const BaseSpline base_spline_value(
-        size_type dim_ind,
-        KnotContainer::const_iterator seg_idx_iter,
-        knot_type x) const {
+    inline const BaseSpline base_spline_value(size_type dim_ind,
+                                              knot_const_iterator seg_idx_iter,
+                                              knot_type x) const {
         return base_spline_value(dim_ind, seg_idx_iter, x, order_);
     }
 
@@ -109,12 +108,12 @@ class BSpline {
      * @param hint a hint for iter offset
      * @param last an upper bound for iter offset, this function will not search
      * knots beyond it.
-     * @return KnotContainer::const_iterator
+     * @return knot_const_iterator
      */
-    inline KnotContainer::const_iterator get_knot_iter(size_type dim_ind,
-                                                       knot_type& x,
-                                                       size_type hint,
-                                                       size_type last) const {
+    inline knot_const_iterator get_knot_iter(size_type dim_ind,
+                                             knot_type& x,
+                                             size_type hint,
+                                             size_type last) const {
         const auto iter = knots_begin(dim_ind) + static_cast<diff_type>(hint);
         if (periodicity_[dim_ind]) {
             const knot_type period =
@@ -145,14 +144,14 @@ class BSpline {
                                          x));
     }
 
-    inline KnotContainer::const_iterator get_knot_iter(size_type dim_ind,
-                                                       knot_type& x,
-                                                       size_type hint) const {
+    inline knot_const_iterator get_knot_iter(size_type dim_ind,
+                                             knot_type& x,
+                                             size_type hint) const {
         return get_knot_iter(dim_ind, x, hint, knots_num(dim_ind) - order_ - 2);
     }
 
     template <typename... CoordWithHints, size_type... indices>
-    inline DimArray<KnotContainer::const_iterator> get_knot_iters(
+    inline DimArray<knot_const_iterator> get_knot_iters(
         util::index_sequence<indices...>,
         CoordWithHints&&... coords) const {
         return {get_knot_iter(indices, coords.first, coords.second)...};
@@ -189,7 +188,7 @@ class BSpline {
     template <typename... Coords, size_type... indices>
     inline DimArray<BaseSpline> calc_base_spline_vals(
         util::index_sequence<indices...>,
-        const DimArray<KnotContainer::const_iterator>& knot_iters,
+        const DimArray<knot_const_iterator>& knot_iters,
         const DimArray<size_type>& spline_order,
         Coords... coords) const {
         return {base_spline_value(indices, knot_iters[indices], coords,
@@ -308,7 +307,7 @@ class BSpline {
                 combined_ind /= (order_ + 1);
             }
 
-            val_type coef = 1;
+            knot_type coef = 1;
             for (size_type d = 0; d < dim; ++d) {
                 coef *= base_spline_values_1d[d][ind_arr[d]];
 
@@ -505,7 +504,7 @@ class BSpline {
      *
      * @param dim_ind dimension index
      */
-    inline KnotContainer::const_iterator knots_begin(size_type dim_ind) const {
+    inline knot_const_iterator knots_begin(size_type dim_ind) const {
         return knots_[dim_ind].cbegin();
     }
     /**
@@ -514,7 +513,7 @@ class BSpline {
      *
      * @param dim_ind dimension index
      */
-    inline KnotContainer::const_iterator knots_end(size_type dim_ind) const {
+    inline knot_const_iterator knots_end(size_type dim_ind) const {
         return knots_[dim_ind].cend();
     }
 

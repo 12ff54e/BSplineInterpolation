@@ -17,7 +17,7 @@
 
 namespace intp {
 
-template <typename T, size_t D>
+template <typename T, size_t D, typename U = double>
 class InterpolationFunction;  // Forward declaration, since template has
                               // a member of it.
 
@@ -26,10 +26,10 @@ class InterpolationFunction;  // Forward declaration, since template has
  * interpolation function when fed by function values.
  *
  */
-template <typename T, size_t D>
+template <typename T, size_t D, typename U = double>
 class InterpolationFunctionTemplate {
    public:
-    using function_type = InterpolationFunction<T, D>;
+    using function_type = InterpolationFunction<T, D, U>;
     using size_type = typename function_type::size_type;
     using coord_type = typename function_type::coord_type;
     using val_type = typename function_type::val_type;
@@ -40,8 +40,8 @@ class InterpolationFunctionTemplate {
 
     static constexpr size_type dim = D;
 
-    template <typename U>
-    using DimArray = std::array<U, dim>;
+    template <typename V>
+    using DimArray = std::array<V, dim>;
 
     using MeshDim = MeshDimension<dim>;
 
@@ -154,8 +154,8 @@ class InterpolationFunctionTemplate {
     }
 
    private:
-    using base_solver_type = BandLU<BandMatrix<val_type>>;
-    using extended_solver_type = BandLU<ExtendedBandMatrix<val_type>>;
+    using base_solver_type = BandLU<BandMatrix<coord_type>>;
+    using extended_solver_type = BandLU<ExtendedBandMatrix<coord_type>>;
 
     // input coordinates, needed only in nonuniform case
     DimArray<typename function_type::spline_type::KnotContainer> input_coords_;
@@ -253,7 +253,7 @@ class InterpolationFunctionTemplate {
                 base_spline_vals_per_dim[d] = spline.base_spline_value(
                     d, spline.knots_begin(d) + static_cast<diff_type>(order),
                     spline.knots_begin(d)[static_cast<diff_type>(order)] +
-                        (1 - order % 2) * base_.dx_[d] * .5);
+                        (1 - order % 2) * base_.dx_[d] * coord_type{.5});
             }
         }
 
@@ -542,11 +542,11 @@ class InterpolationFunctionTemplate {
     }
 };
 
-template <typename T = double>
+template <typename T = double, typename U = double>
 class InterpolationFunctionTemplate1D
-    : public InterpolationFunctionTemplate<T, size_t{1}> {
+    : public InterpolationFunctionTemplate<T, size_t{1}, U> {
    private:
-    using base = InterpolationFunctionTemplate<T, size_t{1}>;
+    using base = InterpolationFunctionTemplate<T, size_t{1}, U>;
 
    public:
     InterpolationFunctionTemplate1D(typename base::size_type f_length,

@@ -8,11 +8,11 @@
 
 namespace intp {
 
-template <typename T, size_t D>
+template <typename T, size_t D, typename U>
 class InterpolationFunction {  // TODO: Add integration
    public:
     using val_type = T;
-    using spline_type = BSpline<T, D>;
+    using spline_type = BSpline<T, D, U>;
     using size_type = typename spline_type::size_type;
     using coord_type = typename spline_type::knot_type;
     using diff_type = typename spline_type::diff_type;
@@ -29,7 +29,7 @@ class InterpolationFunction {  // TODO: Add integration
     DimArray<coord_type> dx_;
     DimArray<bool> uniform_;
 
-    friend class InterpolationFunctionTemplate<T, D>;
+    friend class InterpolationFunctionTemplate<val_type, dim, coord_type>;
 
     // auxiliary methods
 
@@ -39,14 +39,16 @@ class InterpolationFunction {  // TODO: Add integration
         return spline_(std::make_pair(
             c[di],
             uniform_[di]
-                ? std::min(spline_.knots_num(di) - order_ - 2,
-                           static_cast<size_type>(std::ceil(std::max(
-                               0., (c[di] - range(di).first) / dx_[di] -
-                                       (periodicity(di)
-                                            ? 1.
-                                            : .5 * static_cast<coord_type>(
-                                                       order_ + 1))))) +
-                               order_)
+                ? std::min(
+                      spline_.knots_num(di) - order_ - 2,
+                      static_cast<size_type>(std::ceil(std::max(
+                          coord_type{0.},
+                          (c[di] - range(di).first) / dx_[di] -
+                              (periodicity(di)
+                                   ? coord_type{1.}
+                                   : coord_type{.5} * static_cast<coord_type>(
+                                                          order_ + 1))))) +
+                          order_)
                 : order_)...);
     }
 
@@ -88,15 +90,17 @@ class InterpolationFunction {  // TODO: Add integration
 
         if (periodicity(dim_ind)) {
             for (size_type i = 0; i < xs.size(); ++i) {
-                xs[i] = x_range.first + (static_cast<coord_type>(i) -
-                                         .5 * static_cast<coord_type>(extra)) *
-                                            dx_[dim_ind];
+                xs[i] = x_range.first +
+                        (static_cast<coord_type>(i) -
+                         coord_type{.5} * static_cast<coord_type>(extra)) *
+                            dx_[dim_ind];
             }
         } else {
             for (size_type i = order_ + 1; i < xs.size() - order_ - 1; ++i) {
-                xs[i] = x_range.first + (static_cast<coord_type>(i) -
-                                         .5 * static_cast<coord_type>(extra)) *
-                                            dx_[dim_ind];
+                xs[i] = x_range.first +
+                        (static_cast<coord_type>(i) -
+                         coord_type{.5} * static_cast<coord_type>(extra)) *
+                            dx_[dim_ind];
             }
             for (size_type i = xs.size() - order_ - 1; i < xs.size(); ++i) {
                 xs[i] = x_range.second;
@@ -291,9 +295,10 @@ class InterpolationFunction {  // TODO: Add integration
                           DimArray<bool> periodicity,
                           const Mesh<val_type, dim>& f_mesh,
                           std::pair<Ts, Ts>... x_ranges)
-        : InterpolationFunction(InterpolationFunctionTemplate<val_type, dim>{
-              spline_order, periodicity, f_mesh.dimension(), x_ranges...}
-                                    .interpolate(f_mesh)) {}
+        : InterpolationFunction(
+              InterpolationFunctionTemplate<val_type, dim, coord_type>{
+                  spline_order, periodicity, f_mesh.dimension(), x_ranges...}
+                  .interpolate(f_mesh)) {}
 
     // Non-periodic for all dimension
     template <typename... Ts>
@@ -468,10 +473,10 @@ class InterpolationFunction {  // TODO: Add integration
     size_type order() const { return order_; }
 };
 
-template <typename T = double>
-class InterpolationFunction1D : public InterpolationFunction<T, size_t{1}> {
+template <typename T = double, typename U = double>
+class InterpolationFunction1D : public InterpolationFunction<T, size_t{1}, U> {
    private:
-    using base = InterpolationFunction<T, size_t{1}>;
+    using base = InterpolationFunction<T, size_t{1}, U>;
 
    public:
     template <typename InputIter>
