@@ -57,5 +57,5 @@ Check matlab/Example.m for instructions. Please notice that matlab/bspline.mexw6
 
 ## Future Plan
 
-[x] Support multithreading.
-[ ] Interpolation with boundary derivative specified.
+- [x] Support multithreading.
+- [ ] Interpolation with boundary derivative specified.
