@@ -85,8 +85,7 @@ class InterpolationFunction {  // TODO: Add integration
         const size_t extra =
             periodicity(dim_ind) ? 2 * order_ + (1 - order_ % 2) : order_ + 1;
 
-        std::vector<typename spline_type::knot_type> xs(n + extra,
-                                                        x_range.first);
+        std::vector<coord_type> xs(n + extra, x_range.first);
 
         if (periodicity(dim_ind)) {
             for (size_type i = 0; i < xs.size(); ++i) {
@@ -144,12 +143,12 @@ class InterpolationFunction {  // TODO: Add integration
             auto iter = x_range.first;
             input_coord.push_back(*iter);
             for (size_type i = order_ + 1; i < order_ + n; ++i) {
-                val_type present = *(++iter);
+                coord_type present = *(++iter);
                 xs[i] = order_ % 2 == 0 ? .5 * (input_coord.back() + present)
                                         : present;
                 input_coord.push_back(present);
             }
-            val_type period = input_coord.back() - input_coord.front();
+            coord_type period = input_coord.back() - input_coord.front();
             for (size_type i = 0; i < order_ + 1; ++i) {
                 xs[i] = xs[n + i - 1] - period;
                 xs[xs.size() - i - 1] = xs[xs.size() - i - n] + period;
