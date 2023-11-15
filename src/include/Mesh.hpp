@@ -21,9 +21,9 @@ class MeshDimension {
    public:
     MeshDimension() = default;
 
-    MeshDimension(std::initializer_list<size_type> il) {
-        std::copy(il.begin(), il.end(), dim_size_.begin());
-    }
+    template <typename... Args,
+              typename = typename std::enable_if<sizeof...(Args) == dim>::type>
+    MeshDimension(Args... args) : dim_size_{static_cast<size_type>(args)...} {}
 
     MeshDimension(size_type n) {
         std::fill(dim_size_.begin(), dim_size_.end(), n);
@@ -228,21 +228,19 @@ class Mesh {
     MeshDimension<dim> dimension_;
 
    public:
-    explicit Mesh(const MeshDimension<dim>& mesh_dimension)
-        : dimension_(mesh_dimension) {
-        storage_.resize(dimension_.size(), val_type{});
-    }
-
-    explicit Mesh(std::initializer_list<size_type> il,
+    explicit Mesh(const MeshDimension<dim>& mesh_dimension,
                   const allocator_type& alloc = allocator_type())
-        : storage_(alloc), dimension_(il) {
+        : storage_(alloc), dimension_(mesh_dimension) {
         storage_.resize(dimension_.size(), val_type{});
     }
 
     explicit Mesh(size_type n, const allocator_type& alloc = allocator_type())
-        : storage_(alloc), dimension_(n) {
-        storage_.resize(dimension_.size(), val_type{});
-    }
+        : Mesh(MeshDimension<dim>(n), alloc) {}
+
+    template <typename... Args,
+              typename = typename std::enable_if<sizeof...(Args) == dim>::type>
+    explicit Mesh(Args... args)
+        : Mesh(MeshDimension<dim>(static_cast<size_type>(args)...)) {}
 
     template <typename InputIter,
               typename = typename std::enable_if<

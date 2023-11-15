@@ -8,7 +8,7 @@ int main() {
     using namespace intp;
 
     Assertion assertion;
-    Mesh<int, 3> mesh{10, 20, 30};
+    Mesh<int, 3> mesh(10, 20, 30);
 
     assertion(mesh.dim_size(0) == 10, "Dimension wise size wrong.");
     assertion(mesh.dim_size(1) == 20, "Dimension wise size wrong.");
