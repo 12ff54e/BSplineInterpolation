@@ -1,9 +1,11 @@
-#pragma once
+#ifndef INTP_THREAD_POOL
+#define INTP_THREAD_POOL
 
-#include <functional>
-#include <future>
-#include <queue>
-#include <thread>
+#include <future>   //unique_lock, packaged_task
+#include <mutex>    // mutex
+#include <queue>    // deque
+#include <thread>   // hardware_concurrency
+#include <utility>  // move
 
 namespace intp {
 
@@ -270,3 +272,5 @@ class DedicatedThreadPool {
 };
 
 }  // namespace intp
+
+#endif  // INTP_THREAD_POOL

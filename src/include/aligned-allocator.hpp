@@ -1,3 +1,6 @@
+#ifndef INTP_ALIGN_ALLOC
+#define INTP_ALIGN_ALLOC
+
 /**
  * @file aligned-allocator.hpp
  * @brief Use the content of this
@@ -180,3 +183,5 @@ inline bool operator!=(const AlignedAllocator<T, TAlign>&,
 }
 
 }  // namespace intp
+
+#endif  // INTP_ALIGN_ALLOC
