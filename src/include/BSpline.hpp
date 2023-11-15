@@ -122,10 +122,10 @@ class BSpline {
                 std::fmod(x - range(dim_ind).first, period) +
                 (x < range(dim_ind).first ? period : knot_type{});
         }
-#ifdef _DEBUG
+#ifdef _TRACE
         if ((*iter > x || *(iter + 1) < x) && x >= range(dim_ind).first &&
             x <= range(dim_ind).second) {
-            std::cout << "[DEBUG] knot hint miss at dim = " << dim_ind
+            std::cout << "[TRACE] knot hint miss at dim = " << dim_ind
                       << ", hint = " << hint << ", x = " << x << '\n';
         }
 #endif
