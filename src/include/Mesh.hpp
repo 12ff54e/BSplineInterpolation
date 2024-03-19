@@ -260,7 +260,6 @@ class Mesh {
                   const allocator_type& alloc = allocator_type())
         : Mesh(std::make_pair(array.begin(), array.end()), alloc) {}
 
-   public:
     // properties
 
     size_type size() const { return storage_.size(); }
