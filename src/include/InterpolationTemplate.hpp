@@ -3,7 +3,9 @@
 
 #include "BSpline.hpp"
 #include "BandLU.hpp"
+#include "DedicatedThreadPool.hpp"
 #include "Mesh.hpp"
+#include "util.hpp"
 
 #if __cplusplus >= 201703L
 #include <variant>
@@ -15,7 +17,7 @@
 
 namespace intp {
 
-template <typename T, size_t D>
+template <typename T, size_t D, typename U = double>
 class InterpolationFunction;  // Forward declaration, since template has
                               // a member of it.
 
@@ -24,19 +26,22 @@ class InterpolationFunction;  // Forward declaration, since template has
  * interpolation function when fed by function values.
  *
  */
-template <typename T, size_t D>
+template <typename T, size_t D, typename U = double>
 class InterpolationFunctionTemplate {
    public:
-    using function_type = InterpolationFunction<T, D>;
+    using function_type = InterpolationFunction<T, D, U>;
     using size_type = typename function_type::size_type;
     using coord_type = typename function_type::coord_type;
     using val_type = typename function_type::val_type;
     using diff_type = typename function_type::diff_type;
 
+    using ctrl_pt_type =
+        typename function_type::spline_type::ControlPointContainer;
+
     static constexpr size_type dim = D;
 
-    template <typename U>
-    using DimArray = std::array<U, dim>;
+    template <typename V>
+    using DimArray = std::array<V, dim>;
 
     using MeshDim = MeshDimension<dim>;
 
@@ -138,9 +143,19 @@ class InterpolationFunctionTemplate {
         return std::move(base_);
     }
 
+    // modify the given interpolation function
+    template <typename MeshOrIterPair>
+    void interpolate(function_type& interp,
+                     MeshOrIterPair&& mesh_or_iter_pair) const& {
+        interp = base_;
+        interp.spline_.load_ctrlPts(
+            solve_for_control_points_(Mesh<val_type, dim>{
+                std::forward<MeshOrIterPair>(mesh_or_iter_pair)}));
+    }
+
    private:
-    using base_solver_type = BandLU<BandMatrix<val_type>>;
-    using extended_solver_type = BandLU<ExtendedBandMatrix<val_type>>;
+    using base_solver_type = BandLU<BandMatrix<coord_type>>;
+    using extended_solver_type = BandLU<ExtendedBandMatrix<coord_type>>;
 
     // input coordinates, needed only in nonuniform case
     DimArray<typename function_type::spline_type::KnotContainer> input_coords_;
@@ -215,7 +230,7 @@ class InterpolationFunctionTemplate {
     DimArray<EitherSolver> solvers_;
 
     void build_solver_() {
-        const auto& order = base_.order;
+        const auto& order = base_.order_;
         // adjust dimension according to periodicity
         {
             DimArray<size_type> dim_size_tmp;
@@ -238,7 +253,7 @@ class InterpolationFunctionTemplate {
                 base_spline_vals_per_dim[d] = spline.base_spline_value(
                     d, spline.knots_begin(d) + static_cast<diff_type>(order),
                     spline.knots_begin(d)[static_cast<diff_type>(order)] +
-                        (1 - order % 2) * base_.dx_[d] * .5);
+                        (1 - order % 2) * base_.dx_[d] * coord_type{.5});
             }
         }
 
@@ -398,18 +413,21 @@ class InterpolationFunctionTemplate {
 #else
             solvers_[d] = periodic;
             if (periodic) {
-                solvers_[d].solver_periodic.compute(coef_mat);
+                solvers_[d].solver_periodic.compute(std::move(coef_mat));
             } else {
                 solvers_[d].solver_aperiodic.compute(
-                    static_cast<BandMatrix<val_type>>(coef_mat));
+                    static_cast<typename base_solver_type::matrix_type&&>(
+                        coef_mat));
             }
 #endif
         }
     }
 
-    Mesh<val_type, dim> solve_for_control_points_(
+    ctrl_pt_type solve_for_control_points_(
         const Mesh<val_type, dim>& f_mesh) const {
-        Mesh<val_type, dim> weights{mesh_dimension_};
+        ctrl_pt_type weights{mesh_dimension_};
+        ctrl_pt_type weights_tmp(1);  // auxilary weight for swapping between
+        if CPP17_CONSTEXPR_ (dim > 1) { weights_tmp.resize(mesh_dimension_); }
 
         auto check_idx =
             [&](typename Mesh<val_type, dim>::index_type& indices) {
@@ -417,9 +435,10 @@ class InterpolationFunctionTemplate {
                 for (size_type d = 0; d < dim; ++d) {
                     if (base_.periodicity(d)) {
                         // Skip last point of periodic dimension
-                        keep_flag = indices[d] != weights.dim_size(d);
+                        keep_flag =
+                            keep_flag && indices[d] != weights.dim_size(d);
                         indices[d] = (indices[d] + weights.dim_size(d) +
-                                      base_.order / 2) %
+                                      base_.order_ / 2) %
                                      weights.dim_size(d);
                     }
                 }
@@ -433,53 +452,101 @@ class InterpolationFunctionTemplate {
             if (check_idx(f_indices)) { weights(f_indices) = *it; }
         }
 
+        auto array_right_shift = [](DimArray<size_type> arr) {
+            DimArray<size_type> new_arr{};
+            for (size_type d_ = 0; d_ < dim; ++d_) {
+                new_arr[d_] = arr[(d_ + dim - 1) % dim];
+            }
+            return new_arr;
+        };
+
         // loop through each dimension to solve for control points
         for (size_type d = 0; d < dim; ++d) {
-            // size of hyperplane when given dimension is fixed
-            size_type hyperplane_size = weights.size() / weights.dim_size(d);
+            ctrl_pt_type& old_weight = d % 2 == 0 ? weights : weights_tmp;
+            ctrl_pt_type& new_weight = d % 2 != 0 ? weights : weights_tmp;
 
-            // loop over each point (representing a 1D spline) of hyperplane
-            for (size_type i = 0; i < hyperplane_size; ++i) {
-                DimArray<size_type> ind_arr{};
-                for (size_type d_ = 0, total_ind = i; d_ < dim; ++d_) {
-                    if (d_ == d) { continue; }
-                    ind_arr[d_] = total_ind % weights.dim_size(d_);
-                    total_ind /= weights.dim_size(d_);
-                }
-
-#if __cplusplus >= 201703L
-                std::visit(
-                    [&](auto& solver) {
-                        solver.solve(weights.begin(d, ind_arr));
-                    },
-                    solvers_[d]);
-#else
-                // Loop through one dimension, update interpolating value to
-                // control points.
-                // In periodic case, rows are shifted to make coefficient matrix
-                // diagonal dominate so weights column should be shifted
-                // accordingly.
-                // auto iter = weights.begin(d, ind_arr);
-                if (base_.periodicity(d)) {
-                    solvers_[d].solver_periodic.solve(
-                        weights.begin(d, ind_arr));
-                } else {
-                    solvers_[d].solver_aperiodic.solve(
-                        weights.begin(d, ind_arr));
-                }
-#endif
+            if CPP17_CONSTEXPR_ (dim > 1) {
+                new_weight.resize(array_right_shift(old_weight.dimension()));
             }
+
+            const auto line_size = old_weight.dim_size(dim - 1);
+            // size of hyperplane orthogonal to last dim axis
+            const auto hyperplane_size = old_weight.size() / line_size;
+
+            // prepare variables being captured by lambda
+            auto& solver_wrapper = solvers_[dim - 1 - d];
+            auto solve_and_rearrange_block = [&](size_type begin,
+                                                 size_type end) {
+                for (size_type j = begin; j < end; ++j) {
+                    auto ind_arr =
+                        old_weight.dimension().dimwise_indices(j * line_size);
+
+                    auto old_iter_begin = old_weight.begin(dim - 1, ind_arr);
+                    auto old_iter_end = old_weight.end(dim - 1, ind_arr);
+                    auto new_iter_begin =
+                        new_weight.begin(0, array_right_shift(ind_arr));
+#if __cplusplus >= 201703L
+                    std::visit(
+                        [&](auto& solver) { solver.solve(old_iter_begin); },
+                        solver_wrapper);
+#else
+                    if (base_.periodicity(dim - 1 - d)) {
+                        solver_wrapper.solver_periodic.solve(old_iter_begin);
+                    } else {
+                        solver_wrapper.solver_aperiodic.solve(old_iter_begin);
+                    }
+#endif
+                    if CPP17_CONSTEXPR_ (dim > 1) {
+                        for (auto old_it = old_iter_begin,
+                                  new_it = new_iter_begin;
+                             old_it != old_iter_end; ++old_it, ++new_it) {
+                            *new_it = *old_it;
+                        }
+                    }
+                }
+            };
+
+#ifdef _MULTITHREAD
+            // TODO: use a more robust task division strategy
+            const size_type block_num = static_cast<size_type>(
+                std::sqrt(static_cast<double>(hyperplane_size)));
+            const size_type task_per_block =
+                block_num == 0 ? hyperplane_size : hyperplane_size / block_num;
+
+            auto& thread_pool = DedicatedThreadPool<void>::get_instance(8);
+            std::vector<std::future<void>> res;
+
+            for (size_type i = 0; i < block_num; ++i) {
+                // use thread pool here may seem to be a bit overhead
+                res.push_back(thread_pool.queue_task([=]() {
+                    solve_and_rearrange_block(i * task_per_block,
+                                              (i + 1) * task_per_block);
+                }));
+            }
+            // main thread deals with the remaining part in case hyperplane_size
+            // not divisible by thread_num
+            solve_and_rearrange_block(block_num * task_per_block,
+                                      hyperplane_size);
+            // wait for all tasks are complete
+            for (auto&& f : res) { f.get(); }
+#else
+            solve_and_rearrange_block(0, hyperplane_size);
+#endif  // _MULTITHREAD
         }
 
-        return weights;
+        if CPP17_CONSTEXPR_ (dim % 2 == 0 || dim == 1) {
+            return weights;
+        } else {
+            return weights_tmp;
+        }
     }
 };
 
-template <typename T = double>
+template <typename T = double, typename U = double>
 class InterpolationFunctionTemplate1D
-    : public InterpolationFunctionTemplate<T, size_t{1}> {
+    : public InterpolationFunctionTemplate<T, size_t{1}, U> {
    private:
-    using base = InterpolationFunctionTemplate<T, size_t{1}>;
+    using base = InterpolationFunctionTemplate<T, size_t{1}, U>;
 
    public:
     InterpolationFunctionTemplate1D(typename base::size_type f_length,
