@@ -33,9 +33,6 @@ double rel_err(const Func& interp,
     return std::sqrt(err / l2);
 }
 
-template <std::size_t D>
-using AlignedMesh = typename intp::BSpline<double, D>::ControlPointContainer;
-
 int main() {
     using namespace std;
     using namespace intp;
@@ -48,7 +45,7 @@ int main() {
     auto knots = {0., 0., 0., 0., .5, 1., 1., 1., 1.};
     auto cp = {1., 16. / 3, -16. / 3, 4. / 3, 3.};
 
-    BSpline<double, 1> spline_1d_3(3, AlignedMesh<1>(cp),
+    BSpline<double, 1> spline_1d_3(3, Mesh<double, 1>(cp),
                                    std::make_pair(knots.begin(), knots.end()));
 
     // some random points
@@ -83,7 +80,7 @@ int main() {
                                               {-2, 4, 2, 2, -3},
                                               {1, 0, 5, -3, 5}}};
 
-    AlignedMesh<2> cp2d{5, 5};
+    Mesh<double, 2> cp2d{5, 5};
     for (unsigned i = 0; i < 5; ++i) {
         for (unsigned j = 0; j < 5; ++j) { cp2d(i, j) = cp2[i][j]; }
     }
@@ -154,7 +151,7 @@ int main() {
                                                           {1, 2, -1, 1, -1},
                                                           {0, -1, 5, 5, 4}}}}};
 
-    AlignedMesh<3> cp3d{5, 5, 5};
+    Mesh<double, 3> cp3d{5, 5, 5};
     for (unsigned i = 0; i < 5; ++i) {
         for (unsigned j = 0; j < 5; ++j) {
             for (unsigned k = 0; k < 5; ++k) { cp3d(i, j, k) = cp3[i][j][k]; }

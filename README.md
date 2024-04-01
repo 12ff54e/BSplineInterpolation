@@ -42,10 +42,6 @@ InterpolationFunction<double, 2> func(
 ```
 Note: this project follows [Semantic Version 2.0.0](https://semver.org/) so the interface will be compatible within one major version.
 
-### Matlab Interface
-
-Check matlab/Example.m for instructions. Please notice that matlab/bspline.mexw64 is compiled for windows platform, you may need to compile your own MEX file from bspline.cpp (basically a wrapper) on other platforms.
-
 ## Note
 
 - Limited compiler support: only tested using g++ 11.3 and clang++ 14.0 (on Ubuntu).
@@ -57,5 +53,5 @@ Check matlab/Example.m for instructions. Please notice that matlab/bspline.mexw6
 
 ## Future Plan
 
-- [x] Support multithreading.
-- [ ] Interpolation with boundary derivative specified.
+- Support multithreading.
+- Interpolation with boundary derivative specified.

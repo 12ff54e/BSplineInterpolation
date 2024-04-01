@@ -42,18 +42,7 @@ int main() {
     Assertion assertion;
     constexpr size_t len = 256;
     constexpr size_t eval_count = 1 << 20;
-
-    std::vector<double> eval_coord_x;
-    std::vector<double> eval_coord_y;
-    std::vector<double> eval_coord_z;
-    eval_coord_x.reserve(eval_count);
-    eval_coord_y.reserve(eval_count);
-    eval_coord_z.reserve(eval_count);
-    for (size_t i = 0; i < eval_count; ++i) {
-        eval_coord_x.push_back(rand_dist(rand_gen));
-        eval_coord_y.push_back(rand_dist(rand_gen));
-        eval_coord_z.push_back(rand_dist2(rand_gen));
-    }
+    const double eps = std::sqrt(std::numeric_limits<double>::epsilon());
 
     // 1D case
     {
@@ -80,15 +69,15 @@ int main() {
 
         const auto t_after_interpolation = high_resolution_clock::now();
 
-        for (size_t i = 0; i < eval_count; ++i) { interp1d(eval_coord_x[i]); }
+        for (size_t i = 0; i < eval_count; ++i) {
+            interp1d(rand_dist(rand_gen));
+        }
 
         const auto t_after_eval = high_resolution_clock::now();
 
         double err_1d =
             rel_err(interp1d, std::make_pair(coord_1d.begin(), coord_1d.end()),
                     std::make_pair(vals_1d.begin(), vals_1d.end()));
-
-        constexpr double eps = .5e-14;
         assertion(err_1d < eps);
         std::cout << "Interpolation 1d trigonometric function with err = "
                   << err_1d << '\n';
@@ -146,7 +135,7 @@ int main() {
         const auto t_after_interpolation = high_resolution_clock::now();
 
         for (size_t i = 0; i < eval_count; ++i) {
-            interp2d(eval_coord_y[i], eval_coord_y[i]);
+            interp2d(rand_dist(rand_gen), rand_dist(rand_gen));
         }
 
         const auto t_after_eval = high_resolution_clock::now();
@@ -154,9 +143,6 @@ int main() {
         double err_2d =
             rel_err(interp2d, std::make_pair(coord_2d.begin(), coord_2d.end()),
                     std::make_pair(vals_2d.begin(), vals_2d.end()));
-
-        const double eps =
-            std::pow(2 * M_PI / static_cast<double>(len_2d), 4) / 4;
         assertion(err_2d < eps);
         std::cout << "Interpolation 2d trigonometric function with err = "
                   << err_2d << '\n';
@@ -164,7 +150,7 @@ int main() {
         std::cout << "Interpolation on a 2D mesh consisting "
                   << trig_mesh_2d.size()
                   << " points. Then evaluate the function on " << eval_count
-                  << " points.\n\n";
+                  << " points\n\n";
         std::cout << "Phase\t\t\tTime\n";
         std::cout << "Mesh\t\t\t"
                   << duration<double, milliseconds::period>(t_after_mesh -
@@ -220,7 +206,8 @@ int main() {
         const auto t_after_interpolation = high_resolution_clock::now();
 
         for (size_t i = 0; i < eval_count; ++i) {
-            interp3d(eval_coord_x[i], eval_coord_y[i], eval_coord_z[i]);
+            interp3d(rand_dist(rand_gen), rand_dist(rand_gen),
+                     rand_dist2(rand_gen));
         }
 
         const auto t_after_eval = high_resolution_clock::now();
@@ -228,15 +215,13 @@ int main() {
         double err_3d =
             rel_err(interp3d, std::make_pair(coord_3d.begin(), coord_3d.end()),
                     std::make_pair(vals_3d.begin(), vals_3d.end()));
-
-        const double eps = std::pow(2 * M_PI / len, 4) / 2;
         assertion(err_3d < eps);
         std::cout << "Interpolation 3d trig-exp function with err = " << err_3d
                   << '\n';
 
         std::cout << "Interpolation on a 3D mesh consisting " << mesh_3d.size()
                   << " points. Then evaluate the function on " << eval_count
-                  << " points.\n\n";
+                  << " points\n\n";
         std::cout << "Phase\t\t\tTime\n";
         std::cout << "Mesh\t\t\t"
                   << duration<double, milliseconds::period>(t_after_mesh_3d -
@@ -252,7 +237,7 @@ int main() {
                   << duration<double, milliseconds::period>(
                          t_after_eval - t_after_interpolation)
                          .count()
-                  << "ms\n";
+                  << "ms\n\n";
     }
 
     return assertion.status();

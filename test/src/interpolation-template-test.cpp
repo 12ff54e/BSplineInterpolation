@@ -187,8 +187,8 @@ int main() {
     constexpr double dt_3d = 2 * M_PI / lt;
     constexpr double dz = 1. / (lz - 1);
 
-    Mesh<double, 3> mesh_3d_1(lt + 1, lt + 1, lz);
-    Mesh<double, 3> mesh_3d_2(lt + 1, lt + 1, lz);
+    Mesh<double, 3> mesh_3d_1({lt + 1, lt + 1, lz});
+    Mesh<double, 3> mesh_3d_2({lt + 1, lt + 1, lz});
     for (size_t i = 0; i <= lt; ++i) {
         for (size_t j = 0; j <= lt; ++j) {
             for (size_t k = 0; k < lz; ++k) {
@@ -225,9 +225,8 @@ int main() {
 
     const auto t_after_template_3d = high_resolution_clock::now();
 
-    decltype(interp3d_template)::function_type interp3d_1, interp3d_2;
-    interp3d_template.interpolate(interp3d_1, mesh_3d_1);
-    interp3d_template.interpolate(interp3d_2, mesh_3d_2);
+    auto interp3d_1 = interp3d_template.interpolate(mesh_3d_1);
+    auto interp3d_2 = interp3d_template.interpolate(mesh_3d_2);
 
     const auto t_after_interpolation_3d = high_resolution_clock::now();
 
