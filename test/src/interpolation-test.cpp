@@ -1,5 +1,6 @@
 #include <Interpolation.hpp>
 #include "include/Assertion.hpp"
+#include "include/Vec.hpp"
 #include "include/rel_err.hpp"
 
 #include <algorithm>
@@ -355,7 +356,7 @@ int main() {
 
 #ifdef _DEBUG
     if (assertion.last_status() != 0) {
-        interp2_periodic.spline().__debug_output();
+        interp2_periodic.spline().debug_output();
     }
 #endif
 
@@ -374,6 +375,23 @@ int main() {
         util::get_range(coords_1d_half), util::get_range(vals_1d_derivative_1));
     assertion(d < tol);
     std::cout << "\n1D test of derivative "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    auto vals_1d_derivative_periodic = {
+        -0.5956189309592923, 0.18879244402223305, 0.823542093101076,
+        0.9423837958144585,  -0.2574829498865512, 0.8141621781881445,
+        1.297682043678497,   0.2748905754634491,  0.20278909403301104,
+        -1.744727637863168};
+
+    d = rel_err(
+        [&](double x) {
+            return interp1_periodic.derivative_at(std::make_pair(x, 1));
+        },
+        util::get_range(coords_1d),
+        util::get_range(vals_1d_derivative_periodic));
+    assertion(d < tol);
+    std::cout << "\n1D test of derivative in periodic case "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
@@ -538,6 +556,33 @@ int main() {
     std::cout << "\n2D test with x-periodic and y-nonuniform "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << d << '\n';
+
+    // interpolation on vector
+    std::vector<Vec<2, float>> pts;
+    constexpr std::size_t pts_n = 31;
+    for (std::size_t i = 0; i <= pts_n; ++i) {
+        double theta = 2. * M_PI * static_cast<double>(i) / pts_n;
+        pts.emplace_back(std::cos(theta), std::sin(theta));
+    }
+    InterpolationFunction1D<Vec<2, float>, float> circle(util::get_range(pts),
+                                                         3, true);
+    {
+        constexpr std::size_t sample_n = 1024;
+        float err = 0;
+        for (std::size_t i = 0; i < sample_n; ++i) {
+#ifndef M_PIf
+#define M_PIf 3.14159265358979323846f
+#endif
+            float theta = 2.f * M_PIf * static_cast<float>(i) / sample_n;
+            err += std::abs(circle(theta).mag() - 1.f);
+        }
+        err /= sample_n;
+        assertion(err < 1.e-5f);
+        std::cout << "Interpolation of 2d points on a circle "
+                  << (assertion.last_status() == 0 ? "succeed" : "failed")
+                  << '\n';
+        std::cout << "Relative Error = " << err << '\n';
+    }
 
     return assertion.status();
 }

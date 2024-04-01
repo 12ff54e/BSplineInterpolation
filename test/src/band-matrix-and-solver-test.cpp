@@ -12,13 +12,20 @@ template <typename Mat, typename Vec>
 void check_solver(Mat&& mat, const Vec& b, Assertion& assertion) {
     using namespace intp;
 
+    // make a copy of b for later comparision, in case b is a iterator/pointer
+    std::vector<double> b_vec;
+    for (size_t i = 0; i < mat.dim(); ++i) { b_vec.push_back(b[i]); }
+
     BandLU<util::remove_cvref_t<Mat>> solver{mat};
     auto x = solver.solve(b);
-    auto bb = mat * x;
+    // matrix-vector multiplication only support container with index operator
+    std::vector<double> x_vec;
+    for (size_t i = 0; i < mat.dim(); ++i) { x_vec.push_back(x[i]); }
+    auto bb_vec = mat * x_vec;
 
     double d = rel_err([](double x_) { return x_; },
-                       std::make_pair(bb.begin(), bb.end()),
-                       std::make_pair(b.begin(), b.end()));
+                       std::make_pair(bb_vec.begin(), bb_vec.end()),
+                       std::make_pair(b_vec.begin(), b_vec.end()));
 
     assertion(d < 1e-10);
     std::cout << "\n||b - A . x||/||b|| = " << d << '\n';
@@ -37,9 +44,9 @@ int main() {
     b.reserve(n);
     {
         std::mt19937 rand_gen(
-            static_cast<unsigned int>(std::chrono::high_resolution_clock::now()
-                                          .time_since_epoch()
-                                          .count()));
+            static_cast<unsigned>(std::chrono::high_resolution_clock::now()
+                                      .time_since_epoch()
+                                      .count()));
         std::uniform_real_distribution<> rand_dist(-1., 1.);
         for (size_t i = 0; i < n; ++i) { b.push_back(rand_dist(rand_gen)); }
     }
@@ -55,7 +62,7 @@ int main() {
             if (i < n - 1) mat(i, i + 1) = 1;
         }
         std::cout << "\nBand matrix, Laplacian operator\n";
-        check_solver(std::move(mat), b, assertion);
+        check_solver(std::move(mat), b.data(), assertion);
     }
 
     // band matrix with extra side bands
