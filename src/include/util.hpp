@@ -67,7 +67,7 @@ void dispatch_indexed(Func&& func, Args&&... args) {
                             std::forward<Args>(args)...);
 }
 
-#ifdef STACK_ALLOCATOR
+#ifdef INTP_STACK_ALLOCATOR
 
 /**
  * @brief A simple stack allocator, with fixed size and a LIFO allocation
@@ -244,11 +244,17 @@ struct lazy_conditional<false, TrueTemplate, FalseTemplate, Args...> {
     using type = FalseTemplate<Args...>;
 };
 
-#ifdef _DEBUG
-#define CUSTOM_ASSERT(assertion, msg) \
-    if (!(assertion)) { throw std::runtime_error(msg); }
+#ifdef INTP_DEBUG
+#define INTP_ENABLE_ASSERTION
+#endif
+
+#ifdef INTP_ENABLE_ASSERTION
+#define INTP_ASSERT(assertion, msg)                          \
+    do {                                                     \
+        if (!(assertion)) { throw std::runtime_error(msg); } \
+    } while (0)
 #else
-#define CUSTOM_ASSERT(assertion, msg)
+#define INTP_ASSERT(assertion, msg)
 #endif
 
 /**

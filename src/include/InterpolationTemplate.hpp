@@ -3,15 +3,18 @@
 
 #include "BSpline.hpp"
 #include "BandLU.hpp"
-#include "DedicatedThreadPool.hpp"
 #include "Mesh.hpp"
 #include "util.hpp"
+
+#ifdef INTP_MULTITHREAD
+#include "DedicatedThreadPool.hpp"
+#endif
 
 #if __cplusplus >= 201703L
 #include <variant>
 #endif
 
-#ifdef _TRACE
+#ifdef INTP_TRACE
 #include <iostream>
 #endif
 
@@ -231,6 +234,7 @@ class InterpolationFunctionTemplate {
 
     void build_solver_() {
         const auto& order = base_.order_;
+#ifndef INTP_PERIODIC_NO_DUMMY_POINT
         // adjust dimension according to periodicity
         {
             DimArray<size_type> dim_size_tmp;
@@ -240,7 +244,7 @@ class InterpolationFunctionTemplate {
             }
             mesh_dimension_.resize(dim_size_tmp);
         }
-
+#endif
         DimArray<typename function_type::spline_type::BaseSpline>
             base_spline_vals_per_dim;
 
@@ -257,7 +261,7 @@ class InterpolationFunctionTemplate {
             }
         }
 
-#ifdef _TRACE
+#ifdef INTP_TRACE
         std::cout << "\n[TRACE] Coefficient Matrices\n";
 #endif
 
@@ -286,7 +290,7 @@ class InterpolationFunctionTemplate {
                 mat_dim, band_width, band_width);
 #endif
 
-#ifdef _TRACE
+#ifdef INTP_TRACE
             std::cout << "\n[TRACE] Dimension " << d << '\n';
             std::cout << "[TRACE] {0, 0} -> 1\n";
 #endif
@@ -384,7 +388,7 @@ class InterpolationFunctionTemplate {
                             base_spline_vals_per_dim[d][j];
                     }
 #endif
-#ifdef _TRACE
+#ifdef INTP_TRACE
                     std::cout
                         << "[TRACE] {"
                         << (periodic
@@ -397,7 +401,7 @@ class InterpolationFunctionTemplate {
                 }
             }
 
-#ifdef _TRACE
+#ifdef INTP_TRACE
             std::cout << "[TRACE] {" << mesh_dimension_.dim_size(d) - 1 << ", "
                       << mesh_dimension_.dim_size(d) - 1 << "} -> 1\n";
 #endif
@@ -426,31 +430,47 @@ class InterpolationFunctionTemplate {
     ctrl_pt_type solve_for_control_points_(
         const Mesh<val_type, dim>& f_mesh) const {
         ctrl_pt_type weights{mesh_dimension_};
-        ctrl_pt_type weights_tmp(1);  // auxilary weight for swapping between
-        if CPP17_CONSTEXPR_ (dim > 1) { weights_tmp.resize(mesh_dimension_); }
-
-        auto check_idx =
-            [&](typename Mesh<val_type, dim>::index_type& indices) {
-                bool keep_flag = true;
-                for (size_type d = 0; d < dim; ++d) {
-                    if (base_.periodicity(d)) {
-                        // Skip last point of periodic dimension
-                        keep_flag =
-                            keep_flag && indices[d] != weights.dim_size(d);
-                        indices[d] = (indices[d] + weights.dim_size(d) +
-                                      base_.order_ / 2) %
-                                     weights.dim_size(d);
-                    }
-                }
-                return keep_flag;
-            };
-
-        // Copy interpolating values into weights mesh as the initial state of
-        // the iterative control points solving algorithm
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
         for (auto it = f_mesh.begin(); it != f_mesh.end(); ++it) {
             auto f_indices = f_mesh.iter_indices(it);
-            if (check_idx(f_indices)) { weights(f_indices) = *it; }
+            for (size_type d = 0; d < dim; ++d) {
+                if (base_.periodicity(d)) {
+                    f_indices[d] = (f_indices[d] + weights.dim_size(d) +
+                                    base_.order_ / 2) %
+                                   weights.dim_size(d);
+                }
+            }
+            weights(f_indices) = *it;
         }
+#else
+        {
+            auto check_idx =
+                [&](typename Mesh<val_type, dim>::index_type& indices) {
+                    bool keep_flag = true;
+                    for (size_type d = 0; d < dim; ++d) {
+                        if (base_.periodicity(d)) {
+                            // Skip last point of periodic dimension
+                            keep_flag =
+                                keep_flag && indices[d] != weights.dim_size(d);
+                            indices[d] = (indices[d] + weights.dim_size(d) +
+                                          base_.order_ / 2) %
+                                         weights.dim_size(d);
+                        }
+                    }
+                    return keep_flag;
+                };
+
+            // Copy interpolating values into weights mesh as the initial state
+            // of the iterative control points solving algorithm
+            for (auto it = f_mesh.begin(); it != f_mesh.end(); ++it) {
+                auto f_indices = f_mesh.iter_indices(it);
+                if (check_idx(f_indices)) { weights(f_indices) = *it; }
+            }
+        }
+#endif
+
+        ctrl_pt_type weights_tmp(1);  // auxilary weight for swapping between
+        if CPP17_CONSTEXPR_ (dim > 1) { weights_tmp.resize(mesh_dimension_); }
 
         auto array_right_shift = [](DimArray<size_type> arr) {
             DimArray<size_type> new_arr{};
@@ -506,7 +526,7 @@ class InterpolationFunctionTemplate {
                 }
             };
 
-#ifdef _MULTITHREAD
+#ifdef INTP_MULTITHREAD
             // TODO: use a more robust task division strategy
             const size_type block_num = static_cast<size_type>(
                 std::sqrt(static_cast<double>(hyperplane_size)));
@@ -531,7 +551,7 @@ class InterpolationFunctionTemplate {
             for (auto&& f : res) { f.get(); }
 #else
             solve_and_rearrange_block(0, hyperplane_size);
-#endif  // _MULTITHREAD
+#endif  // INTP_MULTITHREAD
         }
 
         if CPP17_CONSTEXPR_ (dim % 2 == 0 || dim == 1) {

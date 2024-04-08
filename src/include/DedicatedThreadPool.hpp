@@ -30,7 +30,7 @@ class DedicatedThreadPool {
      */
     struct shared_working_queue {
        public:
-#ifdef _DEBUG
+#ifdef INTP_DEBUG
         size_t submitted{};
         size_t executed{};
         size_t stolen{};
@@ -40,7 +40,7 @@ class DedicatedThreadPool {
         shared_working_queue() = default;
         void push(task_type&& task) {
             lock_type lk(deq_mutex);
-#ifdef _DEBUG
+#ifdef INTP_DEBUG
             ++submitted;
 #endif
             deq.push_back(std::move(task));
@@ -50,7 +50,7 @@ class DedicatedThreadPool {
             if (deq.empty()) { return false; }
             task = std::move(deq.back());
             deq.pop_back();
-#ifdef _DEBUG
+#ifdef INTP_DEBUG
             ++executed;
 #endif
             return true;
@@ -60,7 +60,7 @@ class DedicatedThreadPool {
             if (deq.empty()) { return false; }
             task = std::move(deq.front());
             deq.pop_front();
-#ifdef _DEBUG
+#ifdef INTP_DEBUG
             ++stolen;
 #endif
             return true;
@@ -95,7 +95,7 @@ class DedicatedThreadPool {
                 threads.emplace_back(&DedicatedThreadPool::thread_loop, this,
                                      i);
             }
-#ifdef _DEBUG
+#ifdef INTP_DEBUG
             std::cout << "[DEBUG] Thread pool initialized with " << t_num
                       << " threads.\n";
 #endif
@@ -114,7 +114,7 @@ class DedicatedThreadPool {
         should_terminate = true;
         cv.notify_all();
 
-#ifdef _DEBUG
+#ifdef INTP_DEBUG
         std::cout << "\n[DEBUG] The thread pool has " << thread_num()
                   << " threads.\n"
                   << "[DEBUG]    Main queue has " << submitted
@@ -142,7 +142,7 @@ class DedicatedThreadPool {
         {
             lock_type lk(main_queue_mutex);
             main_queue.push(std::move(task));
-#ifdef _DEBUG
+#ifdef INTP_DEBUG
             ++submitted;
 #endif
         }
@@ -219,7 +219,7 @@ class DedicatedThreadPool {
         for (size_t i = 0; i < worker_queues.size() - 1; ++i) {
             const auto idx = (thread_idx + i + 1) % worker_queues.size();
             if (worker_queues[idx]->try_steal(task)) {
-#ifdef _DEBUG
+#ifdef INTP_DEBUG
                 ++(worker_queue_ptr->stealing);
 #endif
                 return true;
@@ -254,7 +254,7 @@ class DedicatedThreadPool {
         }
     }
 
-#ifdef _DEBUG
+#ifdef INTP_DEBUG
     size_t submitted{};
 #endif
     bool should_terminate = false;  // Tells threads to stop looking for tasks

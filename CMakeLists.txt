@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12.0)
 project(
     BSplineInterpolation
-    VERSION 1.3.0
+    VERSION 1.3.1
     HOMEPAGE_URL "https://github.com/12ff54e/BSplineInterpolation.git"
     LANGUAGES CXX)
 include(CTest)
@@ -42,12 +42,7 @@ install(
     FILES ${PROJECT_BINARY_DIR}/${PROJECT_NAME}${VerPostfix}.cmake
     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/cmake)
 
-# Set default build type to release.
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif()
-
-# Requires c++17 and no compiler extension, but not mandetory.
+# Requires c++11, do not need any compiler extension.
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_EXTENSIONS OFF)
 

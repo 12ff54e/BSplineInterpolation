@@ -4,6 +4,10 @@
 #include <cmath>  // ceil
 #include <initializer_list>
 
+#ifdef INTP_TRACE
+#define INTP_DEBUG
+#endif
+
 #include "InterpolationTemplate.hpp"
 
 namespace intp {
@@ -78,16 +82,21 @@ class InterpolationFunction {  // TODO: Add integration
                         DimArray<typename spline_type::KnotContainer>&,
                         std::pair<T_, T_> x_range) {
         uniform_[dim_ind] = true;
-        const size_type n = mesh_dimension.dim_size(dim_ind);
+        const auto periodic = periodicity(dim_ind);
+        const size_type n = mesh_dimension.dim_size(dim_ind)
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
+                            + (periodic ? 1 : 0)
+#endif
+            ;
         dx_[dim_ind] =
             (x_range.second - x_range.first) / static_cast<coord_type>(n - 1);
 
         const size_t extra =
-            periodicity(dim_ind) ? 2 * order_ + (1 - order_ % 2) : order_ + 1;
+            periodic ? 2 * order_ + (1 - order_ % 2) : order_ + 1;
 
         std::vector<coord_type> xs(n + extra, x_range.first);
 
-        if (periodicity(dim_ind)) {
+        if (periodic) {
             for (size_type i = 0; i < xs.size(); ++i) {
                 xs[i] = x_range.first +
                         (static_cast<coord_type>(i) -
@@ -120,23 +129,30 @@ class InterpolationFunction {  // TODO: Add integration
         DimArray<typename spline_type::KnotContainer>& input_coords,
         std::pair<T_, T_> x_range) {
         uniform_[dim_ind] = false;
+        const auto periodic = periodicity(dim_ind);
+
         const size_type n{static_cast<size_type>(
             std::distance(x_range.first, x_range.second))};
-        if (n != mesh_dimension.dim_size(dim_ind)) {
-            throw std::range_error(
-                std::string("Inconsistency between knot number and "
-                            "interpolated value number at dimension ") +
-                std::to_string(dim_ind));
-        }
+        INTP_ASSERT(n == mesh_dimension.dim_size(dim_ind)
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
+                             + (periodic ? 1 : 0)
+#endif
+                        ,
+                    std::string("Inconsistency between knot number and "
+                                "interpolated value number at dimension ") +
+                        std::to_string(dim_ind));
+#ifndef INTP_ENABLE_ASSERTION
+        // suppress unused parameter warning
+        (void)mesh_dimension;
+#endif
         typename spline_type::KnotContainer xs(
-            periodicity(dim_ind) ? n + 2 * order_ + (1 - order_ % 2)
-                                 : n + order_ + 1);
+            periodic ? n + 2 * order_ + (1 - order_ % 2) : n + order_ + 1);
 
         auto& input_coord = input_coords[dim_ind];
         input_coord.reserve(n);
         // The x_range may be given by input iterators, which can not be
         // multi-passed.
-        if (periodicity(dim_ind)) {
+        if (periodic) {
             // In periodic case, the knots are data points, shifted by half of
             // local grid size if spline order is odd.
 
@@ -183,18 +199,15 @@ class InterpolationFunction {  // TODO: Add integration
             // last knot is same as last input coordinate
             input_coord.emplace_back(r_knot);
         }
-#ifdef _DEBUG
         // check whether input coordinates is monotonic
         for (std::size_t i = 0; i < input_coord.size() - 1; ++i) {
-            if (input_coord[i + 1] <= input_coord[i]) {
-                throw std::range_error(
-                    std::string("Given coordinate is not monotonically "
-                                "increasing at dimension ") +
-                    std::to_string(dim_ind));
-            }
+            INTP_ASSERT(input_coord[i + 1] > input_coord[i],
+                        std::string("Given coordinate is not monotonically "
+                                    "increasing at dimension ") +
+                            std::to_string(dim_ind));
         }
-#endif
-#ifdef _TRACE
+
+#ifdef INTP_TRACE
         std::cout << "[TRACE] Nonuniform knots along dimension" << dim_ind
                   << ":\n";
         for (auto& c : xs) { std::cout << "[TRACE] " << c << '\n'; }
@@ -452,7 +465,9 @@ class InterpolationFunction {  // TODO: Add integration
         return spline_.periodicity(dim_ind);
     }
 
-    inline bool uniform(size_type dim_ind) const { return uniform_[dim_ind]; }
+    inline bool uniform(size_type dim_ind) const {
+        return uniform_[dim_ind];
+    }
 
     const std::pair<typename spline_type::knot_type,
                     typename spline_type::knot_type>&
@@ -469,7 +484,9 @@ class InterpolationFunction {  // TODO: Add integration
         return spline_;
     }
 
-    size_type order() const { return order_; }
+    size_type order() const {
+        return order_;
+    }
 };
 
 template <typename T = double, typename U = double>
@@ -485,10 +502,17 @@ class InterpolationFunction1D : public InterpolationFunction<T, size_t{1}, U> {
         : InterpolationFunction1D(
               std::make_pair(typename base::coord_type{},
                              static_cast<typename base::coord_type>(
-                                 (f_range.second - f_range.first) - 1)),
+                                 f_range.second - f_range.first
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
+                                 - (periodicity ? 0 : 1)
+#else
+                                 - 1
+#endif
+                                     )),
               f_range,
               order_,
-              periodicity) {}
+              periodicity) {
+    }
 
     template <typename C1, typename C2, typename InputIter>
     InterpolationFunction1D(std::pair<C1, C2> x_range,
