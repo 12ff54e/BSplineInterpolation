@@ -61,14 +61,18 @@ int main() {
                        util::get_range(vals_1d_linear));
     assertion(d < tol);
     std::cout << "\n1D test (linear) "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     d = rel_err(interp1, util::get_range(coords_1d_half),
                 util::get_range(vals_1d));
     assertion(d < tol);
     std::cout << "\n1D test (cubic) "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     assertion(std::abs(interp1(-.5) - (-6.3167718907512755)) < tol,
@@ -128,17 +132,19 @@ int main() {
          0.2755974099701995}};
 
     assertion(interp2.uniform(0) && interp2.uniform(1),
-              "Uniform properties check failed.");
+              "Uniform properties check \033[1;91mfailed\033[0m.");
 
     d = rel_err(interp2, util::get_range(coords_2d), util::get_range(vals_2d));
     assertion(d < tol);
     std::cout << "\n2D test "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     try {
         interp2.at(-1, 1);
-        assertion(false, "Out of boundary check failed.\n");
+        assertion(false, "Out of boundary check \033[1;91mfailed\033[0m.\n");
     } catch (const std::domain_error&) {
         std::cout << "Out of boundary check succeed.\n";
     }
@@ -277,7 +283,9 @@ int main() {
     d = rel_err(interp3, util::get_range(coords_3d), util::get_range(vals_3d));
     assertion(d < tol);
     std::cout << "\n3D test "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     assertion(!interp3.periodicity(0) && !interp3.periodicity(1) &&
@@ -287,6 +295,14 @@ int main() {
 
     std::cout << "\n1D Interpolation with Periodic Boundary Test:\n";
 
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
+    const auto f_periodic_range = std::make_pair(f.begin(), std::prev(f.end()));
+    InterpolationFunction1D<> interp1_periodic_linear(f_periodic_range, 1,
+                                                      true);
+
+    InterpolationFunction1D<> interp1_periodic(f_periodic_range, 4, true);
+
+#else
     // Since the InterpolationFunction ignores the last term along periodic
     // dimension, thus we can use the origin non-periodic data to interpolate a
     // periodic spline function
@@ -295,6 +311,7 @@ int main() {
                                                       true);
 
     InterpolationFunction1D<> interp1_periodic(util::get_range(f), 4, true);
+#endif
 
     // linear interpolation results
     std::vector<double> vals_1d_periodic_linear;
@@ -316,14 +333,18 @@ int main() {
                 util::get_range(vals_1d_periodic_linear));
     assertion(d < tol);
     std::cout << "\n1D test (linear) with periodic boundary "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     d = rel_err(interp1_periodic, util::get_range(coords_1d),
                 util::get_range(vals_1d_periodic));
     assertion(d < tol);
     std::cout << "\n1D test (quartic) with periodic boundary "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     assertion(std::abs(interp1_periodic(*coords_1d.begin() - (f.size() - 1)) -
@@ -336,10 +357,24 @@ int main() {
     // 2D interpolation test with one dimension being periodic boundary
     std::cout << "\n2D Interpolation with one Periodic Boundary Test:\n";
 
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
+    Mesh<double, 2> f2d_periodic_y{f2.size(), f2[0].size() - 1};
+    for (size_t i = 0; i < f2d_periodic_y.dim_size(0); ++i) {
+        for (size_t j = 0; j < f2d_periodic_y.dim_size(1); ++j) {
+            f2d_periodic_y(i, j) = f2[i][j];
+        }
+    }
+    InterpolationFunction<double, 2> interp2_periodic(
+        3, {false, true}, f2d_periodic_y,
+        make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
+        make_pair(0., static_cast<double>(f2d.dim_size(1)) - 1.));
+
+#else
     InterpolationFunction<double, 2> interp2_periodic(
         3, {false, true}, f2d,
         make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
         make_pair(0., static_cast<double>(f2d.dim_size(1)) - 1.));
+#endif
 
     auto vals_2d_periodic = {-0.5456439415470818, 0.7261218483070795,
                              0.21577722210958022, -1.6499933881987376,
@@ -351,7 +386,9 @@ int main() {
                 util::get_range(vals_2d_periodic));
     assertion(d < tol);
     std::cout << "\n2D test with periodic boundary "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
 #ifdef _DEBUG
@@ -375,7 +412,9 @@ int main() {
         util::get_range(coords_1d_half), util::get_range(vals_1d_derivative_1));
     assertion(d < tol);
     std::cout << "\n1D test of derivative "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     auto vals_1d_derivative_periodic = {
@@ -392,7 +431,9 @@ int main() {
         util::get_range(vals_1d_derivative_periodic));
     assertion(d < tol);
     std::cout << "\n1D test of derivative in periodic case "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     // 2D interpolation derivative test
@@ -412,7 +453,9 @@ int main() {
         util::get_range(coords_2d), util::get_range(vals_2d_derivative_x2_y1));
     assertion(d < tol);
     std::cout << "\n2D test of derivative (2,1) "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     // 3D interpolation derivative test
@@ -433,7 +476,9 @@ int main() {
         util::get_range(vals_3d_derivative_x1_y0_z3));
     assertion(d < tol);
     std::cout << "\n3D test of derivative (1,0,3) "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     // 1D non-uniform interpolation test
@@ -483,25 +528,37 @@ int main() {
                 util::get_range(vals_1d_nonuniform_linear));
     assertion(d < tol);
     std::cout << "\n1D nonuniform test (linear) "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     d = rel_err(interp1_nonuniform, util::get_range(coords_1d),
                 util::get_range(vals_1d_nonuniform));
     assertion(d < tol);
     std::cout << "\n1D nonuniform test (cubic) "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     std::cout << "\n1D nonuniform Interpolation Test with Periodic Boundary:\n";
 
     // 1D non-uniform periodic interpolation test
 
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
+    InterpolationFunction1D<> interp1_nonuniform_periodic_linear(
+        util::get_range(input_coords_1d), f_periodic_range, 1, true);
+
+    InterpolationFunction1D<> interp1_nonuniform_periodic(
+        util::get_range(input_coords_1d), f_periodic_range, 4, true);
+#else
     InterpolationFunction1D<> interp1_nonuniform_periodic_linear(
         util::get_range(input_coords_1d), util::get_range(f), 1, true);
 
     InterpolationFunction1D<> interp1_nonuniform_periodic(
         util::get_range(input_coords_1d), util::get_range(f), 4, true);
+#endif
 
     // linear interpolation results
     std::vector<double> vals_1d_nonuniform_periodic_linear;
@@ -525,12 +582,19 @@ int main() {
     d = rel_err(interp1_nonuniform_periodic_linear, util::get_range(coords_1d),
                 util::get_range(vals_1d_nonuniform_periodic_linear));
     assertion(d < tol);
+    std::cout << "\n1D nonuniform test (linear) with periodic boundary "
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
     d = rel_err(interp1_nonuniform_periodic, util::get_range(coords_1d),
                 util::get_range(vals_1d_nonuniform_periodic));
     assertion(d < tol);
-    std::cout << "\n1D nonuniform test with periodic boundary "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "\n1D nonuniform test (quartic) with periodic boundary "
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     // 2D non-uniform with one dimension being periodic boundary
@@ -539,10 +603,24 @@ int main() {
 
     auto nonuniform_coord_for_2d = {0., 1.329905262345947, 2.200286645200226,
                                     3.1202827237815516, 4.};
+
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
+    Mesh<double, 2> f2d_periodic_x{f2.size() - 1, f2[0].size()};
+    for (size_t i = 0; i < f2d_periodic_x.dim_size(0); ++i) {
+        for (size_t j = 0; j < f2d_periodic_x.dim_size(1); ++j) {
+            f2d_periodic_x(i, j) = f2[i][j];
+        }
+    }
+    InterpolationFunction<double, 2> interp2_X_periodic_Y_nonuniform(
+        3, {true, false}, f2d_periodic_x,
+        std::make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
+        util::get_range(nonuniform_coord_for_2d));
+#else
     InterpolationFunction<double, 2> interp2_X_periodic_Y_nonuniform(
         3, {true, false}, f2d,
         std::make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
         util::get_range(nonuniform_coord_for_2d));
+#endif
 
     auto vals_2d_X_periodic_Y_nonuniform = {
         -0.7160424002258807,  0.6702846215275077,  0.04933393138376427,
@@ -554,13 +632,20 @@ int main() {
                 util::get_range(vals_2d_X_periodic_Y_nonuniform));
     assertion(d < tol);
     std::cout << "\n2D test with x-periodic and y-nonuniform "
-              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
     // interpolation on vector
+
     std::vector<Vec<2, float>> pts;
     constexpr std::size_t pts_n = 31;
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
+    for (std::size_t i = 0; i < pts_n; ++i) {
+#else
     for (std::size_t i = 0; i <= pts_n; ++i) {
+#endif
         double theta = 2. * M_PI * static_cast<double>(i) / pts_n;
         pts.emplace_back(std::cos(theta), std::sin(theta));
     }
@@ -579,7 +664,8 @@ int main() {
         err /= sample_n;
         assertion(err < 1.e-5f);
         std::cout << "Interpolation of 2d points on a circle "
-                  << (assertion.last_status() == 0 ? "succeed" : "failed")
+                  << (assertion.last_status() == 0 ? "succeed"
+                                                   : "\033[1;91mfailed\033[0m")
                   << '\n';
         std::cout << "Relative Error = " << err << '\n';
     }

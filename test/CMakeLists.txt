@@ -3,6 +3,12 @@ cmake_minimum_required(VERSION 3.12.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Set default build type to debug.
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug)
+endif()
+message(STATUS "Build type = " ${CMAKE_BUILD_TYPE})
+
 # Add options according to compiler.
 if(MSVC)
     set(CMAKE_CXX_FLAGS "/W4 /EHsc")
@@ -18,9 +24,11 @@ else()
     endif()
 endif()
 
-add_compile_definitions($<$<CONFIG:Debug>:_TRACE>)
-add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:_DEBUG>)
-add_compile_definitions($<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:_MULTITHREAD>)
+add_compile_definitions($<$<CONFIG:Debug>:INTP_TRACE>
+                        $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:INTP_DEBUG>
+                        $<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:INTP_MULTITHREAD>)
+
+add_compile_definitions(INTP_PERIODIC_NO_DUMMY_POINT)
 
 # Specify tests
 list(APPEND tests "util-test" "mesh-test" "band-matrix-and-solver-test" "bspline-test" "interpolation-test" "interpolation-speed-test" "interpolation-template-test")

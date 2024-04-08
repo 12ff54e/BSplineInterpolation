@@ -260,6 +260,14 @@ class Mesh {
                   const allocator_type& alloc = allocator_type())
         : Mesh(std::make_pair(array.begin(), array.end()), alloc) {}
 
+    // convert constructor from mesh using different allocator
+    template <typename Allocator>
+    Mesh(const Mesh<val_type, dim, Allocator>& mesh,
+         const allocator_type& alloc = allocator_type())
+        : Mesh(mesh.dimension(), alloc) {
+        std::copy(mesh.begin(), mesh.end(), storage_.begin());
+    }
+
     // properties
 
     size_type size() const { return storage_.size(); }

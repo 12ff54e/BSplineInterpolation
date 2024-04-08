@@ -6,11 +6,10 @@
 #include <cmath>        // fmod
 #include <functional>   // ref
 #include <iterator>     // distance
-#include <stdexcept>    // range_error
 #include <type_traits>  // is_same, is_arithmatic
 #include <vector>
 
-#ifdef _DEBUG
+#ifdef INTP_DEBUG
 #include <iostream>
 #endif
 
@@ -122,7 +121,7 @@ class BSpline {
                 std::fmod(x - range(dim_ind).first, period) +
                 (x < range(dim_ind).first ? period : knot_type{});
         }
-#ifdef _TRACE
+#ifdef INTP_TRACE
         if ((*iter > x || *(iter + 1) < x) && x >= range(dim_ind).first &&
             x <= range(dim_ind).second) {
             std::cout << "[TRACE] knot hint miss at dim = " << dim_ind
@@ -230,12 +229,11 @@ class BSpline {
               (knot_iter_pairs.second)[-static_cast<int>(order_) - 1])...},
           buf_size_(util::pow(order_ + 1, dim)) {
         for (size_type d = 0; d < dim; ++d) {
-            if (knots_[d].size() - control_points_.dim_size(d) !=
-                (periodicity_[d] ? 2 * order_ + 1 : order_ + 1)) {
-                throw std::range_error(
-                    "Inconsistency between knot number and control point "
-                    "number.");
-            }
+            INTP_ASSERT(knots_[d].size() - control_points_.dim_size(d) ==
+                            (periodicity_[d] ? 2 * order_ + 1 : order_ + 1),
+                        std::string("Inconsistency between knot number and "
+                                    "control point number at dimension ") +
+                            std::to_string(d));
         }
     }
 
@@ -550,9 +548,11 @@ class BSpline {
         return periodicity_[dim_ind];
     }
 
-    inline size_type order() const { return order_; }
+    inline size_type order() const {
+        return order_;
+    }
 
-#ifdef _DEBUG
+#ifdef INTP_DEBUG
     void debug_output() const {
         std::cout << "\n[DEBUG] Control Points (raw data):\n";
 

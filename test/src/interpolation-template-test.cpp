@@ -48,11 +48,19 @@ int main() {
     constexpr size_t len = 1024;
     constexpr double dx = 2 * M_PI / (len * len);
     std::vector<double> trig_vec{};
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
+    trig_vec.reserve(len * len);
+    for (size_t i = 0; i < len * len; ++i) {
+        trig_vec.emplace_back(
+            std::sin(7 * (static_cast<double>(i) * dx - M_PI)));
+    }
+#else
     trig_vec.reserve(len * len + 1);
     for (size_t i = 0; i < len * len + 1; ++i) {
         trig_vec.emplace_back(
             std::sin(7 * (static_cast<double>(i) * dx - M_PI)));
     }
+#endif
 
     std::vector<double> vals_1d;
     vals_1d.reserve(coord_1d.size());
@@ -106,6 +114,20 @@ int main() {
 
     constexpr double dt = 2 * M_PI / len;
 
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
+    Mesh<double, 2> trig_mesh_2d_1(len);
+    Mesh<double, 2> trig_mesh_2d_2(len);
+    for (size_t i = 0; i < len; ++i) {
+        for (size_t j = 0; j < len; ++j) {
+            trig_mesh_2d_1(i, j) =
+                std::sin(static_cast<double>(i) * dt - M_PI) *
+                std::cos(static_cast<double>(j) * dt - M_PI);
+            trig_mesh_2d_2(i, j) =
+                std::cos(2 * (static_cast<double>(i) * dt - M_PI)) *
+                std::sin(2 * (static_cast<double>(j) * dt - M_PI));
+        }
+    }
+#else
     Mesh<double, 2> trig_mesh_2d_1(len + 1);
     Mesh<double, 2> trig_mesh_2d_2(len + 1);
     for (size_t i = 0; i <= len; ++i) {
@@ -118,7 +140,7 @@ int main() {
                 std::sin(2 * (static_cast<double>(j) * dt - M_PI));
         }
     }
-
+#endif
     std::vector<double> vals_2d_1;
     std::vector<double> vals_2d_2;
     vals_2d_1.reserve(coord_2d.size());
@@ -187,6 +209,24 @@ int main() {
     constexpr double dt_3d = 2 * M_PI / lt;
     constexpr double dz = 1. / (lz - 1);
 
+#ifdef INTP_PERIODIC_NO_DUMMY_POINT
+    Mesh<double, 3> mesh_3d_1(lt, lt, lz);
+    Mesh<double, 3> mesh_3d_2(lt, lt, lz);
+    for (size_t i = 0; i < lt; ++i) {
+        for (size_t j = 0; j < lt; ++j) {
+            for (size_t k = 0; k < lz; ++k) {
+                mesh_3d_1(i, j, k) =
+                    std::sin(static_cast<double>(i) * dt_3d - M_PI) *
+                    std::cos(static_cast<double>(j) * dt_3d - M_PI) *
+                    std::exp(-std::pow(static_cast<double>(k) * dz - .5, 2));
+                mesh_3d_2(i, j, k) =
+                    std::cos(2 * (static_cast<double>(i) * dt_3d - M_PI)) *
+                    std::sin(2 * (static_cast<double>(j) * dt_3d - M_PI)) *
+                    std::exp(-std::pow(static_cast<double>(k) * dz - .5, 3));
+            }
+        }
+    }
+#else
     Mesh<double, 3> mesh_3d_1(lt + 1, lt + 1, lz);
     Mesh<double, 3> mesh_3d_2(lt + 1, lt + 1, lz);
     for (size_t i = 0; i <= lt; ++i) {
@@ -203,6 +243,7 @@ int main() {
             }
         }
     }
+#endif
 
     std::vector<double> vals_3d_1;
     std::vector<double> vals_3d_2;
