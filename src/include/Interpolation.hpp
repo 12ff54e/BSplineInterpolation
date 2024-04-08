@@ -4,6 +4,10 @@
 #include <cmath>  // ceil
 #include <initializer_list>
 
+#ifdef INTP_TRACE
+#define INTP_DEBUG
+#endif
+
 #include "InterpolationTemplate.hpp"
 
 namespace intp {

@@ -42,6 +42,18 @@ InterpolationFunction<double, 2> func(
 ```
 Note: this project follows [Semantic Version 2.0.0](https://semver.org/) so the interface will be compatible within one major version.
 
+### Modify Library's Behavior
+
+You can control the bahavior of this library by defining the following macros:
+
+- `INTP_TRACE`, `INTP_DEBUG`: Defines levels of logging, with decreasing verbosity.
+- `INTP_MULTITHREAD`: Multi-threading in solving control points.
+- `INTP_ENABLE_ASSERTION`: Add assertion to ensure data to be interplolated is valid.
+- `INTP_PERIODIC_NO_DUMMY_POINT`: Whether to accept dummy point when interpolating periodic data. If this macro is defined, number of data point is one less than the specified dimension, since the last point is implicitly set as the same of the first one.
+- `INTP_STACK_ALLOCATOR`: Use stack allocator in some small dynamic memory allocation scenario.
+
+By default all of the above macros is not defined.
+
 ### Matlab Interface
 
 Check matlab/Example.m for instructions. Please notice that matlab/bspline.mexw64 is compiled for windows platform, you may need to compile your own MEX file from bspline.cpp (basically a wrapper) on other platforms.
@@ -53,7 +65,7 @@ Check matlab/Example.m for instructions. Please notice that matlab/bspline.mexw6
 
 ## Known Issues
 
-- No
+- Not found yet
 
 ## Future Plan
 
