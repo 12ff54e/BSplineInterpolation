@@ -156,45 +156,6 @@ class BSpline {
         return {get_knot_iter(indices, coords.first, coords.second)...};
     }
 
-   private:
-    size_type order_;
-
-    DimArray<bool> periodicity_;
-
-    DimArray<KnotContainer> knots_;
-    ControlPointContainer control_points_;
-
-    DimArray<std::pair<knot_type, knot_type>> range_;
-
-    size_type buf_size_;
-
-    // maximum stack buffer size
-    // This buffer is for storing weights when calculating spline derivative
-    // value.
-    constexpr static size_type MAX_BUF_SIZE_ = 1000;
-
-    // auxiliary methods
-
-    /**
-     * @brief Calculate base spline value of each dimension
-     *
-     * @tparam Coords knot_type ...
-     * @tparam indices 0, 1, ...
-     * @param knot_iters an array of knot iters
-     * @param spline_order an array of spline order
-     * @param coords a bunch of coordinates
-     */
-    template <typename... Coords, size_type... indices>
-    inline DimArray<BaseSpline> calc_base_spline_vals(
-        util::index_sequence<indices...>,
-        const DimArray<knot_const_iterator>& knot_iters,
-        const DimArray<size_type>& spline_order,
-        Coords... coords) const {
-        return {base_spline_value(indices, knot_iters[indices], coords,
-                                  spline_order[indices])...};
-    }
-
-   public:
     /**
      * @brief Construct a new BSpline object, with periodicity of each dimension
      * specified.
@@ -571,6 +532,44 @@ class BSpline {
         std::cout << '\n';
     }
 #endif
+
+   private:
+    size_type order_;
+
+    DimArray<bool> periodicity_;
+
+    DimArray<KnotContainer> knots_;
+    ControlPointContainer control_points_;
+
+    DimArray<std::pair<knot_type, knot_type>> range_;
+
+    size_type buf_size_;
+
+    // maximum stack buffer size
+    // This buffer is for storing weights when calculating spline derivative
+    // value.
+    constexpr static size_type MAX_BUF_SIZE_ = 1000;
+
+    // auxiliary methods
+
+    /**
+     * @brief Calculate base spline value of each dimension
+     *
+     * @tparam Coords knot_type ...
+     * @tparam indices 0, 1, ...
+     * @param knot_iters an array of knot iters
+     * @param spline_order an array of spline order
+     * @param coords a bunch of coordinates
+     */
+    template <typename... Coords, size_type... indices>
+    inline DimArray<BaseSpline> calc_base_spline_vals(
+        util::index_sequence<indices...>,
+        const DimArray<knot_const_iterator>& knot_iters,
+        const DimArray<size_type>& spline_order,
+        Coords... coords) const {
+        return {base_spline_value(indices, knot_iters[indices], coords,
+                                  spline_order[indices])...};
+    }
 };
 
 }  // namespace intp
