@@ -24,11 +24,13 @@ else()
     endif()
 endif()
 
-add_compile_definitions($<$<CONFIG:Debug>:INTP_TRACE>
-                        $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:INTP_DEBUG>
-                        $<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:INTP_MULTITHREAD>)
+add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:INTP_DEBUG>
+                        $<$<CONFIG:Release>:INTP_MULTITHREAD>)
 
-add_compile_definitions(INTP_PERIODIC_NO_DUMMY_POINT)
+add_compile_definitions(INTP_PERIODIC_NO_DUMMY_POINT
+                        INTP_CELL_LAYOUT)
+
+#add_compile_definitions(INTP_TRACE)
 
 # Specify tests
 list(APPEND tests "util-test" "mesh-test" "band-matrix-and-solver-test" "bspline-test" "interpolation-test" "interpolation-speed-test" "interpolation-template-test")

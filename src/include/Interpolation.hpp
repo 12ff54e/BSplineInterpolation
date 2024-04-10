@@ -5,7 +5,9 @@
 #include <initializer_list>
 
 #ifdef INTP_TRACE
+#ifndef INTP_DEBUG
 #define INTP_DEBUG
+#endif
 #endif
 
 #include "InterpolationTemplate.hpp"
