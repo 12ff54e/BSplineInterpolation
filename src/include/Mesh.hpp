@@ -38,6 +38,7 @@ class MeshDimension {
     }
 
     size_type dim_size(size_type dim_ind) const { return dim_size_[dim_ind]; }
+    size_type& dim_size(size_type dim_ind) { return dim_size_[dim_ind]; }
 
     size_type dim_acc_size(size_type dim_ind) const {
         size_type das = 1;
@@ -120,6 +121,7 @@ class Mesh {
         using value_type = U;
         using difference_type = std::ptrdiff_t;
         using pointer = U*;
+        using const_pointer = const U*;
         using reference = U&;
         using iterator_category = std::random_access_iterator_tag;
 
@@ -132,13 +134,9 @@ class Mesh {
             : ptr_(ptr), step_length_(step_length) {}
 
         // allow iterator to const_iterator conversion
-        template <typename V>
-        skip_iterator(
-            skip_iterator<typename std::enable_if<
-                std::is_same<V, typename std::remove_const<value_type>::type>::
-                    value,
-                V>::type> other)
-            : ptr_(other.ptr_), step_length_(other.step_length_) {}
+        operator skip_iterator<const T>() { return {ptr_, step_length_}; }
+        // cast to (const) underlying pointer type
+        explicit operator const_pointer() const { return ptr_; }
 
         // forward iterator requirement
 
@@ -301,6 +299,14 @@ class Mesh {
         return storage_[dimension_.indexing(indices...)];
     }
 
+    val_type& operator()(index_type indices) {
+        return storage_[dimension_.indexing(indices)];
+    }
+
+    const val_type& operator()(index_type indices) const {
+        return storage_[dimension_.indexing(indices)];
+    }
+
     const val_type* data() const { return storage_.data(); }
 
     // iterator
@@ -351,6 +357,13 @@ class Mesh {
     index_type iter_indices(const_iterator iter) const {
         return dimension_.dimwise_indices(
             static_cast<size_type>(std::distance(begin(), iter)));
+    }
+
+    index_type iter_indices(skip_iterator<const val_type> skip_iter) const {
+        return dimension_.dimwise_indices(static_cast<size_type>(
+            static_cast<const typename skip_iterator<const val_type>::pointer>(
+                skip_iter) -
+            data()));
     }
 };
 
