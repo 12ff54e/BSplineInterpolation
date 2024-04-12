@@ -9,6 +9,10 @@
 #include <type_traits>  // is_same, is_arithmatic
 #include <vector>
 
+#ifdef INTP_MULTITHREAD
+#include "DedicatedThreadPool.hpp"
+#endif
+
 #ifdef INTP_DEBUG
 #include <iostream>
 #endif
@@ -661,37 +665,62 @@ class BSpline {
         const size_type hyper_surface_size =
             control_point_cell.size() / line_size;
 
-        // iterate over hyperplane
-        for (size_type h_ind = 0; h_ind < hyper_surface_size; ++h_ind) {
-            const auto ind_arr_on_hyper_surface =
-                control_point_cell.dimension().dimwise_indices(h_ind *
-                                                               line_size);
-            const auto line_begin =
-                control_point_cell.begin(dim - 1, ind_arr_on_hyper_surface);
-            const auto line_end =
-                control_point_cell.end(dim - 1, ind_arr_on_hyper_surface);
-            // iterate along the (dim-1)th dimension
-            for (auto iter = line_begin; iter != line_end; ++iter) {
-                auto cell_ind_arr = control_point_cell.iter_indices(iter);
-                MeshDimension<dim - 1> cell_dim(order_ + 1);
-                // iterate the (dim)th dimension
-                for (size_type i = 0; i < cell_dim.size(); ++i) {
-                    auto local_shift_ind = cell_dim.dimwise_indices(i);
-                    cell_ind_arr[dim] = i;
-                    auto cp_ind_arr =
-                        typename ControlPointContainer::index_type{};
-                    for (size_type d = 0; d < dim; ++d) {
-                        cp_ind_arr[d] =
-                            (cell_ind_arr[d] +
-                             (d == dim - 1 ? 0
-                                           : local_shift_ind[dim - 2 - d])) %
-                            ctrl_pts.dim_size(d);
+        auto fill_cell = [&](size_type begin, size_type end) {
+            // iterate over hyperplane
+            for (size_type h_ind = begin; h_ind < end; ++h_ind) {
+                const auto ind_arr_on_hyper_surface =
+                    control_point_cell.dimension().dimwise_indices(h_ind *
+                                                                   line_size);
+                const auto line_begin =
+                    control_point_cell.begin(dim - 1, ind_arr_on_hyper_surface);
+                const auto line_end =
+                    control_point_cell.end(dim - 1, ind_arr_on_hyper_surface);
+                // iterate along the (dim-1)th dimension
+                for (auto iter = line_begin; iter != line_end; ++iter) {
+                    auto cell_ind_arr = control_point_cell.iter_indices(iter);
+                    MeshDimension<dim - 1> cell_dim(order_ + 1);
+                    // iterate the (dim)th dimension
+                    for (size_type i = 0; i < cell_dim.size(); ++i) {
+                        auto local_shift_ind = cell_dim.dimwise_indices(i);
+                        cell_ind_arr[dim] = i;
+                        auto cp_ind_arr =
+                            typename ControlPointContainer::index_type{};
+                        for (size_type d = 0; d < dim; ++d) {
+                            cp_ind_arr[d] =
+                                (cell_ind_arr[d] +
+                                 (d == dim - 1
+                                      ? 0
+                                      : local_shift_ind[dim - 2 - d])) %
+                                ctrl_pts.dim_size(d);
+                        }
+                        control_point_cell(cell_ind_arr) = ctrl_pts(cp_ind_arr);
                     }
-                    // cp_ind_arr[dim - 1] %= ctrl_pts.dim_size(dim - 1);
-                    control_point_cell(cell_ind_arr) = ctrl_pts(cp_ind_arr);
                 }
             }
+        };
+#ifdef INTP_MULTITHREAD
+        const size_type block_num = static_cast<size_type>(
+            std::sqrt(static_cast<double>(hyper_surface_size)));
+        const size_type task_per_block = block_num == 0
+                                             ? hyper_surface_size
+                                             : hyper_surface_size / block_num;
+
+        auto& thread_pool = DedicatedThreadPool<void>::get_instance(8);
+        std::vector<std::future<void>> res;
+
+        for (size_type i = 0; i < block_num; ++i) {
+            res.push_back(thread_pool.queue_task([=]() {
+                fill_cell(i * task_per_block, (i + 1) * task_per_block);
+            }));
         }
+        // main thread deals with the remaining part in case hyper_surface_size
+        // not divisible by thread_num
+        fill_cell(block_num * task_per_block, hyper_surface_size);
+        // wait for all tasks are complete
+        for (auto&& f : res) { f.get(); }
+#else
+        fill_cell(0, hyper_surface_size);
+#endif  // INTP_MULTITHREAD
         return control_point_cell;
     }
 #endif  // INTP_CELL_LAYOUT
