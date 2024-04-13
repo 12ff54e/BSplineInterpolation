@@ -40,7 +40,7 @@ int main() {
     }
 
     Assertion assertion;
-    constexpr size_t len = 256;
+    constexpr size_t len_power = 6 * 4;
     constexpr size_t eval_count = 1 << 20;
 
     std::vector<double> eval_coord_x;
@@ -59,7 +59,7 @@ int main() {
     {
         const auto t_start_1d = high_resolution_clock::now();
 
-        constexpr size_t len_1d = len * len * len;
+        constexpr size_t len_1d = 1 << len_power;
         constexpr double dx = 2 * M_PI / (len_1d);
         std::vector<double> vec_1d{};
 
@@ -126,7 +126,7 @@ int main() {
     {
         const auto t_start_2d = high_resolution_clock::now();
 
-        const size_t len_2d = static_cast<std::size_t>(std::pow(len, 1.5));
+        const size_t len_2d = 1 << (len_power / 2);
         const double dt = 2 * M_PI / static_cast<double>(len_2d);
 
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
@@ -206,14 +206,15 @@ int main() {
     {
         const auto t_start_3d = high_resolution_clock::now();
 
-        constexpr double dt_3d = 2 * M_PI / len;
-        constexpr double dt_3d_aperiodic = 1. / (len - 1);
+        constexpr size_t len_3d = 1 << (len_power / 3);
+        constexpr double dt_3d = 2 * M_PI / len_3d;
+        constexpr double dt_3d_aperiodic = 1. / (len_3d - 1);
 
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
-        Mesh<double, 3> mesh_3d{len, len, len};
-        for (size_t i = 0; i < len; ++i) {
-            for (size_t j = 0; j < len; ++j) {
-                for (size_t k = 0; k < len; ++k) {
+        Mesh<double, 3> mesh_3d{len_3d, len_3d, len_3d};
+        for (size_t i = 0; i < len_3d; ++i) {
+            for (size_t j = 0; j < len_3d; ++j) {
+                for (size_t k = 0; k < len_3d; ++k) {
                     mesh_3d(i, j, k) =
                         std::sin(static_cast<double>(i) * dt_3d - M_PI) *
                         std::cos(static_cast<double>(j) * dt_3d - M_PI) *
@@ -223,10 +224,10 @@ int main() {
             }
         }
 #else
-        Mesh<double, 3> mesh_3d{len + 1, len + 1, len};
-        for (size_t i = 0; i <= len; ++i) {
-            for (size_t j = 0; j <= len; ++j) {
-                for (size_t k = 0; k < len; ++k) {
+        Mesh<double, 3> mesh_3d{len_3d + 1, len_3d + 1, len_3d};
+        for (size_t i = 0; i <= len_3d; ++i) {
+            for (size_t j = 0; j <= len_3d; ++j) {
+                for (size_t k = 0; k < len_3d; ++k) {
                     mesh_3d(i, j, k) =
                         std::sin(static_cast<double>(i) * dt_3d - M_PI) *
                         std::cos(static_cast<double>(j) * dt_3d - M_PI) *
@@ -263,7 +264,7 @@ int main() {
             rel_err(interp3d, std::make_pair(coord_3d.begin(), coord_3d.end()),
                     std::make_pair(vals_3d.begin(), vals_3d.end()));
 
-        const double eps = std::pow(2 * M_PI / len, 4) / 2;
+        const double eps = std::pow(2 * M_PI / len_3d, 4) / 2;
         assertion(err_3d < eps);
         std::cout << "Interpolation 3d trig-exp function with err = " << err_3d
                   << '\n';
