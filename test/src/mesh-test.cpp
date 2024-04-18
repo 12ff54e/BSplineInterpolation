@@ -20,6 +20,14 @@ int main() {
     assertion(*(mesh.data() + 3 * 600 + 4 * 30 + 5) == 1.,
               "Modify data by index failed.");
 
+#ifdef INTP_ENABLE_ASSERTION
+    bool f{};
+    try {
+        mesh(3, 25, 5);
+    } catch (std::exception& e) { f = true; }
+    assertion(f, "Out of boundary access detection failed.");
+#endif  // INTP_ENABLE_ASSERTION
+
     auto mesh_it = mesh.begin();
     advance(mesh_it, 3 * 600 + 4 * 30 + 5);
     auto indices = mesh.iter_indices(mesh_it);

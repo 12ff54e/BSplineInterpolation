@@ -59,8 +59,26 @@ class MeshDimension {
      * @return size_type
      */
     template <typename... Indices>
-    size_type indexing(Indices... indices) const {
-        return indexing(index_type{static_cast<size_type>(indices)...});
+    size_type indexing_safe(Indices... indices) const {
+        return indexing_safe(index_type{static_cast<size_type>(indices)...});
+    }
+
+    size_type indexing_safe(const index_type& ind_arr) const {
+        size_type ind{};
+        size_type sub_mesh_size = 1;
+        for (size_type d = 0; d < dim; ++d) {
+            const size_type d_r = dim - d - 1;
+            INTP_ASSERT(ind_arr[d_r] >= 0 && ind_arr[d_r] < dim_size_[d_r],
+                        std::string("Mesh access out of range at dim ") +
+                            std::to_string(d_r) + std::string(", index ") +
+                            std::to_string(ind_arr[d_r]) +
+                            std::string(" is out of [0, ") +
+                            std::to_string(dim_size_[d_r] - 1) +
+                            std::string("]."));
+            ind += ind_arr[d_r] * sub_mesh_size;
+            sub_mesh_size *= dim_size_[d_r];
+        }
+        return ind;
     }
 
     size_type indexing(const index_type& ind_arr) const {
@@ -293,12 +311,12 @@ class Mesh {
 
     template <typename... Indices>
     val_type& operator()(Indices... indices) {
-        return storage_[dimension_.indexing(indices...)];
+        return storage_[dimension_.indexing_safe(indices...)];
     }
 
     template <typename... Indices>
     const val_type& operator()(Indices... indices) const {
-        return storage_[dimension_.indexing(indices...)];
+        return storage_[dimension_.indexing_safe(indices...)];
     }
 
     const val_type* data() const { return storage_.data(); }
@@ -321,7 +339,7 @@ class Mesh {
     skip_iterator<val_type> begin(size_type dim_ind, index_type indices) {
         indices[dim_ind] = 0;
         return skip_iterator<val_type>(
-            storage_.data() + dimension_.indexing(indices),
+            storage_.data() + dimension_.indexing_safe(indices),
             static_cast<typename skip_iterator<val_type>::difference_type>(
                 dimension_.dim_acc_size(dim - dim_ind - 1)));
     }
@@ -336,7 +354,7 @@ class Mesh {
                                         index_type indices) const {
         indices[dim_ind] = 0;
         return skip_iterator<const val_type>(
-            storage_.data() + dimension_.indexing(indices),
+            storage_.data() + dimension_.indexing_safe(indices),
             static_cast<typename skip_iterator<val_type>::difference_type>(
                 dimension_.dim_acc_size(dim - dim_ind - 1)));
     }
