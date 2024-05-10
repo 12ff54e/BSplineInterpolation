@@ -373,14 +373,17 @@ class InterpolationFunction {  // TODO: Add integration
 
         const size_type n{static_cast<size_type>(
             std::distance(x_range.first, x_range.second))};
-        INTP_ASSERT(n == mesh_dimension.dim_size(dim_ind)
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
-                             + (periodic ? 1 : 0)
-#endif
-                        ,
+        INTP_ASSERT(n == mesh_dimension.dim_size(dim_ind) + (periodic ? 1 : 0),
                     std::string("Inconsistency between knot number and "
                                 "interpolated value number at dimension ") +
                         std::to_string(dim_ind));
+#else
+        INTP_ASSERT(n == mesh_dimension.dim_size(dim_ind),
+                    std::string("Inconsistency between knot number and "
+                                "interpolated value number at dimension ") +
+                        std::to_string(dim_ind));
+#endif
 #ifndef INTP_ENABLE_ASSERTION
         // suppress unused parameter warning
         (void)mesh_dimension;
