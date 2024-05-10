@@ -144,8 +144,8 @@ int main() {
     {
         const auto t_start_2d = high_resolution_clock::now();
 
-        const size_t len_2d = 1 << (len_power / 2);
-        const double dt = 2 * M_PI / static_cast<double>(len_2d);
+        constexpr size_t len_2d = 1 << (len_power / 2);
+        constexpr double dt = 2 * M_PI / static_cast<double>(len_2d);
 
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
         Mesh<double, 2> trig_mesh_2d(len_2d);
@@ -187,8 +187,8 @@ int main() {
         const auto t_after_eval = high_resolution_clock::now();
 
         std::sort(eval_coord_2d.begin(), eval_coord_2d.end(),
-                  [dt](const std::array<double, 2>& p1,
-                       const std::array<double, 2>& p2) {
+                  [](const std::array<double, 2>& p1,
+                     const std::array<double, 2>& p2) {
                       const auto x_1 =
                           static_cast<int>(std::floor((p1[0] + M_PI) / dt));
                       const auto x_2 =
@@ -298,8 +298,8 @@ int main() {
         const auto t_after_eval = high_resolution_clock::now();
 
         std::sort(eval_coord_3d.begin(), eval_coord_3d.end(),
-                  [dt_3d_aperiodic, dt_3d](const std::array<double, 3>& p1,
-                                           const std::array<double, 3>& p2) {
+                  [](const std::array<double, 3>& p1,
+                     const std::array<double, 3>& p2) {
                       const auto x_1 =
                           static_cast<int>(std::floor((p1[0] + M_PI) / dt_3d));
                       const auto x_2 =
