@@ -51,6 +51,7 @@ You can control the bahavior of this library by defining the following macros:
 - `INTP_ENABLE_ASSERTION`: Add assertion to ensure data to be interplolated is valid.
 - `INTP_PERIODIC_NO_DUMMY_POINT`: Whether to accept dummy point when interpolating periodic data. If this macro is defined, number of data point is one less than the specified dimension, since the last point is implicitly set as the same of the first one.
 - `INTP_STACK_ALLOCATOR`: Use stack allocator in some small dynamic memory allocation scenario.
+- `INTP_CELL_LAYOUT`: Store weights in cell layout redundantly to speed up evaluation.
 
 By default all of the above macros is not defined.
 

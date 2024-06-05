@@ -2,6 +2,7 @@
 #include "include/Assertion.hpp"
 #include "include/rel_err.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <random>
@@ -40,26 +41,28 @@ int main() {
     }
 
     Assertion assertion;
-    constexpr size_t len = 256;
+    constexpr size_t len_power = 6 * 4;
     constexpr size_t eval_count = 1 << 20;
 
-    std::vector<double> eval_coord_x;
-    std::vector<double> eval_coord_y;
-    std::vector<double> eval_coord_z;
-    eval_coord_x.reserve(eval_count);
-    eval_coord_y.reserve(eval_count);
-    eval_coord_z.reserve(eval_count);
-    for (size_t i = 0; i < eval_count; ++i) {
-        eval_coord_x.push_back(rand_dist(rand_gen));
-        eval_coord_y.push_back(rand_dist(rand_gen));
-        eval_coord_z.push_back(rand_dist2(rand_gen));
+    std::vector<double> eval_coord_1d;
+    std::vector<std::array<double, 2>> eval_coord_2d;
+    std::vector<std::array<double, 3>> eval_coord_3d;
+    {
+        eval_coord_1d.reserve(eval_count);
+        eval_coord_2d.reserve(eval_count);
+        eval_coord_3d.reserve(eval_count);
+        for (size_t i = 0; i < eval_count; ++i) {
+            eval_coord_1d.push_back(rand_dist(rand_gen));
+            eval_coord_2d.push_back({rand_dist(rand_gen), rand_dist(rand_gen)});
+            eval_coord_3d.push_back({rand_dist(rand_gen), rand_dist(rand_gen),
+                                     rand_dist2(rand_gen)});
+        }
     }
-
     // 1D case
     {
         const auto t_start_1d = high_resolution_clock::now();
 
-        constexpr size_t len_1d = len * len * len;
+        constexpr size_t len_1d = 1 << len_power;
         constexpr double dx = 2 * M_PI / (len_1d);
         std::vector<double> vec_1d{};
 
@@ -88,9 +91,19 @@ int main() {
 
         const auto t_after_interpolation = high_resolution_clock::now();
 
-        for (size_t i = 0; i < eval_count; ++i) { interp1d(eval_coord_x[i]); }
+        for (size_t i = 0; i < eval_count; ++i) { interp1d(eval_coord_1d[i]); }
+        // for (auto& x : eval_coord_1d) { interp1d(x); }
 
         const auto t_after_eval = high_resolution_clock::now();
+
+        std::sort(eval_coord_1d.begin(), eval_coord_1d.end());
+
+        const auto t_before_seq_eval = high_resolution_clock::now();
+
+        for (size_t i = 0; i < eval_count; ++i) { interp1d(eval_coord_1d[i]); }
+        // for (auto& x : eval_coord_1d) { interp1d(x); }
+
+        const auto t_after_seq_eval = high_resolution_clock::now();
 
         double err_1d =
             rel_err(interp1d, std::make_pair(coord_1d.begin(), coord_1d.end()),
@@ -115,9 +128,14 @@ int main() {
                          t_after_interpolation - t_after_vec)
                          .count()
                   << "ms\n";
-        std::cout << "Evaluate\t\t"
+        std::cout << "Evaluate(random)\t"
                   << duration<double, milliseconds::period>(
                          t_after_eval - t_after_interpolation)
+                         .count()
+                  << "ms\n";
+        std::cout << "Evaluate(sequential)\t"
+                  << duration<double, milliseconds::period>(t_after_seq_eval -
+                                                            t_before_seq_eval)
                          .count()
                   << "ms\n\n";
     }
@@ -126,8 +144,8 @@ int main() {
     {
         const auto t_start_2d = high_resolution_clock::now();
 
-        const size_t len_2d = static_cast<std::size_t>(std::pow(len, 1.5));
-        const double dt = 2 * M_PI / static_cast<double>(len_2d);
+        constexpr size_t len_2d = 1 << (len_power / 2);
+        constexpr double dt = 2 * M_PI / static_cast<double>(len_2d);
 
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
         Mesh<double, 2> trig_mesh_2d(len_2d);
@@ -164,11 +182,27 @@ int main() {
 
         const auto t_after_interpolation = high_resolution_clock::now();
 
-        for (size_t i = 0; i < eval_count; ++i) {
-            interp2d(eval_coord_y[i], eval_coord_y[i]);
-        }
+        for (size_t i = 0; i < eval_count; ++i) { interp2d(eval_coord_2d[i]); }
 
         const auto t_after_eval = high_resolution_clock::now();
+
+        std::sort(eval_coord_2d.begin(), eval_coord_2d.end(),
+                  [](const std::array<double, 2>& p1,
+                     const std::array<double, 2>& p2) {
+                      const auto x_1 =
+                          static_cast<int>(std::floor((p1[0] + M_PI) / dt));
+                      const auto x_2 =
+                          static_cast<int>(std::floor((p2[0] + M_PI) / dt));
+                      return x_1 < x_2 || (x_1 == x_2 &&
+                                           std::floor((p1[1] + M_PI) / dt) <=
+                                               std::floor((p2[1] + M_PI) / dt));
+                  });
+
+        const auto t_before_seq_eval = high_resolution_clock::now();
+
+        for (size_t i = 0; i < eval_count; ++i) { interp2d(eval_coord_2d[i]); }
+
+        const auto t_after_seq_eval = high_resolution_clock::now();
 
         double err_2d =
             rel_err(interp2d, std::make_pair(coord_2d.begin(), coord_2d.end()),
@@ -195,9 +229,14 @@ int main() {
                          t_after_interpolation - t_after_mesh)
                          .count()
                   << "ms\n";
-        std::cout << "Evaluate\t\t"
+        std::cout << "Evaluate(random)\t"
                   << duration<double, milliseconds::period>(
                          t_after_eval - t_after_interpolation)
+                         .count()
+                  << "ms\n";
+        std::cout << "Evaluate(sequential)\t"
+                  << duration<double, milliseconds::period>(t_after_seq_eval -
+                                                            t_before_seq_eval)
                          .count()
                   << "ms\n\n";
     }
@@ -206,14 +245,15 @@ int main() {
     {
         const auto t_start_3d = high_resolution_clock::now();
 
-        constexpr double dt_3d = 2 * M_PI / len;
-        constexpr double dt_3d_aperiodic = 1. / (len - 1);
+        constexpr size_t len_3d = 1 << (len_power / 3);
+        constexpr double dt_3d = 2 * M_PI / len_3d;
+        constexpr double dt_3d_aperiodic = 1. / (len_3d - 1);
 
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
-        Mesh<double, 3> mesh_3d{len, len, len};
-        for (size_t i = 0; i < len; ++i) {
-            for (size_t j = 0; j < len; ++j) {
-                for (size_t k = 0; k < len; ++k) {
+        Mesh<double, 3> mesh_3d{len_3d, len_3d, len_3d};
+        for (size_t i = 0; i < len_3d; ++i) {
+            for (size_t j = 0; j < len_3d; ++j) {
+                for (size_t k = 0; k < len_3d; ++k) {
                     mesh_3d(i, j, k) =
                         std::sin(static_cast<double>(i) * dt_3d - M_PI) *
                         std::cos(static_cast<double>(j) * dt_3d - M_PI) *
@@ -223,10 +263,10 @@ int main() {
             }
         }
 #else
-        Mesh<double, 3> mesh_3d{len + 1, len + 1, len};
-        for (size_t i = 0; i <= len; ++i) {
-            for (size_t j = 0; j <= len; ++j) {
-                for (size_t k = 0; k < len; ++k) {
+        Mesh<double, 3> mesh_3d{len_3d + 1, len_3d + 1, len_3d};
+        for (size_t i = 0; i <= len_3d; ++i) {
+            for (size_t j = 0; j <= len_3d; ++j) {
+                for (size_t k = 0; k < len_3d; ++k) {
                     mesh_3d(i, j, k) =
                         std::sin(static_cast<double>(i) * dt_3d - M_PI) *
                         std::cos(static_cast<double>(j) * dt_3d - M_PI) *
@@ -253,17 +293,38 @@ int main() {
 
         const auto t_after_interpolation = high_resolution_clock::now();
 
-        for (size_t i = 0; i < eval_count; ++i) {
-            interp3d(eval_coord_x[i], eval_coord_y[i], eval_coord_z[i]);
-        }
+        for (size_t i = 0; i < eval_count; ++i) { interp3d(eval_coord_3d[i]); }
 
         const auto t_after_eval = high_resolution_clock::now();
+
+        std::sort(eval_coord_3d.begin(), eval_coord_3d.end(),
+                  [](const std::array<double, 3>& p1,
+                     const std::array<double, 3>& p2) {
+                      const auto x_1 =
+                          static_cast<int>(std::floor((p1[0] + M_PI) / dt_3d));
+                      const auto x_2 =
+                          static_cast<int>(std::floor((p2[0] + M_PI) / dt_3d));
+                      const auto y_1 =
+                          static_cast<int>(std::floor((p1[1] + M_PI) / dt_3d));
+                      const auto y_2 =
+                          static_cast<int>(std::floor((p2[1] + M_PI) / dt_3d));
+                      return x_1 < x_2 || (x_1 == x_2 && y_1 < y_2) ||
+                             (x_1 == x_2 && y_1 == y_2 &&
+                              std::floor((p1[2] + .5) / dt_3d_aperiodic) <=
+                                  std::floor((p2[2] + .5) / dt_3d_aperiodic));
+                  });
+
+        const auto t_before_seq_eval = high_resolution_clock::now();
+
+        for (size_t i = 0; i < eval_count; ++i) { interp3d(eval_coord_3d[i]); }
+
+        const auto t_after_seq_eval = high_resolution_clock::now();
 
         double err_3d =
             rel_err(interp3d, std::make_pair(coord_3d.begin(), coord_3d.end()),
                     std::make_pair(vals_3d.begin(), vals_3d.end()));
 
-        const double eps = std::pow(2 * M_PI / len, 4) / 2;
+        const double eps = std::pow(2 * M_PI / len_3d, 4) / 2;
         assertion(err_3d < eps);
         std::cout << "Interpolation 3d trig-exp function with err = " << err_3d
                   << '\n';
@@ -282,11 +343,16 @@ int main() {
                          t_after_interpolation - t_after_mesh_3d)
                          .count()
                   << "ms\n";
-        std::cout << "Evaluate\t\t"
+        std::cout << "Evaluate(random)\t"
                   << duration<double, milliseconds::period>(
                          t_after_eval - t_after_interpolation)
                          .count()
                   << "ms\n";
+        std::cout << "Evaluate(sequential)\t"
+                  << duration<double, milliseconds::period>(t_after_seq_eval -
+                                                            t_before_seq_eval)
+                         .count()
+                  << "ms\n\n";
     }
 
     return assertion.status();

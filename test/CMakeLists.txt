@@ -24,30 +24,51 @@ else()
     endif()
 endif()
 
-add_compile_definitions($<$<CONFIG:Debug>:INTP_TRACE>
-                        $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:INTP_DEBUG>
-                        $<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:INTP_MULTITHREAD>)
+add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:INTP_DEBUG>
+                        $<$<CONFIG:Release>:INTP_MULTITHREAD>)
 
-add_compile_definitions(INTP_PERIODIC_NO_DUMMY_POINT)
+add_compile_definitions(INTP_PERIODIC_NO_DUMMY_POINT
+                        INTP_CELL_LAYOUT)
+
+#add_compile_definitions(INTP_TRACE)
 
 # Specify tests
-list(APPEND tests "util-test" "mesh-test" "band-matrix-and-solver-test" "bspline-test" "interpolation-test" "interpolation-speed-test" "interpolation-template-test")
+list(APPEND regular_tests "util-test" "mesh-test" "band-matrix-and-solver-test" "bspline-test" "interpolation-test")
+list(APPEND speed_tests "interpolation-speed-test" "interpolation-template-test")
 
-list(LENGTH tests test_num)
+list(LENGTH regular_tests test_num)
 message(STATUS)
 message(STATUS  ${test_num} " tests found: ")
 enable_testing()
-foreach(test ${tests})
+foreach(test ${regular_tests})
     string(JOIN "" test_src_file src/ ${test} .cpp)
     add_executable(${test} ${test_src_file})
-    target_compile_features(${test} PRIVATE cxx_std_17)
     target_include_directories(
         ${test} PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/include>)
 
     string(JOIN "-" test_name intp ${test})
     add_test(${test_name} ${test})
+    set_tests_properties(${test_name} PROPERTIES LABELS intp-regular)
     message(STATUS ${test} " from source file " ${test_src_file})
-endforeach(test ${tests})
+endforeach(test ${regular_tests})
+
+if(CMAKE_BUILD_TYPE STREQUAL Release)
+    message(STATUS)
+    list(LENGTH speed_tests test_num)
+    message(STATUS  ${test_num} " speed tests found: ")
+    foreach(test ${speed_tests})
+        string(JOIN "" test_src_file src/ ${test} .cpp)
+        add_executable(${test} ${test_src_file})
+        target_include_directories(
+            ${test} PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/include>)
+
+        string(JOIN "-" test_name intp ${test})
+        add_test(${test_name} ${test})
+        set_tests_properties(${test_name} PROPERTIES LABELS intp-speed)
+        message(STATUS ${test} " from source file " ${test_src_file})
+    endforeach(test ${speed_tests})
+endif()
+
 
 # target_compile_options(interpolation-speed-test PRIVATE $<$<CONFIG:Release>:-march=native>)
 
