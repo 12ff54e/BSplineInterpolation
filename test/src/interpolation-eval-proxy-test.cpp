@@ -80,7 +80,7 @@ int main() {
                         std::floor((p2[2] + .5) / dt_3d_aperiodic));
         });
 
-    // std::vector<double> diff(eval_count);
+    std::vector<double> diff(eval_count);
 
     // 1D case
     {
@@ -115,18 +115,21 @@ int main() {
 
             timer.pause_and_start("1D Evaluation (Direct)");
             for (std::size_t i = 0; i < eval_count; ++i) {
-                interp1d(eval_coord_1d[i]);
+                diff[i] = interp1d(eval_coord_1d[i]);
             }
             timer.pause_and_start("1D Evaluation (Use proxy)");
             for (std::size_t i = 0; i < eval_count; ++i) {
-                evaluators[i](interp1d);
+                diff[i] -= evaluators[i](interp1d);
             }
             timer.pause();
         }
         std::cout << "Interpolation on a 1D mesh consisting " << vec_1d.size()
                   << " points. Then evaluate the function on " << eval_count
                   << " points. Repeat for " << repeat_time << " times.\n";
-
+        double diff_L2{};
+        for (auto v : diff) { diff_L2 += v * v; }
+        std::cout << "Difference between two methods: "
+                  << std::sqrt(diff_L2 / eval_count) << '\n';
         timer.print();
         timer.reset();
         std::cout << '\n';
@@ -171,12 +174,12 @@ int main() {
 
             timer.pause_and_start("2D Evaluation (Direct)");
             for (std::size_t i = 0; i < eval_count; ++i) {
-                interp2d(eval_coord_2d[i]);
+                diff[i] = interp2d(eval_coord_2d[i]);
             }
 
             timer.pause_and_start("2D Evaluation (Use proxy)");
             for (std::size_t i = 0; i < eval_count; ++i) {
-                evaluators[i](interp2d);
+                diff[i] -= evaluators[i](interp2d);
             }
             timer.pause();
         }
@@ -184,6 +187,10 @@ int main() {
                   << trig_mesh_2d.size()
                   << " points. Then evaluate the function on " << eval_count
                   << " points. Repeat for " << repeat_time << " times.\n";
+        double diff_L2{};
+        for (auto v : diff) { diff_L2 += v * v; }
+        std::cout << "Difference between two methods: "
+                  << std::sqrt(diff_L2 / eval_count) << '\n';
 
         timer.print();
         timer.reset();
@@ -234,18 +241,22 @@ int main() {
 
             timer.pause_and_start("3D Evaluation (Direct)");
             for (std::size_t i = 0; i < eval_count; ++i) {
-                interp3d(eval_coord_3d[i]);
+                diff[i] = interp3d(eval_coord_3d[i]);
             }
 
             timer.pause_and_start("3D Evaluation (Use proxy)");
             for (std::size_t i = 0; i < eval_count; ++i) {
-                evaluators[i](interp3d);
+                diff[i] -= evaluators[i](interp3d);
             }
             timer.pause();
         }
         std::cout << "Interpolation on a 3D mesh consisting " << mesh_3d.size()
                   << " points. Then evaluate the function on " << eval_count
                   << " points. Repeat for " << repeat_time << " times.\n";
+        double diff_L2{};
+        for (auto v : diff) { diff_L2 += v * v; }
+        std::cout << "Difference between two methods: "
+                  << std::sqrt(diff_L2 / eval_count) << '\n';
 
         timer.print();
         timer.reset();
