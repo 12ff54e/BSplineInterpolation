@@ -156,6 +156,29 @@ class InterpolationFunctionTemplate {
                 std::forward<MeshOrIterPair>(mesh_or_iter_pair)}));
     }
 
+    // pre calculate base spline values that can be reused in evaluating the
+    // spline before actually providing weights
+    template <typename... Coords,
+              typename = typename std::enable_if<std::is_arithmetic<
+                  typename std::common_type<Coords...>::type>::value>::type>
+#if __cplusplus >= 201402L
+    auto
+#else
+    std::function<val_type(const typename function_type::spline_type&)>
+#endif
+    eval_proxy(Coords... x) const {
+        return base_.eval_proxy(DimArray<coord_type>{x...});
+    }
+
+#if __cplusplus >= 201402L
+    auto
+#else
+    std::function<val_type(const typename function_type::spline_type&)>
+#endif
+    eval_proxy(DimArray<coord_type> coord) const {
+        return base_.eval_proxy(coord);
+    }
+
    private:
     using base_solver_type = BandLU<BandMatrix<coord_type>>;
     using extended_solver_type = BandLU<ExtendedBandMatrix<coord_type>>;

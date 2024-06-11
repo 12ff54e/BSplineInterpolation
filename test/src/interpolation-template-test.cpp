@@ -183,23 +183,23 @@ int main() {
                      .count()
               << "ms\n\n";
 
-    double err1 =
+    double err1_2d =
         rel_err(interp2d_1, std::make_pair(coord_2d.begin(), coord_2d.end()),
                 std::make_pair(vals_2d_1.begin(), vals_2d_1.end()));
-    double err2 =
+    double err2_2d =
         rel_err(interp2d_2, std::make_pair(coord_2d.begin(), coord_2d.end()),
                 std::make_pair(vals_2d_2.begin(), vals_2d_2.end()));
-    assertion(std::max(err1, err2) < eps);
+    assertion(std::max(err1_2d, err2_2d) < eps);
     if (assertion.last_status() == 0) {
         std::cout << "Interpolation 2d trigonometric function accuracy is "
                      "within volume size.\n";
     } else {
         std::cout << "Interpolation 2d trigonometric function is not accurate, "
                      "error1 = "
-                  << err1 << '\n';
+                  << err1_2d << '\n';
         std::cout << "Interpolation 2d trigonometric function is not accurate, "
                      "error2 = "
-                  << err2 << '\n';
+                  << err2_2d << '\n';
     }
 
     const auto t_start_3d = high_resolution_clock::now();

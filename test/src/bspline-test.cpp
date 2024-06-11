@@ -354,5 +354,19 @@ int main() {
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << d << '\n';
 
+#ifdef INTP_CELL_LAYOUT
+    d = rel_err(
+        [&](double x) {
+            auto evaluator = spline_1d_3.pre_calc_coef({{{x, 3u}}});
+            return evaluator(spline_1d_3);
+        },
+        std::make_pair(coords_1d.begin(), coords_1d.end()),
+        std::make_pair(vals_1d.begin(), vals_1d.end()));
+#endif
+    assertion(d < tol);
+    std::cout << "\nProxy test "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
     return assertion.status();
 }
