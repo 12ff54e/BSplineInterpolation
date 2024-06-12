@@ -295,26 +295,31 @@ class BSpline {
 
         auto total_offset = calculate_cell_dim_from_knots().indexing(ind_arr);
 
-        return [base_spline_values_1d,
-                total_offset](const spline_type& spline) {
-            val_type v{};
+        return
+            [base_spline_values_1d, total_offset](const spline_type& spline) {
+                val_type v{};
 
-            auto order = spline.order();
-            const auto& control_points = spline.control_points();
-            auto cell_iter = control_points.begin() +
-                             static_cast<std::ptrdiff_t>(total_offset);
-            for (size_type i = 0;
-                 i < control_points.dim_size(dim) * (order + 1); ++i) {
-                knot_type coef = 1;
-                for (size_type d = 0, combined_ind = i; d < dim; ++d) {
-                    coef *=
-                        base_spline_values_1d[d][combined_ind % (order + 1)];
-                    combined_ind /= (order + 1);
+                auto order = spline.order();
+                const auto& control_points = spline.control_points();
+                auto cell_iter = control_points.begin() +
+                                 static_cast<std::ptrdiff_t>(total_offset);
+                for (size_type i = 0;
+                     i < control_points.dim_size(dim) * (order + 1); ++i) {
+                    knot_type coef = 1;
+                    if CPP17_CONSTEXPR_ (dim == 1) {
+                        // helps with vectorization in 1D case
+                        coef = base_spline_values_1d[0][i];
+                    } else {
+                        for (size_type d = 0, combined_ind = i; d < dim; ++d) {
+                            coef *= base_spline_values_1d[d][combined_ind %
+                                                             (order + 1)];
+                            combined_ind /= (order + 1);
+                        }
+                    }
+                    v += coef * (*cell_iter++);
                 }
-                v += coef * (*cell_iter++);
-            }
-            return v;
-        };
+                return v;
+            };
     }
 #endif
 
