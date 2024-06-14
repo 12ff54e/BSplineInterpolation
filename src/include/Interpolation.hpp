@@ -132,12 +132,10 @@ class InterpolationFunction {  // TODO: Add integration
      * @param x coordinates
      */
     template <typename... Coords,
-              typename Indices = util::make_index_sequence_for<Coords...>,
               typename = typename std::enable_if<std::is_arithmetic<
                   typename std::common_type<Coords...>::type>::value>::type>
     val_type operator()(Coords... x) const {
-        return call_op_helper(
-            Indices{}, DimArray<coord_type>{static_cast<coord_type>(x)...});
+        return call_op_helper({static_cast<coord_type>(x)...});
     }
 
     /**
@@ -146,7 +144,7 @@ class InterpolationFunction {  // TODO: Add integration
      * @param coord coordinate array
      */
     val_type operator()(DimArray<coord_type> coord) const {
-        return call_op_helper(util::make_index_sequence<dim>{}, coord);
+        return call_op_helper(coord);
     }
 
     /**
@@ -156,7 +154,7 @@ class InterpolationFunction {  // TODO: Add integration
      */
     val_type at(DimArray<coord_type> coord) const {
         boundary_check_(coord);
-        return call_op_helper(util::make_index_sequence<dim>{}, coord);
+        return call_op_helper(coord);
     }
 
     /**
@@ -280,25 +278,6 @@ class InterpolationFunction {  // TODO: Add integration
     // auxiliary methods
 
     template <size_type... di>
-    inline val_type call_op_helper(util::index_sequence<di...>,
-                                   DimArray<coord_type> c) const {
-        return spline_(std::make_pair(
-            c[di],
-            uniform_[di]
-                ? std::min(
-                      spline_.knots_num(di) - order_ - 2,
-                      static_cast<size_type>(std::ceil(std::max(
-                          coord_type{0.},
-                          (c[di] - range(di).first) / dx_[di] -
-                              (periodicity(di)
-                                   ? coord_type{1.}
-                                   : coord_type{.5} * static_cast<coord_type>(
-                                                          order_ + 1))))) +
-                          order_)
-                : order_)...);
-    }
-
-    template <size_type... di>
     inline DimArray<std::pair<coord_type, size_type>> add_hint_for_spline(
         util::index_sequence<di...>,
         DimArray<coord_type> c) const {
@@ -318,12 +297,17 @@ class InterpolationFunction {  // TODO: Add integration
                 : order_)...};
     }
 
+    inline val_type call_op_helper(DimArray<coord_type> c) const {
+        return spline_(
+            add_hint_for_spline(util::make_index_sequence<dim>{}, c));
+    }
+
     template <size_type... di>
     inline val_type derivative_helper(util::index_sequence<di...>,
                                       DimArray<coord_type> c,
                                       DimArray<size_type> d) const {
-        return spline_.derivative_at(std::make_tuple(
-            static_cast<coord_type>(c[di]), static_cast<size_type>(d[di]),
+        return spline_.derivative_at({std::make_tuple(
+            static_cast<coord_type>(c[di]),
             uniform_[di]
                 ? std::min(spline_.knots_num(di) - order_ - 2,
                            static_cast<size_type>(std::ceil(std::max(
@@ -333,7 +317,8 @@ class InterpolationFunction {  // TODO: Add integration
                                             : .5 * static_cast<coord_type>(
                                                        order_ + 1))))) +
                                order_)
-                : order_)...);
+                : order_,
+            static_cast<size_type>(d[di]))...});
     }
 
     // overload for uniform knots

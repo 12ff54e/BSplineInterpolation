@@ -170,19 +170,12 @@ class BSpline {
         return get_knot_iter(dim_ind, x, hint, knots_num(dim_ind) - order_ - 2);
     }
 
-    template <typename... CoordWithHints, size_type... indices>
+    template <typename C, size_type... indices>
     inline DimArray<knot_const_iterator> get_knot_iters(
         util::index_sequence<indices...>,
-        CoordWithHints&&... coords) const {
-        return {get_knot_iter(indices, coords.first, coords.second)...};
-    }
-
-    template <size_type... indices>
-    inline DimArray<knot_const_iterator> get_knot_iters(
-        util::index_sequence<indices...>,
-        DimArray<std::pair<knot_type, size_type>>& coords) const {
-        return {get_knot_iter(indices, coords[indices].first,
-                              coords[indices].second)...};
+        C&& coords) const {
+        return {get_knot_iter(indices, std::get<0>(coords[indices]),
+                              std::get<1>(coords[indices]))...};
     }
 
     /**
@@ -328,29 +321,19 @@ class BSpline {
      * (hopefully lower knot point index of the segment where coordinate
      * locates, dimension wise).
      *
-     * @tparam CoordWithHints std::pair<knot_type, size_type>, ...
-     * @param coord_with_hints a bunch of (coordinate, position hint) pairs
-     * @return val_type
      */
-    template <
-        typename... CoordWithHints,
-        typename Indices = util::make_index_sequence_for<CoordWithHints...>>
-    typename std::enable_if<
-        std::is_arithmetic<typename std::common_type<
-            typename CoordWithHints::first_type...>::type>::value &&
-            std::is_integral<typename std::common_type<
-                typename CoordWithHints::second_type...>::type>::value,
-        val_type>::type
-    operator()(CoordWithHints... coord_with_hints) const {
+    val_type operator()(
+        DimArray<std::pair<knot_type, size_type>> coord_with_hints) const {
+        using Indices = util::make_index_sequence<dim>;
         // get knot point iter, it will modifies coordinate value into
         // interpolation range of periodic dimension.
-        const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints...);
+        const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints);
 
         DimArray<size_type> spline_order;
         spline_order.fill(order_);
         // calculate basic spline (out of boundary check also conducted here)
         const auto base_spline_values_1d = calc_base_spline_vals(
-            Indices{}, knot_iters, spline_order, coord_with_hints.first...);
+            Indices{}, knot_iters, spline_order, coord_with_hints);
 
         // combine control points and basic spline values to get spline value
         val_type v{};
@@ -407,17 +390,15 @@ class BSpline {
     /**
      * @brief Get spline value at given coordinates
      *
-     * @tparam Coords some arithmetic type, ...
      * @param coords a bunch of cartesian coordinates
      * @return val_type
      */
-    template <typename... Coords>
-    typename std::enable_if<
-        std::is_arithmetic<typename std::common_type<Coords...>::type>::value,
-        val_type>::type
-    operator()(Coords... coords) const {
-        return operator()(
-            std::make_pair(static_cast<knot_type>(coords), order_)...);
+    val_type operator()(DimArray<double> coords) const {
+        DimArray<std::pair<knot_type, size_type>> coord_with_hints;
+        for (std::size_t d = 0; d < dim; ++d) {
+            coord_with_hints[d] = {coords[d], order_};
+        }
+        return operator()(coord_with_hints);
     }
 
     /**
@@ -425,39 +406,34 @@ class BSpline {
      * hint (possibly lower knot point index of the segment where coordinate
      * locates, dimension wise).
      *
-     * @tparam CoordDeriOrderHintTuple std::tuple<knot_type, size_type,
-     * size_type>, ...
-     * @param coord_deriOrder_hint_tuple a bunch of (coordinate, derivative
-     * order, position hint) tuple
+     * @param coord_deriOrder_hint_tuple a bunch of (coordinate, position hint,
+     * derivative order) tuple
      * @return val_type
      */
-    template <typename... CoordDeriOrderHintTuple,
-              typename Indices =
-                  util::make_index_sequence_for<CoordDeriOrderHintTuple...>>
-    typename std::enable_if<std::tuple_size<typename std::common_type<
-                                CoordDeriOrderHintTuple...>::type>::value == 3,
-                            val_type>::type
-    derivative_at(CoordDeriOrderHintTuple... coord_deriOrder_hint_tuple) const {
+    val_type derivative_at(DimArray<std::tuple<knot_type, size_type, size_type>>
+                               coord_deriOrder_hint_tuple) const {
         // get spline order
-        DimArray<size_type> spline_order{
-            (order_ >= std::get<1>(coord_deriOrder_hint_tuple)
-                 ? order_ - std::get<1>(coord_deriOrder_hint_tuple)
-                 : order_ + 1)...};
+        DimArray<size_type> spline_order;
+        for (size_type d = 0; d < dim; ++d) {
+            spline_order[d] =
+                order_ >= std::get<2>(coord_deriOrder_hint_tuple[d])
+                    ? order_ - std::get<2>(coord_deriOrder_hint_tuple[d])
+                    : order_ + 1;
+        }
+
         // if derivative order is larger than spline order, derivative is 0.
         for (auto o : spline_order) {
             if (o > order_) { return val_type{}; }
         }
 
+        using Indices = util::make_index_sequence<dim>;
         // get knot point iter (out of boundary check also conducted here)
-        const auto knot_iters = get_knot_iters(
-            Indices{},
-            std::make_pair(std::ref(std::get<0>(coord_deriOrder_hint_tuple)),
-                           std::get<2>(coord_deriOrder_hint_tuple))...);
+        const auto knot_iters =
+            get_knot_iters(Indices{}, coord_deriOrder_hint_tuple);
 
         // calculate basic spline
-        const auto base_spline_values_1d =
-            calc_base_spline_vals(Indices{}, knot_iters, spline_order,
-                                  std::get<0>(coord_deriOrder_hint_tuple)...);
+        const auto base_spline_values_1d = calc_base_spline_vals(
+            Indices{}, knot_iters, spline_order, coord_deriOrder_hint_tuple);
 
 #ifdef STACK_ALLOCATOR
         // create local buffer
@@ -578,18 +554,19 @@ class BSpline {
     /**
      * @brief Get derivative value at given coordinates
      *
-     * @tparam CoordDeriOrderPair std::pair<knot_type, size_type>, ...
-     * @param coords a bunch of (coordinate, derivative order) tuple
+     * @param coord_deriOrders a bunch of (coordinate, derivative order) tuple
      * @return val_type
      */
-    template <typename... CoordDeriOrderPair>
-    typename std::enable_if<std::tuple_size<typename std::common_type<
-                                CoordDeriOrderPair...>::type>::value == 2,
-                            val_type>::type
-    derivative_at(CoordDeriOrderPair... coords) const {
-        return derivative_at(
-            std::make_tuple(static_cast<knot_type>(coords.first),
-                            static_cast<size_type>(coords.second), order_)...);
+    val_type derivative_at(
+        DimArray<std::pair<knot_type, size_type>> coord_deriOrders) const {
+        DimArray<std::tuple<knot_type, size_type, size_type>>
+            coord_deriOrder_hint_tuple;
+        for (std::size_t d = 0; d < dim; ++d) {
+            coord_deriOrder_hint_tuple[d] = {std::get<0>(coord_deriOrders[d]),
+                                             order_,
+                                             std::get<1>(coord_deriOrders[d])};
+        }
+        return derivative_at(coord_deriOrder_hint_tuple);
     }
 
     // iterators
@@ -696,30 +673,15 @@ class BSpline {
     /**
      * @brief Calculate base spline value of each dimension
      *
-     * @tparam Coords knot_type ...
-     * @tparam indices 0, 1, ...
-     * @param knot_iters an array of knot iters
-     * @param spline_order an array of spline order
-     * @param coords a bunch of coordinates
      */
-    template <typename... Coords, size_type... indices>
+    template <typename C, size_type... indices>
     inline DimArray<BaseSpline> calc_base_spline_vals(
         util::index_sequence<indices...>,
         const DimArray<knot_const_iterator>& knot_iters,
         const DimArray<size_type>& spline_order,
-        Coords... coords) const {
-        return {base_spline_value(indices, knot_iters[indices], coords,
-                                  spline_order[indices])...};
-    }
-
-    template <size_type... indices>
-    inline DimArray<BaseSpline> calc_base_spline_vals(
-        util::index_sequence<indices...>,
-        const DimArray<knot_const_iterator>& knot_iters,
-        const DimArray<size_type>& spline_order,
-        const DimArray<std::pair<knot_type, size_type>>& coords) const {
+        const C& coords) const {
         return {base_spline_value(indices, knot_iters[indices],
-                                  coords[indices].first,
+                                  std::get<0>(coords[indices]),
                                   spline_order[indices])...};
     }
 
