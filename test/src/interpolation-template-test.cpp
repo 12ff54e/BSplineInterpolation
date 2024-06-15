@@ -1,5 +1,6 @@
 #include <Interpolation.hpp>
 #include "include/Assertion.hpp"
+#include "include/Timer.h"
 #include "include/rel_err.hpp"
 
 #include <chrono>
@@ -13,8 +14,8 @@
 #endif
 
 int main() {
-    using namespace std::chrono;
     using namespace intp;
+    auto& timer = Timer::get_timer();
 
     // random sample points
 
@@ -22,8 +23,10 @@ int main() {
     std::vector<std::array<double, 2>> coord_2d;
     std::vector<std::array<double, 3>> coord_3d;
     {
-        std::mt19937 rand_gen(static_cast<unsigned int>(
-            high_resolution_clock::now().time_since_epoch().count()));
+        std::mt19937 rand_gen(
+            static_cast<unsigned int>(std::chrono::high_resolution_clock::now()
+                                          .time_since_epoch()
+                                          .count()));
         std::uniform_real_distribution<> rand_dist(-M_PI, M_PI);
         std::uniform_real_distribution<> rand_dist2(-.5, .5);
 
@@ -43,11 +46,11 @@ int main() {
     constexpr double eps = 1e-4;  // TODO: use a more reasonable error tolerance
                                   //  according to Taylor series expansion
 
-    const auto t_start_1d = high_resolution_clock::now();
-
     constexpr size_t len = 1024;
     constexpr double dx = 2 * M_PI / (len * len);
     std::vector<double> trig_vec{};
+
+    timer.start("1D Mesh");
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
     trig_vec.reserve(len * len);
     for (size_t i = 0; i < len * len; ++i) {
@@ -66,37 +69,20 @@ int main() {
     vals_1d.reserve(coord_1d.size());
     for (auto& x : coord_1d) { vals_1d.push_back(std::sin(7 * x)); }
 
-    const auto t_after_vec = high_resolution_clock::now();
+    timer.pause_and_start("1D Interpolation Template");
 
     InterpolationFunctionTemplate1D<> interp1d_template(
         std::make_pair(-M_PI, M_PI), trig_vec.size(), 3, true);
 
-    const auto t_after_template_1d = high_resolution_clock::now();
+    timer.pause_and_start("1D Interpolation");
 
     auto interp1d = interp1d_template.interpolate(
         std::make_pair(trig_vec.begin(), trig_vec.end()));
 
-    const auto t_after_interpolation_1d = high_resolution_clock::now();
+    timer.pause();
 
-    std::cout << "\nInterpolation on a 1D mesh consisting " << trig_vec.size()
-              << " points.\n\n";
-    std::cout << "Phase\t\t\tTime\n";
-    std::cout << "Mesh\t\t\t"
-              << duration<double, milliseconds::period>(t_after_vec -
-                                                        t_start_1d)
-                     .count()
-              << "ms\n";
-    std::cout << "Template\t\t"
-              << duration<double, milliseconds::period>(t_after_template_1d -
-                                                        t_after_vec)
-                     .count()
-              << "ms\n";
-    std::cout << "Interpolate\t\t"
-              << duration<double, milliseconds::period>(
-                     t_after_interpolation_1d - t_after_template_1d)
-                     .count()
-              << "ms\n\n";
-
+    std::cout << "Interpolation on a 1D mesh consisting " << trig_vec.size()
+              << " points.\n";
     double err_1d =
         rel_err(interp1d, std::make_pair(coord_1d.begin(), coord_1d.end()),
                 std::make_pair(vals_1d.begin(), vals_1d.end()));
@@ -109,11 +95,13 @@ int main() {
                      "accurate, error1 = "
                   << err_1d << '\n';
     }
-
-    const auto t_start_2d = high_resolution_clock::now();
+    timer.print();
+    timer.reset();
+    std::cout << '\n';
 
     constexpr double dt = 2 * M_PI / len;
 
+    timer.start("2D Mesh (2)");
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
     Mesh<double, 2> trig_mesh_2d_1(len);
     Mesh<double, 2> trig_mesh_2d_2(len);
@@ -151,64 +139,50 @@ int main() {
         vals_2d_2.push_back(std::cos(2 * pt[0]) * std::sin(2 * pt[1]));
     }
 
-    const auto t_after_mesh = high_resolution_clock::now();
+    timer.pause_and_start("2D Interpolation Template");
 
     InterpolationFunctionTemplate<double, 2> interp2d_template(
         3, {true, true}, trig_mesh_2d_1.dimension(),
         std::make_pair(-M_PI, M_PI), std::make_pair(-M_PI, M_PI));
 
-    const auto t_after_template = high_resolution_clock::now();
+    timer.pause_and_start("2D Interpolation (2)");
 
     auto interp2d_1 = interp2d_template.interpolate(trig_mesh_2d_1);
     auto interp2d_2 = interp2d_template.interpolate(trig_mesh_2d_2);
 
-    const auto t_after_interpolation = high_resolution_clock::now();
+    timer.pause();
 
-    std::cout << "\nInterpolation on a 2D mesh consisting "
-              << trig_mesh_2d_1.size() << " points.\n\n";
-    std::cout << "Phase\t\t\tTime\n";
-    std::cout << "Mesh\t\t\t"
-              << duration<double, milliseconds::period>(t_after_mesh -
-                                                        t_start_2d)
-                     .count()
-              << "ms\n";
-    std::cout << "Template\t\t"
-              << duration<double, milliseconds::period>(t_after_template -
-                                                        t_after_mesh)
-                     .count()
-              << "ms\n";
-    std::cout << "Interpolate(2)\t\t"
-              << duration<double, milliseconds::period>(t_after_interpolation -
-                                                        t_after_template)
-                     .count()
-              << "ms\n\n";
+    std::cout << "Interpolation on a 2D mesh consisting "
+              << trig_mesh_2d_1.size() << " points.\n";
 
-    double err1 =
+    double err1_2d =
         rel_err(interp2d_1, std::make_pair(coord_2d.begin(), coord_2d.end()),
                 std::make_pair(vals_2d_1.begin(), vals_2d_1.end()));
-    double err2 =
+    double err2_2d =
         rel_err(interp2d_2, std::make_pair(coord_2d.begin(), coord_2d.end()),
                 std::make_pair(vals_2d_2.begin(), vals_2d_2.end()));
-    assertion(std::max(err1, err2) < eps);
+    assertion(std::max(err1_2d, err2_2d) < eps);
     if (assertion.last_status() == 0) {
         std::cout << "Interpolation 2d trigonometric function accuracy is "
                      "within volume size.\n";
     } else {
         std::cout << "Interpolation 2d trigonometric function is not accurate, "
                      "error1 = "
-                  << err1 << '\n';
+                  << err1_2d << '\n';
         std::cout << "Interpolation 2d trigonometric function is not accurate, "
                      "error2 = "
-                  << err2 << '\n';
+                  << err2_2d << '\n';
     }
-
-    const auto t_start_3d = high_resolution_clock::now();
+    timer.print();
+    timer.reset();
+    std::cout << '\n';
 
     constexpr size_t lt = 256;
     constexpr size_t lz = 256;
     constexpr double dt_3d = 2 * M_PI / lt;
     constexpr double dz = 1. / (lz - 1);
 
+    timer.start("3D Mesh (2)");
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
     Mesh<double, 3> mesh_3d_1(lt, lt, lz);
     Mesh<double, 3> mesh_3d_2(lt, lt, lz);
@@ -257,39 +231,23 @@ int main() {
                             std::exp(-std::pow(pt[2], 3)));
     }
 
-    const auto t_after_mesh_3d = high_resolution_clock::now();
+    timer.pause_and_start("3D Interpolation Template");
 
     InterpolationFunctionTemplate<double, 3> interp3d_template(
         3, {true, true, false}, mesh_3d_1.dimension(),
         std::make_pair(-M_PI, M_PI), std::make_pair(-M_PI, M_PI),
         std::make_pair(-.5, .5));
 
-    const auto t_after_template_3d = high_resolution_clock::now();
+    timer.pause_and_start("3D Interpolation (2)");
 
     decltype(interp3d_template)::function_type interp3d_1, interp3d_2;
     interp3d_template.interpolate(interp3d_1, mesh_3d_1);
     interp3d_template.interpolate(interp3d_2, mesh_3d_2);
 
-    const auto t_after_interpolation_3d = high_resolution_clock::now();
+    timer.pause();
 
-    std::cout << "\nInterpolation on a 3D mesh consisting " << mesh_3d_1.size()
-              << " points.\n\n";
-    std::cout << "Phase\t\t\tTime\n";
-    std::cout << "Mesh\t\t\t"
-              << duration<double, milliseconds::period>(t_after_mesh_3d -
-                                                        t_start_3d)
-                     .count()
-              << "ms\n";
-    std::cout << "Template\t\t"
-              << duration<double, milliseconds::period>(t_after_template_3d -
-                                                        t_after_mesh_3d)
-                     .count()
-              << "ms\n";
-    std::cout << "Interpolate(2)\t\t"
-              << duration<double, milliseconds::period>(
-                     t_after_interpolation_3d - t_after_template_3d)
-                     .count()
-              << "ms\n\n";
+    std::cout << "Interpolation on a 3D mesh consisting " << mesh_3d_1.size()
+              << " points.\n";
 
     double err1_3d =
         rel_err(interp3d_1, std::make_pair(coord_3d.begin(), coord_3d.end()),
@@ -309,6 +267,7 @@ int main() {
                      "error2 = "
                   << err2_3d << '\n';
     }
+    timer.print();
 
     return assertion.status();
 }

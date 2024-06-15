@@ -65,9 +65,9 @@ int main() {
                     2.387237177311428,   2.6116510526724888};
 
     std::cout << "\n1D B-Spline Test:\n";
-    double d =
-        rel_err(spline_1d_3, std::make_pair(coords_1d.begin(), coords_1d.end()),
-                std::make_pair(vals_1d.begin(), vals_1d.end()));
+    double d = rel_err([&](double x) { return spline_1d_3({x}); },
+                       std::make_pair(coords_1d.begin(), coords_1d.end()),
+                       std::make_pair(vals_1d.begin(), vals_1d.end()));
 
     assertion(d < tol);
     std::cout << "\n1D test "
@@ -95,7 +95,7 @@ int main() {
     std::cout << "\n2D B-Spline Test:\n";
 
     // some random points
-    constexpr array<pair<double, double>, 10> coords_2d{
+    constexpr array<array<double, 2>, 10> coords_2d{
         {{0.049800826265867126, 0.8612651106123255},
          {0.575715550141984, 0.5153782982448287},
          {0.051389608765929795, 0.20636530700031974},
@@ -115,9 +115,7 @@ int main() {
          1.5162241194068322}};
 
     d = rel_err(
-        [&](const std::pair<double, double>& coord) {
-            return spline_2d_3(coord.first, coord.second);
-        },
+        [&](const std::array<double, 2>& coord) { return spline_2d_3(coord); },
         std::make_pair(coords_2d.begin(), coords_2d.end()),
         std::make_pair(vals_2d.begin(), vals_2d.end()));
     assertion(d < tol);
@@ -203,7 +201,7 @@ int main() {
 
     d = rel_err(
         [&](const std::array<double, 3>& coord) {
-            return spline_3d_3(coord[0], coord[1], coord[2]);
+            return spline_3d_3({coord[0], coord[1], coord[2]});
         },
         std::make_pair(coords_3d.begin(), coords_3d.end()),
         std::make_pair(vals_3d.begin(), vals_3d.end()));
@@ -228,8 +226,8 @@ int main() {
         0.7421859678077125};
 
     d = rel_err(
-        [&](const std::pair<double, double>& coord) {
-            return spline_2d_3_periodic(coord.first, coord.second);
+        [&](const array<double, 2>& coord) {
+            return spline_2d_3_periodic(coord);
         },
         std::make_pair(coords_2d.begin(), coords_2d.end()),
         std::make_pair(vals_2d_periodic.begin(), vals_2d_periodic.end()));
@@ -254,7 +252,7 @@ int main() {
                                  -91.35861357366572,  -157.14388812127353};
     d = rel_err(
         [&](double x) {
-            return spline_1d_3.derivative_at(std::make_pair(x, 0));
+            return spline_1d_3.derivative_at({std::make_pair(x, 0)});
         },
         std::make_pair(coords_1d.begin(), coords_1d.end()),
         std::make_pair(vals_1d.begin(), vals_1d.end()));
@@ -266,7 +264,7 @@ int main() {
 
     d = rel_err(
         [&](double x) {
-            return spline_1d_3.derivative_at(std::make_pair(x, 1));
+            return spline_1d_3.derivative_at({std::make_pair(x, 1)});
         },
         std::make_pair(coords_1d.begin(), coords_1d.end()),
         std::make_pair(vals_1d_derivative_1.begin(),
@@ -278,7 +276,7 @@ int main() {
 
     d = rel_err(
         [&](double x) {
-            return spline_1d_3.derivative_at(std::make_pair(x, 2));
+            return spline_1d_3.derivative_at({std::make_pair(x, 2)});
         },
         std::make_pair(coords_1d.begin(), coords_1d.end()),
         std::make_pair(vals_1d_derivative_2.begin(),
@@ -304,9 +302,9 @@ int main() {
                                      106.54723295116875, 253.25136807731457};
 
     d = rel_err(
-        [&](std::pair<double, double> coord) {
-            return spline_2d_3.derivative_at(std::make_pair(coord.first, 2),
-                                             std::make_pair(coord.second, 0));
+        [&](array<double, 2> coord) {
+            return spline_2d_3.derivative_at(
+                {std::make_pair(coord[0], 2), std::make_pair(coord[1], 0)});
         },
         std::make_pair(coords_2d.begin(), coords_2d.end()),
         std::make_pair(vals_2d_derivative_x2_y0.begin(),
@@ -318,9 +316,9 @@ int main() {
     std::cout << "Relative Error = " << d << '\n';
 
     d = rel_err(
-        [&](std::pair<double, double> coord) {
-            return spline_2d_3.derivative_at(std::make_pair(coord.first, 1),
-                                             std::make_pair(coord.second, 1));
+        [&](array<double, 2> coord) {
+            return spline_2d_3.derivative_at(
+                {std::make_pair(coord[0], 1), std::make_pair(coord[1], 1)});
         },
         std::make_pair(coords_2d.begin(), coords_2d.end()),
         std::make_pair(vals_2d_derivative_x1_y1.begin(),
@@ -340,10 +338,9 @@ int main() {
         -104.22161375710107};
 
     d = rel_err(
-        [&](std::pair<double, double> coord) {
+        [&](array<double, 2> coord) {
             return spline_2d_3_periodic.derivative_at(
-                std::make_pair(coord.first, 1),
-                std::make_pair(coord.second, 1));
+                {std::make_pair(coord[0], 1), std::make_pair(coord[1], 1)});
         },
         std::make_pair(coords_2d.begin(), coords_2d.end()),
         std::make_pair(vals_2d_periodic_derivative_x1_y1.begin(),
@@ -351,6 +348,20 @@ int main() {
 
     assertion(d < tol);
     std::cout << "\n2D test of derivative 1,1 with periodic boundary "
+              << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+#ifdef INTP_CELL_LAYOUT
+    d = rel_err(
+        [&](double x) {
+            auto evaluator = spline_1d_3.pre_calc_coef({{{x, 3u}}});
+            return evaluator(spline_1d_3);
+        },
+        std::make_pair(coords_1d.begin(), coords_1d.end()),
+        std::make_pair(vals_1d.begin(), vals_1d.end()));
+#endif
+    assertion(d < tol);
+    std::cout << "\nProxy test "
               << (assertion.last_status() == 0 ? "succeed" : "failed") << '\n';
     std::cout << "Relative Error = " << d << '\n';
 

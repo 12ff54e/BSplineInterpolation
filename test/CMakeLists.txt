@@ -34,7 +34,7 @@ add_compile_definitions(INTP_PERIODIC_NO_DUMMY_POINT
 
 # Specify tests
 list(APPEND regular_tests "util-test" "mesh-test" "band-matrix-and-solver-test" "bspline-test" "interpolation-test")
-list(APPEND speed_tests "interpolation-speed-test" "interpolation-template-test")
+list(APPEND speed_tests "interpolation-speed-test" "interpolation-template-test" "interpolation-eval-proxy-test")
 
 list(LENGTH regular_tests test_num)
 message(STATUS)
@@ -58,7 +58,7 @@ if(CMAKE_BUILD_TYPE STREQUAL Release)
     message(STATUS  ${test_num} " speed tests found: ")
     foreach(test ${speed_tests})
         string(JOIN "" test_src_file src/ ${test} .cpp)
-        add_executable(${test} ${test_src_file})
+        add_executable(${test} ${test_src_file} src/Timer.cpp)
         target_include_directories(
             ${test} PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/include>)
 

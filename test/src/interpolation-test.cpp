@@ -663,7 +663,7 @@ int main() {
         }
         err /= sample_n;
         assertion(err < 1.e-5f);
-        std::cout << "Interpolation of 2d points on a circle "
+        std::cout << "\nInterpolation of 2d points on a circle "
                   << (assertion.last_status() == 0 ? "succeed"
                                                    : "\033[1;91mfailed\033[0m")
                   << '\n';

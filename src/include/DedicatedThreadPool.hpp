@@ -263,13 +263,27 @@ class DedicatedThreadPool {
     std::vector<std::thread> threads;  // Thread container
 
     std::queue<task_type> main_queue;  // Main queue for tasks
-    inline static thread_local size_t thread_idx{};
+#if __cplusplus >= 201703L
+    inline static thread_local std::size_t thread_idx{};
     // Local queue ptr for tasks
     inline static thread_local shared_working_queue* worker_queue_ptr{};
+#else
+    static thread_local std::size_t thread_idx;
+    static thread_local shared_working_queue* worker_queue_ptr;
+#endif
     std::vector<std::unique_ptr<shared_working_queue>> worker_queues;
 
     JoinThreads join_threads;  // Defined last to ensure destruct first
 };
+
+#if __cplusplus < 201703L
+template <typename T>
+thread_local std::size_t DedicatedThreadPool<T>::thread_idx{};
+
+template <typename T>
+thread_local typename DedicatedThreadPool<T>::shared_working_queue*
+    DedicatedThreadPool<T>::worker_queue_ptr{};
+#endif
 
 }  // namespace intp
 
