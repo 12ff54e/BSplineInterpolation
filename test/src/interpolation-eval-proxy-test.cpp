@@ -14,6 +14,12 @@
 #endif
 
 int main() {
+    Assertion assertion;
+#ifndef INTP_CELL_LAYOUT
+    assertion(0);
+    std::cout << "Evaluation proxy needs `INTP_CELL_LAYOUT`.\n";
+#else
+
     using namespace intp;
     auto& timer = Timer::get_timer();
 
@@ -24,7 +30,6 @@ int main() {
     std::uniform_real_distribution<> rand_dist(-M_PI, M_PI);
     std::uniform_real_distribution<> rand_dist2(-.5, .5);
 
-    Assertion assertion;
     constexpr size_t len_power = 6 * 2;
     constexpr size_t eval_count = 1 << 10;
     constexpr size_t repeat_time = 1 << 10;
@@ -40,8 +45,8 @@ int main() {
     constexpr double dt_3d_aperiodic = 1. / (len_3d - 1);
 
     std::vector<double> eval_coord_1d;
-    std::vector<std::array<double, 2>> eval_coord_2d;
-    std::vector<std::array<double, 3>> eval_coord_3d;
+    std::vector<std::array<double, 2> > eval_coord_2d;
+    std::vector<std::array<double, 3> > eval_coord_3d;
     eval_coord_1d.reserve(eval_count);
     eval_coord_2d.reserve(eval_count);
     eval_coord_3d.reserve(eval_count);
@@ -128,8 +133,10 @@ int main() {
                   << " points. Repeat for " << repeat_time << " times.\n";
         double diff_L2{};
         for (auto v : diff) { diff_L2 += v * v; }
-        std::cout << "Difference between two methods: "
-                  << std::sqrt(diff_L2 / eval_count) << '\n';
+        diff_L2 = std::sqrt(diff_L2 / eval_count);
+        std::cout << "Difference between two methods: " << diff_L2 << '\n';
+        assertion(diff_L2 < std::numeric_limits<double>::epsilon());
+
         timer.print();
         timer.reset();
         std::cout << '\n';
@@ -189,8 +196,9 @@ int main() {
                   << " points. Repeat for " << repeat_time << " times.\n";
         double diff_L2{};
         for (auto v : diff) { diff_L2 += v * v; }
-        std::cout << "Difference between two methods: "
-                  << std::sqrt(diff_L2 / eval_count) << '\n';
+        diff_L2 = std::sqrt(diff_L2 / eval_count);
+        std::cout << "Difference between two methods: " << diff_L2 << '\n';
+        assertion(diff_L2 < std::numeric_limits<double>::epsilon());
 
         timer.print();
         timer.reset();
@@ -255,13 +263,14 @@ int main() {
                   << " points. Repeat for " << repeat_time << " times.\n";
         double diff_L2{};
         for (auto v : diff) { diff_L2 += v * v; }
-        std::cout << "Difference between two methods: "
-                  << std::sqrt(diff_L2 / eval_count) << '\n';
+        diff_L2 = std::sqrt(diff_L2 / eval_count);
+        std::cout << "Difference between two methods: " << diff_L2 << '\n';
+        assertion(diff_L2 < std::numeric_limits<double>::epsilon());
 
         timer.print();
         timer.reset();
         std::cout << '\n';
     }
-
+#endif  // INTP_CELL_LAYOUT
     return assertion.status();
 }
