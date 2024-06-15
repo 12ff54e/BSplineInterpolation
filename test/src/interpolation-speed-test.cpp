@@ -1,5 +1,6 @@
 #include <Interpolation.hpp>
 #include "include/Assertion.hpp"
+#include "include/Timer.h"
 #include "include/rel_err.hpp"
 
 #include <algorithm>
@@ -14,8 +15,8 @@
 #endif
 
 int main() {
-    using namespace std::chrono;
     using namespace intp;
+    auto& timer = Timer::get_timer();
 
     // random sample points
 
@@ -24,7 +25,7 @@ int main() {
     std::vector<std::array<double, 3>> coord_3d;
 
     std::mt19937 rand_gen(static_cast<unsigned int>(
-        high_resolution_clock::now().time_since_epoch().count()));
+        std::chrono::high_resolution_clock::now().time_since_epoch().count()));
     std::uniform_real_distribution<> rand_dist(-M_PI, M_PI);
     std::uniform_real_distribution<> rand_dist2(-.5, .5);
     {
@@ -60,11 +61,11 @@ int main() {
     }
     // 1D case
     {
-        const auto t_start_1d = high_resolution_clock::now();
-
         constexpr size_t len_1d = 1 << len_power;
         constexpr double dx = 2 * M_PI / (len_1d);
         std::vector<double> vec_1d{};
+
+        timer.start("1D Mesh");
 
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
         vec_1d.reserve(len_1d);
@@ -83,27 +84,27 @@ int main() {
         vals_1d.reserve(coord_1d.size());
         for (auto& x : coord_1d) { vals_1d.push_back(std::sin(13 * x)); }
 
-        const auto t_after_vec = high_resolution_clock::now();
+        timer.pause_and_start("1D Interpolation");
 
         InterpolationFunction1D<> interp1d(
             std::make_pair(-M_PI, M_PI),
             std::make_pair(vec_1d.begin(), vec_1d.end()), 3, true);
 
-        const auto t_after_interpolation = high_resolution_clock::now();
+        timer.pause_and_start("1D Evaluation (Random)");
 
         for (size_t i = 0; i < eval_count; ++i) { interp1d(eval_coord_1d[i]); }
         // for (auto& x : eval_coord_1d) { interp1d(x); }
 
-        const auto t_after_eval = high_resolution_clock::now();
+        timer.pause();
 
         std::sort(eval_coord_1d.begin(), eval_coord_1d.end());
 
-        const auto t_before_seq_eval = high_resolution_clock::now();
+        timer.start("1D Evaluation (Sequential)");
 
         for (size_t i = 0; i < eval_count; ++i) { interp1d(eval_coord_1d[i]); }
         // for (auto& x : eval_coord_1d) { interp1d(x); }
 
-        const auto t_after_seq_eval = high_resolution_clock::now();
+        timer.pause();
 
         double err_1d =
             rel_err(interp1d, std::make_pair(coord_1d.begin(), coord_1d.end()),
@@ -116,37 +117,20 @@ int main() {
 
         std::cout << "Interpolation on a 1D mesh consisting " << vec_1d.size()
                   << " points. Then evaluate the function on " << eval_count
-                  << " points.\n\n";
-        std::cout << "Phase\t\t\tTime\n";
-        std::cout << "Mesh\t\t\t"
-                  << duration<double, milliseconds::period>(t_after_vec -
-                                                            t_start_1d)
-                         .count()
-                  << "ms\n";
-        std::cout << "Interpolate\t\t"
-                  << duration<double, milliseconds::period>(
-                         t_after_interpolation - t_after_vec)
-                         .count()
-                  << "ms\n";
-        std::cout << "Evaluate(random)\t"
-                  << duration<double, milliseconds::period>(
-                         t_after_eval - t_after_interpolation)
-                         .count()
-                  << "ms\n";
-        std::cout << "Evaluate(sequential)\t"
-                  << duration<double, milliseconds::period>(t_after_seq_eval -
-                                                            t_before_seq_eval)
-                         .count()
-                  << "ms\n\n";
+                  << " points.\n";
+
+        timer.print();
+        timer.reset();
+
+        std::cout << '\n';
     }
 
     // 2d case
     {
-        const auto t_start_2d = high_resolution_clock::now();
-
         constexpr size_t len_2d = 1 << (len_power / 2);
         constexpr double dt = 2 * M_PI / static_cast<double>(len_2d);
 
+        timer.start("2D Mesh");
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
         Mesh<double, 2> trig_mesh_2d(len_2d);
         for (size_t i = 0; i < len_2d; ++i) {
@@ -174,17 +158,17 @@ int main() {
             vals_2d.push_back(std::sin(pt[0]) * std::cos(pt[1]));
         }
 
-        const auto t_after_mesh = high_resolution_clock::now();
+        timer.pause_and_start("2D Interpolation");
 
         InterpolationFunction<double, 2> interp2d(3, {true, true}, trig_mesh_2d,
                                                   std::make_pair(-M_PI, M_PI),
                                                   std::make_pair(-M_PI, M_PI));
 
-        const auto t_after_interpolation = high_resolution_clock::now();
+        timer.pause_and_start("2D Evaluation (Random)");
 
         for (size_t i = 0; i < eval_count; ++i) { interp2d(eval_coord_2d[i]); }
 
-        const auto t_after_eval = high_resolution_clock::now();
+        timer.pause();
 
         std::sort(eval_coord_2d.begin(), eval_coord_2d.end(),
                   [](const std::array<double, 2>& p1,
@@ -198,11 +182,11 @@ int main() {
                                                std::floor((p2[1] + M_PI) / dt));
                   });
 
-        const auto t_before_seq_eval = high_resolution_clock::now();
+        timer.start("2D Evaluation (Sequential)");
 
         for (size_t i = 0; i < eval_count; ++i) { interp2d(eval_coord_2d[i]); }
 
-        const auto t_after_seq_eval = high_resolution_clock::now();
+        timer.pause();
 
         double err_2d =
             rel_err(interp2d, std::make_pair(coord_2d.begin(), coord_2d.end()),
@@ -217,38 +201,21 @@ int main() {
         std::cout << "Interpolation on a 2D mesh consisting "
                   << trig_mesh_2d.size()
                   << " points. Then evaluate the function on " << eval_count
-                  << " points.\n\n";
-        std::cout << "Phase\t\t\tTime\n";
-        std::cout << "Mesh\t\t\t"
-                  << duration<double, milliseconds::period>(t_after_mesh -
-                                                            t_start_2d)
-                         .count()
-                  << "ms\n";
-        std::cout << "Interpolate\t\t"
-                  << duration<double, milliseconds::period>(
-                         t_after_interpolation - t_after_mesh)
-                         .count()
-                  << "ms\n";
-        std::cout << "Evaluate(random)\t"
-                  << duration<double, milliseconds::period>(
-                         t_after_eval - t_after_interpolation)
-                         .count()
-                  << "ms\n";
-        std::cout << "Evaluate(sequential)\t"
-                  << duration<double, milliseconds::period>(t_after_seq_eval -
-                                                            t_before_seq_eval)
-                         .count()
-                  << "ms\n\n";
+                  << " points.\n";
+
+        timer.print();
+        timer.reset();
+
+        std::cout << '\n';
     }
 
     // 3d case
     {
-        const auto t_start_3d = high_resolution_clock::now();
-
         constexpr size_t len_3d = 1 << (len_power / 3);
         constexpr double dt_3d = 2 * M_PI / len_3d;
         constexpr double dt_3d_aperiodic = 1. / (len_3d - 1);
 
+        timer.start("3D Mesh");
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
         Mesh<double, 3> mesh_3d{len_3d, len_3d, len_3d};
         for (size_t i = 0; i < len_3d; ++i) {
@@ -285,17 +252,17 @@ int main() {
                               std::exp(-std::pow(pt[2], 2)));
         }
 
-        const auto t_after_mesh_3d = high_resolution_clock::now();
+        timer.pause_and_start("3D Interpolation");
 
         InterpolationFunction<double, 3> interp3d(
             3, {true, true, false}, mesh_3d, std::make_pair(-M_PI, M_PI),
             std::make_pair(-M_PI, M_PI), std::make_pair(-.5, .5));
 
-        const auto t_after_interpolation = high_resolution_clock::now();
+        timer.pause_and_start("3D Evaluation (Random)");
 
         for (size_t i = 0; i < eval_count; ++i) { interp3d(eval_coord_3d[i]); }
 
-        const auto t_after_eval = high_resolution_clock::now();
+        timer.pause();
 
         std::sort(eval_coord_3d.begin(), eval_coord_3d.end(),
                   [](const std::array<double, 3>& p1,
@@ -314,11 +281,11 @@ int main() {
                                   std::floor((p2[2] + .5) / dt_3d_aperiodic));
                   });
 
-        const auto t_before_seq_eval = high_resolution_clock::now();
+        timer.start("3D Evaluation (Sequential)");
 
         for (size_t i = 0; i < eval_count; ++i) { interp3d(eval_coord_3d[i]); }
 
-        const auto t_after_seq_eval = high_resolution_clock::now();
+        timer.pause();
 
         double err_3d =
             rel_err(interp3d, std::make_pair(coord_3d.begin(), coord_3d.end()),
@@ -331,28 +298,9 @@ int main() {
 
         std::cout << "Interpolation on a 3D mesh consisting " << mesh_3d.size()
                   << " points. Then evaluate the function on " << eval_count
-                  << " points.\n\n";
-        std::cout << "Phase\t\t\tTime\n";
-        std::cout << "Mesh\t\t\t"
-                  << duration<double, milliseconds::period>(t_after_mesh_3d -
-                                                            t_start_3d)
-                         .count()
-                  << "ms\n";
-        std::cout << "Interpolate\t\t"
-                  << duration<double, milliseconds::period>(
-                         t_after_interpolation - t_after_mesh_3d)
-                         .count()
-                  << "ms\n";
-        std::cout << "Evaluate(random)\t"
-                  << duration<double, milliseconds::period>(
-                         t_after_eval - t_after_interpolation)
-                         .count()
-                  << "ms\n";
-        std::cout << "Evaluate(sequential)\t"
-                  << duration<double, milliseconds::period>(t_after_seq_eval -
-                                                            t_before_seq_eval)
-                         .count()
-                  << "ms\n\n";
+                  << " points.\n";
+
+        timer.print();
     }
 
     return assertion.status();
