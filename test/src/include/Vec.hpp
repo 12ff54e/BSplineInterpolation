@@ -28,17 +28,24 @@ class VecBase {
 
    private:
     template <std::size_t... indices>
-    static bool equal_aux_(std::index_sequence<indices...>,
+    static bool equal_aux_(intp::util::index_sequence<indices...>,
                            const VecBase& lhs,
                            const VecBase& rhs) {
+#if __cplusplus >= 201703L
         return (... && (lhs[indices] == rhs[indices]));
+#else
+        for (std::size_t i = 0; i < dim; ++i) {
+            if (!(lhs[i] == rhs[i])) { return false; }
+        }
+        return true;
+#endif
     }
 
    public:
     constexpr VecBase() = default;
 
     template <typename... Ts,
-              typename = typename std::enable_if_t<sizeof...(Ts) <= dim>>
+              typename = typename std::enable_if<sizeof...(Ts) <= dim>::type>
     constexpr VecBase(Ts... vs) noexcept
         : coord{static_cast<value_type>(vs)...} {}
 
@@ -47,9 +54,9 @@ class VecBase {
      *
      * @param other another vec
      */
-    template <
-        typename U,
-        typename = typename std::enable_if_t<std::is_convertible<U, T>::value>>
+    template <typename U,
+              typename = typename std::enable_if<
+                  std::is_convertible<U, T>::value>::type>
     VecBase(VecBase<dim, U> other) noexcept {
         for (std::size_t i = 0; i < dim; ++i) {
             coord[i] = static_cast<value_type>(other[i]);
@@ -64,14 +71,18 @@ class VecBase {
 
     // element access
 
-    T& operator[](std::size_t i) noexcept { return coord[i]; }
+    T& operator[](std::size_t i) noexcept {
+        return coord[i];
+    }
 
-    const T& operator[](std::size_t i) const noexcept { return coord[i]; }
+    const T& operator[](std::size_t i) const noexcept {
+        return coord[i];
+    }
 
     // comparison operations
 
     friend bool operator==(const vec_type& lhs, const vec_type& rhs) {
-        return equal_aux_(std::make_index_sequence<dim>{}, lhs, rhs);
+        return equal_aux_(intp::util::make_index_sequence<dim>{}, lhs, rhs);
     }
 
     friend bool operator!=(const vec_type& lhs, const vec_type& rhs) {
@@ -80,41 +91,23 @@ class VecBase {
 
     // arithmetic operations
 
-#define intp_vec_compound_assign_2_(op)                            \
-    ([]<std::size_t... indices>(std::index_sequence<indices...>,   \
-                                vec_type & v1, const vec_type& v2) \
-         ->vec_type &                                              \
-     {                                                             \
-         (..., (v1[indices] op v2[indices]));                      \
-         return v1;                                                \
-     })
-
     friend vec_type& operator+=(vec_type& lhs, const vec_type& rhs) noexcept {
-        return intp_vec_compound_assign_2_(+=)(std::make_index_sequence<dim>{},
-                                               lhs, rhs);
+        for (std::size_t i = 0; i < dim; ++i) { lhs[i] += rhs[i]; }
+        return lhs;
     }
     friend vec_type& operator-=(vec_type& lhs, const vec_type& rhs) noexcept {
-        return intp_vec_compound_assign_2_(-=)(std::make_index_sequence<dim>{},
-                                               lhs, rhs);
+        for (std::size_t i = 0; i < dim; ++i) { lhs[i] -= rhs[i]; }
+        return lhs;
     }
 
-#define intp_vec_compound_assign_1_(op)                          \
-    ([]<std::size_t... indices>(std::index_sequence<indices...>, \
-                                vec_type & v1, const T& s)       \
-         ->vec_type &                                            \
-     {                                                           \
-         (..., (v1[indices] op s));                              \
-         return v1;                                              \
-     })
-
     friend vec_type& operator*=(vec_type& lhs, const T& scalar) noexcept {
-        return intp_vec_compound_assign_1_(*=)(std::make_index_sequence<dim>{},
-                                               lhs, scalar);
+        for (std::size_t i = 0; i < dim; ++i) { lhs[i] *= scalar; }
+        return lhs;
     }
 
     friend vec_type& operator/=(vec_type& lhs, const T& scalar) noexcept {
-        return intp_vec_compound_assign_1_(/=)(std::make_index_sequence<dim>{},
-                                               lhs, scalar);
+        for (std::size_t i = 0; i < dim; ++i) { lhs[i] /= scalar; }
+        return lhs;
     }
 
     friend vec_type operator+(vec_type lhs, const vec_type& rhs) noexcept {
@@ -138,13 +131,15 @@ class VecBase {
     // conversion operator
 
     // convert to the underlying coordinate array
-    constexpr operator std::array<value_type, dim>() const { return coord; }
+    constexpr operator std::array<value_type, dim>() const {
+        return coord;
+    }
 
     // convert to derived class
     constexpr operator vec_type() const& {
         return static_cast<vec_type>(*this);
     }
-    constexpr operator vec_type() && {
+    operator vec_type() && {
         return static_cast<vec_type&&>(std::move(*this));
     }
 
@@ -156,7 +151,9 @@ class VecBase {
         return norm;
     }
 
-    T mag() const { return std::sqrt(L2_norm_square()); }
+    T mag() const {
+        return std::sqrt(L2_norm_square());
+    }
 };
 
 /**

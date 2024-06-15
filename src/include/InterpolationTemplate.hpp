@@ -164,7 +164,7 @@ class InterpolationFunctionTemplate {
 #if __cplusplus >= 201402L
     auto
 #else
-    std::function<val_type(const typename function_type::spline_type&)>
+    std::function<val_type(const function_type&)>
 #endif
     eval_proxy(Coords... x) const {
         return base_.eval_proxy(DimArray<coord_type>{x...});
@@ -173,7 +173,7 @@ class InterpolationFunctionTemplate {
 #if __cplusplus >= 201402L
     auto
 #else
-    std::function<val_type(const typename function_type::spline_type&)>
+    std::function<val_type(const function_type&)>
 #endif
     eval_proxy(DimArray<coord_type> coord) const {
         return base_.eval_proxy(coord);
@@ -390,11 +390,11 @@ class InterpolationFunctionTemplate {
                                         : uniform && is_internal ? order | 1
                                                                  : order + 1;
                 for (size_type j = 0; j < s_num; ++j) {
+#if __cplusplus >= 201703L
                     const size_type row = (i + (periodic ? band_width : 0)) %
                                           mesh_dimension_.dim_size(d);
                     const size_type col =
                         (knot_ind - order + j) % mesh_dimension_.dim_size(d);
-#if __cplusplus >= 201703L
                     std::visit(
                         [&](auto& m) {
                             m(row, col) = base_spline_vals_per_dim[d][j];

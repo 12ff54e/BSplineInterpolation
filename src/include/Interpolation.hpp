@@ -497,7 +497,7 @@ class InterpolationFunction {  // TODO: Add integration
 #if __cplusplus >= 201402L
     auto
 #else
-    std::function<val_type(const typename function_type&)>
+    std::function<val_type(const function_type&)>
 #endif
     eval_proxy(DimArray<coord_type> coords) const {
         auto spline_proxy = spline().pre_calc_coef(
