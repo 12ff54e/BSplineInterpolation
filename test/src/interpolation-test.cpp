@@ -21,10 +21,10 @@ int main() {
                          0.262974, 0.423888, -0.562671, -0.915567, -0.261017,
                          -0.47915, -0.00939326, -0.445962}};
 
-    InterpolationFunction1D<> interp1_linear(util::get_range(f), 1);
+    InterpolationFunction1D<1> interp1_linear(util::get_range(f));
 
-    InterpolationFunction1D<> interp1{std::make_pair(0, .5 * (f.size() - 1)),
-                                      util::get_range(f)};
+    InterpolationFunction1D<3> interp1{std::make_pair(0, .5 * (f.size() - 1)),
+                                       util::get_range(f)};
 
     auto coords_1d_half = {1.968791374707961,  0.23397112295047862,
                            4.183162505803409,  5.744438451300649,
@@ -107,8 +107,8 @@ int main() {
         for (size_t j = 0; j < f2d.dim_size(1); ++j) { f2d(i, j) = f2[i][j]; }
     }
 
-    InterpolationFunction<double, 2> interp2{
-        3, f2d, make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
+    InterpolationFunction<double, 2, 3> interp2{
+        f2d, make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
         make_pair(0., static_cast<double>(f2d.dim_size(1)) - 1.)};
 
     // some random points
@@ -255,8 +255,8 @@ int main() {
         }
     }
 
-    InterpolationFunction<double, 3> interp3(
-        3, f3d, make_pair(0., static_cast<double>(f3d.dim_size(0)) - 1.),
+    InterpolationFunction<double, 3, 3> interp3(
+        f3d, make_pair(0., static_cast<double>(f3d.dim_size(0)) - 1.),
         make_pair(0., static_cast<double>(f3d.dim_size(1)) - 1.),
         make_pair(0., static_cast<double>(f3d.dim_size(2)) - 1.));
 
@@ -297,20 +297,19 @@ int main() {
 
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
     const auto f_periodic_range = std::make_pair(f.begin(), std::prev(f.end()));
-    InterpolationFunction1D<> interp1_periodic_linear(f_periodic_range, 1,
-                                                      true);
+    InterpolationFunction1D<1> interp1_periodic_linear(f_periodic_range, true);
 
-    InterpolationFunction1D<> interp1_periodic(f_periodic_range, 4, true);
+    InterpolationFunction1D<4> interp1_periodic(f_periodic_range, true);
 
 #else
     // Since the InterpolationFunction ignores the last term along periodic
     // dimension, thus we can use the origin non-periodic data to interpolate a
     // periodic spline function
 
-    InterpolationFunction1D<> interp1_periodic_linear(util::get_range(f), 1,
-                                                      true);
+    InterpolationFunction1D<1> interp1_periodic_linear(util::get_range(f),
+                                                       true);
 
-    InterpolationFunction1D<> interp1_periodic(util::get_range(f), 4, true);
+    InterpolationFunction1D<4> interp1_periodic(util::get_range(f), true);
 #endif
 
     // linear interpolation results
@@ -364,14 +363,14 @@ int main() {
             f2d_periodic_y(i, j) = f2[i][j];
         }
     }
-    InterpolationFunction<double, 2> interp2_periodic(
-        3, {false, true}, f2d_periodic_y,
+    InterpolationFunction<double, 2, 3> interp2_periodic(
+        {false, true}, f2d_periodic_y,
         make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
         make_pair(0., static_cast<double>(f2d.dim_size(1)) - 1.));
 
 #else
-    InterpolationFunction<double, 2> interp2_periodic(
-        3, {false, true}, f2d,
+    InterpolationFunction<double, 2, 3> interp2_periodic(
+        {false, true}, f2d,
         make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
         make_pair(0., static_cast<double>(f2d.dim_size(1)) - 1.));
 #endif
@@ -499,10 +498,10 @@ int main() {
                             11.440973163521294,
                             12.};
 
-    InterpolationFunction1D<> interp1_nonuniform_linear(
-        util::get_range(input_coords_1d), util::get_range(f), 1);
+    InterpolationFunction1D<1> interp1_nonuniform_linear(
+        util::get_range(input_coords_1d), util::get_range(f));
 
-    InterpolationFunction1D<> interp1_nonuniform(
+    InterpolationFunction1D<3> interp1_nonuniform(
         util::get_range(input_coords_1d), util::get_range(f));
 
     // linear interpolation results
@@ -547,17 +546,17 @@ int main() {
     // 1D non-uniform periodic interpolation test
 
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
-    InterpolationFunction1D<> interp1_nonuniform_periodic_linear(
-        util::get_range(input_coords_1d), f_periodic_range, 1, true);
+    InterpolationFunction1D<1> interp1_nonuniform_periodic_linear(
+        util::get_range(input_coords_1d), f_periodic_range, true);
 
-    InterpolationFunction1D<> interp1_nonuniform_periodic(
-        util::get_range(input_coords_1d), f_periodic_range, 4, true);
+    InterpolationFunction1D<4> interp1_nonuniform_periodic(
+        util::get_range(input_coords_1d), f_periodic_range, true);
 #else
-    InterpolationFunction1D<> interp1_nonuniform_periodic_linear(
-        util::get_range(input_coords_1d), util::get_range(f), 1, true);
+    InterpolationFunction1D<1> interp1_nonuniform_periodic_linear(
+        util::get_range(input_coords_1d), util::get_range(f), true);
 
-    InterpolationFunction1D<> interp1_nonuniform_periodic(
-        util::get_range(input_coords_1d), util::get_range(f), 4, true);
+    InterpolationFunction1D<4> interp1_nonuniform_periodic(
+        util::get_range(input_coords_1d), util::get_range(f), true);
 #endif
 
     // linear interpolation results
@@ -611,13 +610,13 @@ int main() {
             f2d_periodic_x(i, j) = f2[i][j];
         }
     }
-    InterpolationFunction<double, 2> interp2_X_periodic_Y_nonuniform(
-        3, {true, false}, f2d_periodic_x,
+    InterpolationFunction<double, 2, 3> interp2_X_periodic_Y_nonuniform(
+        {true, false}, f2d_periodic_x,
         std::make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
         util::get_range(nonuniform_coord_for_2d));
 #else
-    InterpolationFunction<double, 2> interp2_X_periodic_Y_nonuniform(
-        3, {true, false}, f2d,
+    InterpolationFunction<double, 2, 3> interp2_X_periodic_Y_nonuniform(
+        {true, false}, f2d,
         std::make_pair(0., static_cast<double>(f2d.dim_size(0)) - 1.),
         util::get_range(nonuniform_coord_for_2d));
 #endif
@@ -649,8 +648,8 @@ int main() {
         double theta = 2. * M_PI * static_cast<double>(i) / pts_n;
         pts.emplace_back(std::cos(theta), std::sin(theta));
     }
-    InterpolationFunction1D<Vec<2, float>, float> circle(util::get_range(pts),
-                                                         3, true);
+    InterpolationFunction1D<3, Vec<2, float>, float> circle(
+        util::get_range(pts), true);
     {
         constexpr std::size_t sample_n = 1024;
         float err = 0;

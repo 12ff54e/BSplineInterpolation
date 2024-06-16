@@ -29,43 +29,40 @@ namespace intp {
  * @tparam T Type of control point
  * @tparam D Dimension
  */
-template <typename T, size_t D, typename U = double>
+template <typename T, std::size_t D, std::size_t O, typename U = double>
 class BSpline {
    public:
-    using spline_type = BSpline<T, D, U>;
+    using spline_type = BSpline<T, D, O, U>;
 
-    using size_type = size_t;
+    using size_type = std::size_t;
     using val_type = T;
     using knot_type = U;
+    constexpr static size_type dim = D;
+    constexpr static size_type order = O;
 
     using KnotContainer = std::vector<knot_type>;
 
     using ControlPointContainer =
         Mesh<val_type,
-             D,
+             dim,
              util::default_init_allocator<
                  val_type,
                  AlignedAllocator<val_type, Alignment::AVX>>>;
 #ifdef INTP_CELL_LAYOUT
     using ControlPointCellContainer =
         Mesh<val_type,
-             D + 1,
+             dim + 1,
              util::default_init_allocator<
                  val_type,
                  AlignedAllocator<val_type, Alignment::AVX>>>;
-#endif
-
-    using BaseSpline = std::vector<knot_type>;
-    using diff_type = typename KnotContainer::iterator::difference_type;
-    using knot_const_iterator = typename KnotContainer::const_iterator;
-
-#ifdef INTP_CELL_LAYOUT
     using control_point_type = ControlPointCellContainer;
 #else
     using control_point_type = ControlPointContainer;
 #endif
 
-    constexpr static size_type dim = D;
+    using BaseSpline = std::array<knot_type, order + 1>;
+    using diff_type = typename KnotContainer::iterator::difference_type;
+    using knot_const_iterator = typename KnotContainer::const_iterator;
 
     // Container for dimension-wise storage
     template <typename T_>
@@ -87,13 +84,13 @@ class BSpline {
                                               knot_const_iterator seg_idx_iter,
                                               knot_type x,
                                               size_type spline_order) const {
-        BaseSpline base_spline(order_ + 1, 0);
-        base_spline[order_] = 1;
+        BaseSpline base_spline{};
+        base_spline[order] = 1;
 
         for (size_type i = 1; i <= spline_order; ++i) {
             // Each iteration will expand buffer zone by one, from back
             // to front.
-            const size_type idx_begin = order_ - i;
+            const size_type idx_begin = order - i;
             for (size_type j = 0; j <= i; ++j) {
                 const auto left_iter =
                     seg_idx_iter - static_cast<diff_type>(i - j);
@@ -103,7 +100,7 @@ class BSpline {
                     (j == 0 ? 0
                             : base_spline[idx_begin + j] * (x - *left_iter) /
                                   (*(right_iter - 1) - *left_iter)) +
-                    (idx_begin + j == order_
+                    (idx_begin + j == order
                          ? 0
                          : base_spline[idx_begin + j + 1] * (*right_iter - x) /
                                (*right_iter - *(left_iter + 1)));
@@ -115,7 +112,7 @@ class BSpline {
     inline const BaseSpline base_spline_value(size_type dim_ind,
                                               knot_const_iterator seg_idx_iter,
                                               knot_type x) const {
-        return base_spline_value(dim_ind, seg_idx_iter, x, order_);
+        return base_spline_value(dim_ind, seg_idx_iter, x, order);
     }
 
     /**
@@ -158,7 +155,7 @@ class BSpline {
                    // (excluding beginning and ending knots that have same
                    // value)
                    : --(std::upper_bound(knots_begin(dim_ind) +
-                                             static_cast<diff_type>(order_ + 1),
+                                             static_cast<diff_type>(order + 1),
                                          knots_begin(dim_ind) +
                                              static_cast<diff_type>(last + 1),
                                          x));
@@ -167,7 +164,7 @@ class BSpline {
     inline knot_const_iterator get_knot_iter(size_type dim_ind,
                                              knot_type& x,
                                              size_type hint) const {
-        return get_knot_iter(dim_ind, x, hint, knots_num(dim_ind) - order_ - 2);
+        return get_knot_iter(dim_ind, x, hint, knots_num(dim_ind) - order - 2);
     }
 
     template <typename C, size_type... indices>
@@ -183,27 +180,23 @@ class BSpline {
      * specified.
      *
      */
-    explicit BSpline(DimArray<bool> periodicity, size_type spline_order = 3)
-        : order_(spline_order),
-          periodicity_(periodicity),
+    explicit BSpline(DimArray<bool> periodicity)
+        : periodicity_(periodicity),
           control_points_(size_type{}),
-          buf_size_(util::pow(order_ + 1, dim)) {}
+          buf_size_(util::pow(order + 1, dim)) {}
 
     /**
      * @brief Basically the default constructor, initialize an empty, non-closed
      * B-Spline with order defaulted to be 3.
      *
      */
-    explicit BSpline(size_type spline_order = 3)
-        : BSpline(DimArray<bool>{}, spline_order) {}
+    explicit BSpline() : BSpline(DimArray<bool>{}) {}
 
     template <typename... InputIters>
-    BSpline(size_type spline_order,
-            DimArray<bool> periodicity,
+    BSpline(DimArray<bool> periodicity,
             ControlPointContainer ctrl_pts,
             std::pair<InputIters, InputIters>... knot_iter_pairs)
-        : order_(spline_order),
-          periodicity_(periodicity),
+        : periodicity_(periodicity),
           knots_{
               KnotContainer(knot_iter_pairs.first, knot_iter_pairs.second)...},
 #ifdef INTP_CELL_LAYOUT
@@ -212,12 +205,12 @@ class BSpline {
           control_points_(std::move(ctrl_pts)),
 #endif
           range_{std::make_pair(
-              (knot_iter_pairs.first)[order_],
-              (knot_iter_pairs.second)[-static_cast<int>(order_) - 1])...},
-          buf_size_(util::pow(order_ + 1, dim)) {
+              (knot_iter_pairs.first)[order],
+              (knot_iter_pairs.second)[-static_cast<int>(order) - 1])...},
+          buf_size_(util::pow(order + 1, dim)) {
         for (size_type d = 0; d < dim; ++d) {
             INTP_ASSERT(knots_[d].size() - ctrl_pts.dim_size(d) ==
-                            (periodicity_[d] ? 2 * order_ + 1 : order_ + 1),
+                            (periodicity_[d] ? 2 * order + 1 : order + 1),
                         std::string("Inconsistency between knot number and "
                                     "control point number at dimension ") +
                             std::to_string(d));
@@ -225,13 +218,9 @@ class BSpline {
     }
 
     template <typename... InputIters>
-    BSpline(size_type spline_order,
-            ControlPointContainer ctrl_points,
+    BSpline(ControlPointContainer ctrl_points,
             std::pair<InputIters, InputIters>... knot_iter_pairs)
-        : BSpline(spline_order,
-                  DimArray<bool>{},
-                  ctrl_points,
-                  knot_iter_pairs...) {}
+        : BSpline(DimArray<bool>{}, ctrl_points, knot_iter_pairs...) {}
 
     template <typename C>
     typename std::enable_if<
@@ -240,9 +229,9 @@ class BSpline {
         void>::type
     load_knots(size_type dim_ind, C&& _knots) {
         knots_[dim_ind] = std::forward<C>(_knots);
-        range_[dim_ind].first = knots_[dim_ind][order_];
+        range_[dim_ind].first = knots_[dim_ind][order];
         range_[dim_ind].second =
-            knots_[dim_ind][knots_[dim_ind].size() - order_ - (2 - order_ % 2)];
+            knots_[dim_ind][knots_[dim_ind].size() - order - (2 - order % 2)];
     }
 
 #ifdef INTP_CELL_LAYOUT
@@ -274,7 +263,7 @@ class BSpline {
         const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints);
 
         DimArray<size_type> spline_order;
-        spline_order.fill(order_);
+        spline_order.fill(order);
         // calculate basic spline (out of boundary check also conducted here)
         const auto base_spline_values_1d = calc_base_spline_vals(
             Indices{}, knot_iters, spline_order, coord_with_hints);
@@ -283,7 +272,7 @@ class BSpline {
         for (size_type d = 0; d < dim; ++d) {
             ind_arr[d] = static_cast<size_type>(
                              distance(knots_begin(d), knot_iters[d])) -
-                         order_;
+                         order;
         }
 
         auto total_offset = calculate_cell_dim_from_knots().indexing(ind_arr);
@@ -292,7 +281,6 @@ class BSpline {
             [base_spline_values_1d, total_offset](const spline_type& spline) {
                 val_type v{};
 
-                auto order = spline.order();
                 const auto& control_points = spline.control_points();
                 auto cell_iter = control_points.begin() +
                                  static_cast<std::ptrdiff_t>(total_offset);
@@ -330,7 +318,7 @@ class BSpline {
         const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints);
 
         DimArray<size_type> spline_order;
-        spline_order.fill(order_);
+        spline_order.fill(order);
         // calculate basic spline (out of boundary check also conducted here)
         const auto base_spline_values_1d = calc_base_spline_vals(
             Indices{}, knot_iters, spline_order, coord_with_hints);
@@ -342,19 +330,19 @@ class BSpline {
         for (size_type d = 0; d < dim; ++d) {
             ind_arr[d] = static_cast<size_type>(
                              distance(knots_begin(d), knot_iters[d])) -
-                         order_;
+                         order;
         }
         auto cell_iter = control_points_.begin(dim, ind_arr);
         for (size_type i = 0; i < buf_size_; ++i) {
             knot_type coef = 1;
             for (size_type d = 0, combined_ind = i; d < dim; ++d) {
-                coef *= base_spline_values_1d[d][combined_ind % (order_ + 1)];
-                combined_ind /= (order_ + 1);
+                coef *= base_spline_values_1d[d][combined_ind % (order + 1)];
+                combined_ind /= (order + 1);
             }
             v += coef * (*cell_iter++);
         }
 #else
-        MeshDimension<dim> local_mesh_dim(order_ + 1);
+        MeshDimension<dim> local_mesh_dim(order + 1);
         for (size_type i = 0; i < buf_size_; ++i) {
             DimArray<size_type> ind_arr = local_mesh_dim.dimwise_indices(i);
 
@@ -369,10 +357,10 @@ class BSpline {
                 // separately.
                 ind_arr[d] += knot_iters[d] == knots_begin(d) ? 0
                               : knot_iters[d] == knots_end(d)
-                                  ? control_points_.dim_size(d) - order_ - 1
+                                  ? control_points_.dim_size(d) - order - 1
                                   : static_cast<size_type>(distance(
                                         knots_begin(d), knot_iters[d])) -
-                                        order_;
+                                        order;
 
                 // check periodicity, put out-of-right-boundary index to left
                 if (periodicity_[d]) {
@@ -396,7 +384,7 @@ class BSpline {
     val_type operator()(DimArray<double> coords) const {
         DimArray<std::pair<knot_type, size_type>> coord_with_hints;
         for (std::size_t d = 0; d < dim; ++d) {
-            coord_with_hints[d] = {coords[d], order_};
+            coord_with_hints[d] = {coords[d], order};
         }
         return operator()(coord_with_hints);
     }
@@ -416,14 +404,14 @@ class BSpline {
         DimArray<size_type> spline_order;
         for (size_type d = 0; d < dim; ++d) {
             spline_order[d] =
-                order_ >= std::get<2>(coord_deriOrder_hint_tuple[d])
-                    ? order_ - std::get<2>(coord_deriOrder_hint_tuple[d])
-                    : order_ + 1;
+                order >= std::get<2>(coord_deriOrder_hint_tuple[d])
+                    ? order - std::get<2>(coord_deriOrder_hint_tuple[d])
+                    : order + 1;
         }
 
         // if derivative order is larger than spline order, derivative is 0.
         for (auto o : spline_order) {
-            if (o > order_) { return val_type{}; }
+            if (o > order) { return val_type{}; }
         }
 
         using Indices = util::make_index_sequence<dim>;
@@ -444,7 +432,7 @@ class BSpline {
             local_control_points(order + 1, alloc);
         auto local_spline_val = local_control_points;
 #else
-        Mesh<val_type, dim> local_control_points(order_ + 1);
+        Mesh<val_type, dim> local_control_points(order + 1);
         auto local_spline_val = local_control_points;
 #endif
 
@@ -455,14 +443,14 @@ class BSpline {
         for (size_type d = 0; d < dim; ++d) {
             ind_arr[d] = static_cast<size_type>(
                              distance(knots_begin(d), knot_iters[d])) -
-                         order_;
+                         order;
         }
         auto cell_iter = control_points_.begin(dim, ind_arr);
         for (size_type i = 0; i < buf_size_; ++i) {
             DimArray<size_type> local_ind_arr{};
             for (size_type d = 0, combined_ind = i; d < dim; ++d) {
-                local_ind_arr[d] = combined_ind % (order_ + 1);
-                combined_ind /= (order_ + 1);
+                local_ind_arr[d] = combined_ind % (order + 1);
+                combined_ind /= (order + 1);
             }
 
             knot_type coef = 1;
@@ -477,8 +465,8 @@ class BSpline {
         for (size_type i = 0; i < buf_size_; ++i) {
             DimArray<size_type> local_ind_arr{};
             for (size_type d = 0, combined_ind = i; d < dim; ++d) {
-                local_ind_arr[d] = combined_ind % (order_ + 1);
-                combined_ind /= (order_ + 1);
+                local_ind_arr[d] = combined_ind % (order + 1);
+                combined_ind /= (order + 1);
             }
 
             knot_type coef = 1;
@@ -489,10 +477,10 @@ class BSpline {
                 ind_arr[d] = local_ind_arr[d] +
                              (knot_iters[d] == knots_begin(d) ? 0
                               : knot_iters[d] == knots_end(d)
-                                  ? control_points_.dim_size(d) - order_ - 1
+                                  ? control_points_.dim_size(d) - order - 1
                                   : static_cast<size_t>(distance(
                                         knots_begin(d), knot_iters[d])) -
-                                        order_);
+                                        order);
 
                 // check periodicity, put out-of-right-boundary index to
                 // left
@@ -507,7 +495,7 @@ class BSpline {
 #endif
 
         for (size_type d = 0; d < dim; ++d) {
-            if (spline_order[d] == order_) { continue; }
+            if (spline_order[d] == order) { continue; }
             // calculate control points for derivative along this dimension
 
             const size_type hyper_surface_size =
@@ -517,22 +505,22 @@ class BSpline {
                 DimArray<size_type> local_ind_arr{};
                 for (size_type dd = 0, combined_ind = i; dd < dim; ++dd) {
                     if (dd == d) { continue; }
-                    local_ind_arr[dd] = combined_ind % (order_ + 1);
-                    combined_ind /= (order_ + 1);
+                    local_ind_arr[dd] = combined_ind % (order + 1);
+                    combined_ind /= (order + 1);
                 }
 
                 auto iter = local_control_points.begin(d, local_ind_arr);
                 // Taking derivative is effectively computing new control
                 // points. Number of iteration is order of derivative.
-                for (diff_type k = static_cast<diff_type>(order_);
+                for (diff_type k = static_cast<diff_type>(order);
                      k > static_cast<diff_type>(spline_order[d]); --k) {
                     // Each reduction reduce control points number by one.
                     // Reduce backward to match pattern of local_spline_val.
                     for (diff_type j = k; j > 0; --j) {
-                        iter[static_cast<diff_type>(order_) + j - k] =
+                        iter[static_cast<diff_type>(order) + j - k] =
                             static_cast<val_type>(k) *
-                            (iter[static_cast<diff_type>(order_) + j - k] -
-                             iter[static_cast<diff_type>(order_) + j - k - 1]) /
+                            (iter[static_cast<diff_type>(order) + j - k] -
+                             iter[static_cast<diff_type>(order) + j - k - 1]) /
                             (knot_iters[d][j] - knot_iters[d][j - k]);
                     }
                 }
@@ -563,7 +551,7 @@ class BSpline {
             coord_deriOrder_hint_tuple;
         for (std::size_t d = 0; d < dim; ++d) {
             coord_deriOrder_hint_tuple[d] = {std::get<0>(coord_deriOrders[d]),
-                                             order_,
+                                             order,
                                              std::get<1>(coord_deriOrders[d])};
         }
         return derivative_at(coord_deriOrder_hint_tuple);
@@ -623,8 +611,8 @@ class BSpline {
         return periodicity_[dim_ind];
     }
 
-    inline size_type order() const {
-        return order_;
+    inline constexpr size_type get_order() const {
+        return order;
     }
 
 #ifdef INTP_DEBUG
@@ -648,8 +636,6 @@ class BSpline {
 #endif
 
    private:
-    size_type order_;
-
     DimArray<bool> periodicity_;
 
     DimArray<KnotContainer> knots_;
@@ -687,11 +673,11 @@ class BSpline {
 
 #ifdef INTP_CELL_LAYOUT
     MeshDimension<dim + 1> calculate_cell_dim_from_knots() const {
-        MeshDimension<dim + 1> cell_dim(util::pow(order_ + 1, dim - 1));
+        MeshDimension<dim + 1> cell_dim(util::pow(order + 1, dim - 1));
         for (size_type d = 0; d < dim; ++d) {
             cell_dim.dim_size(d) = knots_[d].size() -
-                                   (periodicity(d) ? order_ + 1 : order_ + 1) -
-                                   (d == dim - 1 ? 0 : order_);
+                                   (periodicity(d) ? order + 1 : order + 1) -
+                                   (d == dim - 1 ? 0 : order);
         }
         return cell_dim;
     }
@@ -699,11 +685,11 @@ class BSpline {
     ControlPointCellContainer generate_cell_layout(
         const ControlPointContainer& ctrl_pts) const {
         MeshDimension<dim + 1> cell_container_dim(
-            util::pow(order_ + 1, dim - 1));
+            util::pow(order + 1, dim - 1));
         for (size_type d = 0; d < dim; ++d) {
             cell_container_dim.dim_size(d) = ctrl_pts.dim_size(d) -
-                                             (d == dim - 1 ? 0 : order_) +
-                                             (periodicity(d) ? order_ : 0);
+                                             (d == dim - 1 ? 0 : order) +
+                                             (periodicity(d) ? order : 0);
         }
 
         // Size of the last two dimension of control point cell container. The
@@ -733,7 +719,7 @@ class BSpline {
                 // iterate along the (dim-1)th dimension
                 for (auto iter = line_begin; iter != line_end; ++iter) {
                     auto cell_ind_arr = control_point_cell.iter_indices(iter);
-                    MeshDimension<dim - 1> cell_dim(order_ + 1);
+                    MeshDimension<dim - 1> cell_dim(order + 1);
                     // iterate the (dim)th dimension
                     for (size_type i = 0; i < cell_dim.size(); ++i) {
                         auto local_shift_ind = cell_dim.dimwise_indices(i);

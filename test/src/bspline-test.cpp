@@ -34,7 +34,8 @@ double rel_err(const Func& interp,
 }
 
 template <std::size_t D>
-using AlignedMesh = typename intp::BSpline<double, D>::ControlPointContainer;
+using AlignedMesh = typename intp::BSpline<double, D, 3>::ControlPointContainer;
+// order will not change type of control point container
 
 int main() {
     using namespace std;
@@ -48,8 +49,8 @@ int main() {
     auto knots = {0., 0., 0., 0., .5, 1., 1., 1., 1.};
     auto cp = {1., 16. / 3, -16. / 3, 4. / 3, 3.};
 
-    BSpline<double, 1> spline_1d_3(3, AlignedMesh<1>(cp),
-                                   std::make_pair(knots.begin(), knots.end()));
+    BSpline<double, 1, 3> spline_1d_3(
+        AlignedMesh<1>(cp), std::make_pair(knots.begin(), knots.end()));
 
     // some random points
     auto coords_1d = {0.4560373422725581,  0.8888069703323336,
@@ -88,9 +89,9 @@ int main() {
         for (unsigned j = 0; j < 5; ++j) { cp2d(i, j) = cp2[i][j]; }
     }
 
-    BSpline<double, 2> spline_2d_3(3, cp2d,
-                                   make_pair(knots.begin(), knots.end()),
-                                   make_pair(knots.begin(), knots.end()));
+    BSpline<double, 2, 3> spline_2d_3(cp2d,
+                                      make_pair(knots.begin(), knots.end()),
+                                      make_pair(knots.begin(), knots.end()));
 
     std::cout << "\n2D B-Spline Test:\n";
 
@@ -159,10 +160,10 @@ int main() {
         }
     }
 
-    BSpline<double, 3> spline_3d_3(3, cp3d,
-                                   make_pair(knots.begin(), knots.end()),
-                                   make_pair(knots.begin(), knots.end()),
-                                   make_pair(knots.begin(), knots.end()));
+    BSpline<double, 3, 3> spline_3d_3(cp3d,
+                                      make_pair(knots.begin(), knots.end()),
+                                      make_pair(knots.begin(), knots.end()),
+                                      make_pair(knots.begin(), knots.end()));
 
     std::cout << "\n3D B-Spline Test:\n";
 
@@ -215,8 +216,8 @@ int main() {
     std::cout << "\n2D B-Spline with periodic boundary Test:\n";
 
     auto knots2 = {-0.6, -0.4, -0.2, 0., 0.2, 0.4, 0.6, 0.8, 1., 1.2, 1.4, 1.6};
-    BSpline<double, 2> spline_2d_3_periodic(
-        3, {false, true}, cp2d, make_pair(knots.begin(), knots.end()),
+    BSpline<double, 2, 3> spline_2d_3_periodic(
+        {false, true}, cp2d, make_pair(knots.begin(), knots.end()),
         make_pair(knots2.begin(), knots2.end()));
 
     constexpr array<double, 10> vals_2d_periodic{

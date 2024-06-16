@@ -96,8 +96,8 @@ int main() {
 #endif
         std::vector<double> vec_1d(data_len);
 
-        InterpolationFunctionTemplate1D<> interp1d_template(
-            std::make_pair(-M_PI, M_PI), vec_1d.size(), 3, true);
+        InterpolationFunctionTemplate1D<3> interp1d_template(
+            std::make_pair(-M_PI, M_PI), vec_1d.size(), true);
         std::vector<decltype(interp1d_template.eval_proxy(0.))> evaluators;
 
         timer.start("1D Evaluator");
@@ -151,9 +151,9 @@ int main() {
 #endif
         Mesh<double, 2> trig_mesh_2d(data_len);
 
-        InterpolationFunctionTemplate<double, 2> interp2d_template(
-            3, {true, true}, trig_mesh_2d.dimension(),
-            std::make_pair(-M_PI, M_PI), std::make_pair(-M_PI, M_PI));
+        InterpolationFunctionTemplate<double, 2, 3> interp2d_template(
+            {true, true}, trig_mesh_2d.dimension(), std::make_pair(-M_PI, M_PI),
+            std::make_pair(-M_PI, M_PI));
 
         timer.start("2D Evaluator");
         std::vector<decltype(interp2d_template.eval_proxy({0., 0.}))>
@@ -214,8 +214,8 @@ int main() {
 #endif
 
         Mesh<double, 3> mesh_3d{data_len, data_len, len_3d};
-        InterpolationFunctionTemplate<double, 3> interp3d_template(
-            3, {true, true, false}, mesh_3d.dimension(),
+        InterpolationFunctionTemplate<double, 3, 3> interp3d_template(
+            {true, true, false}, mesh_3d.dimension(),
             std::make_pair(-M_PI, M_PI), std::make_pair(-M_PI, M_PI),
             std::make_pair(-.5, .5));
 

@@ -86,9 +86,9 @@ int main() {
 
         timer.pause_and_start("1D Interpolation");
 
-        InterpolationFunction1D<> interp1d(
+        InterpolationFunction1D<3> interp1d(
             std::make_pair(-M_PI, M_PI),
-            std::make_pair(vec_1d.begin(), vec_1d.end()), 3, true);
+            std::make_pair(vec_1d.begin(), vec_1d.end()), true);
 
         timer.pause_and_start("1D Evaluation (Random)");
 
@@ -160,9 +160,9 @@ int main() {
 
         timer.pause_and_start("2D Interpolation");
 
-        InterpolationFunction<double, 2> interp2d(3, {true, true}, trig_mesh_2d,
-                                                  std::make_pair(-M_PI, M_PI),
-                                                  std::make_pair(-M_PI, M_PI));
+        InterpolationFunction<double, 2, 3> interp2d(
+            {true, true}, trig_mesh_2d, std::make_pair(-M_PI, M_PI),
+            std::make_pair(-M_PI, M_PI));
 
         timer.pause_and_start("2D Evaluation (Random)");
 
@@ -254,8 +254,8 @@ int main() {
 
         timer.pause_and_start("3D Interpolation");
 
-        InterpolationFunction<double, 3> interp3d(
-            3, {true, true, false}, mesh_3d, std::make_pair(-M_PI, M_PI),
+        InterpolationFunction<double, 3, 3> interp3d(
+            {true, true, false}, mesh_3d, std::make_pair(-M_PI, M_PI),
             std::make_pair(-M_PI, M_PI), std::make_pair(-.5, .5));
 
         timer.pause_and_start("3D Evaluation (Random)");
