@@ -80,10 +80,11 @@ class BSpline {
      * order
      * @return a reference to local buffer
      */
-    inline const BaseSpline base_spline_value(size_type,
-                                              knot_const_iterator seg_idx_iter,
-                                              knot_type x,
-                                              size_type spline_order) const {
+    inline const BaseSpline base_spline_value(
+        size_type,
+        knot_const_iterator seg_idx_iter,
+        knot_type x,
+        size_type spline_order = order) const {
         BaseSpline base_spline{};
         base_spline[order] = 1;
 
@@ -107,12 +108,6 @@ class BSpline {
             }
         }
         return base_spline;
-    }
-
-    inline const BaseSpline base_spline_value(size_type dim_ind,
-                                              knot_const_iterator seg_idx_iter,
-                                              knot_type x) const {
-        return base_spline_value(dim_ind, seg_idx_iter, x, order);
     }
 
     /**
@@ -181,13 +176,11 @@ class BSpline {
      *
      */
     explicit BSpline(DimArray<bool> periodicity)
-        : periodicity_(periodicity),
-          control_points_(size_type{}),
-          buf_size_(util::pow(order + 1, dim)) {}
+        : periodicity_(periodicity), control_points_(size_type{}) {}
 
     /**
      * @brief Basically the default constructor, initialize an empty, non-closed
-     * B-Spline with order defaulted to be 3.
+     * B-Spline
      *
      */
     explicit BSpline() : BSpline(DimArray<bool>{}) {}
@@ -206,8 +199,7 @@ class BSpline {
 #endif
           range_{std::make_pair(
               (knot_iter_pairs.first)[order],
-              (knot_iter_pairs.second)[-static_cast<int>(order) - 1])...},
-          buf_size_(util::pow(order + 1, dim)) {
+              (knot_iter_pairs.second)[-static_cast<int>(order) - 1])...} {
         for (size_type d = 0; d < dim; ++d) {
             INTP_ASSERT(knots_[d].size() - ctrl_pts.dim_size(d) ==
                             (periodicity_[d] ? 2 * order + 1 : order + 1),
@@ -334,12 +326,12 @@ class BSpline {
         }
         auto cell_iter = control_points_.begin(dim, ind_arr);
         for (size_type i = 0; i < buf_size_; ++i) {
-            knot_type coef = 1;
+            auto coef = *cell_iter++;
             for (size_type d = 0, combined_ind = i; d < dim; ++d) {
                 coef *= base_spline_values_1d[d][combined_ind % (order + 1)];
                 combined_ind /= (order + 1);
             }
-            v += coef * (*cell_iter++);
+            v += coef;
         }
 #else
         MeshDimension<dim> local_mesh_dim(order + 1);
@@ -647,7 +639,7 @@ class BSpline {
 
     DimArray<std::pair<knot_type, knot_type>> range_;
 
-    size_type buf_size_;
+    constexpr static size_type buf_size_ = util::pow(order + 1, dim);
 
     // maximum stack buffer size
     // This buffer is for storing weights when calculating spline derivative

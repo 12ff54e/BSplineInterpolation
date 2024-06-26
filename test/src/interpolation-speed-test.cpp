@@ -92,8 +92,8 @@ int main() {
 
         timer.pause_and_start("1D Evaluation (Random)");
 
-        for (size_t i = 0; i < eval_count; ++i) { interp1d(eval_coord_1d[i]); }
-        // for (auto& x : eval_coord_1d) { interp1d(x); }
+        double diff{};  // prevent loops being optimized out
+        for (auto& x : eval_coord_1d) { diff += interp1d(x); }
 
         timer.pause();
 
@@ -101,8 +101,7 @@ int main() {
 
         timer.start("1D Evaluation (Sequential)");
 
-        for (size_t i = 0; i < eval_count; ++i) { interp1d(eval_coord_1d[i]); }
-        // for (auto& x : eval_coord_1d) { interp1d(x); }
+        for (auto& x : eval_coord_1d) { diff -= interp1d(x); }
 
         timer.pause();
 
@@ -117,7 +116,8 @@ int main() {
 
         std::cout << "Interpolation on a 1D mesh consisting " << vec_1d.size()
                   << " points. Then evaluate the function on " << eval_count
-                  << " points.\n";
+                  << " points, unsorted and sorted.\nThe diffreence is " << diff
+                  << ". (Due to float point arithmetic error if it is not 0)\n";
 
         timer.print();
         timer.reset();
@@ -166,7 +166,8 @@ int main() {
 
         timer.pause_and_start("2D Evaluation (Random)");
 
-        for (size_t i = 0; i < eval_count; ++i) { interp2d(eval_coord_2d[i]); }
+        double diff{};
+        for (auto& x : eval_coord_2d) { diff += interp2d(x); }
 
         timer.pause();
 
@@ -184,7 +185,7 @@ int main() {
 
         timer.start("2D Evaluation (Sequential)");
 
-        for (size_t i = 0; i < eval_count; ++i) { interp2d(eval_coord_2d[i]); }
+        for (auto& x : eval_coord_2d) { diff -= interp2d(x); }
 
         timer.pause();
 
@@ -201,7 +202,8 @@ int main() {
         std::cout << "Interpolation on a 2D mesh consisting "
                   << trig_mesh_2d.size()
                   << " points. Then evaluate the function on " << eval_count
-                  << " points.\n";
+                  << " points, unsorted and sorted.\nThe diffreence is " << diff
+                  << ". (Due to float point arithmetic error if it is not 0)\n";
 
         timer.print();
         timer.reset();
@@ -260,7 +262,8 @@ int main() {
 
         timer.pause_and_start("3D Evaluation (Random)");
 
-        for (size_t i = 0; i < eval_count; ++i) { interp3d(eval_coord_3d[i]); }
+        double diff{};
+        for (auto& x : eval_coord_3d) { diff += interp3d(x); }
 
         timer.pause();
 
@@ -283,7 +286,7 @@ int main() {
 
         timer.start("3D Evaluation (Sequential)");
 
-        for (size_t i = 0; i < eval_count; ++i) { interp3d(eval_coord_3d[i]); }
+        for (auto& x : eval_coord_3d) { diff -= interp3d(x); }
 
         timer.pause();
 
@@ -298,8 +301,8 @@ int main() {
 
         std::cout << "Interpolation on a 3D mesh consisting " << mesh_3d.size()
                   << " points. Then evaluate the function on " << eval_count
-                  << " points.\n";
-
+                  << " points, unsorted and sorted.\nThe diffreence is " << diff
+                  << ". (Due to float point arithmetic error if it is not 0)\n";
         timer.print();
     }
 
