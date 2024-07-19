@@ -98,7 +98,7 @@ int main() {
 
         InterpolationFunctionTemplate1D<3> interp1d_template(
             std::make_pair(-M_PI, M_PI), vec_1d.size(), true);
-        std::vector<decltype(interp1d_template.eval_proxy(0.))> evaluators;
+        std::vector<decltype(interp1d_template)::eval_proxy_t> evaluators;
 
         timer.start("1D Evaluator");
         for (std::size_t i = 0; i < eval_count; ++i) {
@@ -156,8 +156,7 @@ int main() {
             std::make_pair(-M_PI, M_PI));
 
         timer.start("2D Evaluator");
-        std::vector<decltype(interp2d_template.eval_proxy({0., 0.}))>
-            evaluators;
+        std::vector<decltype(interp2d_template)::eval_proxy_t> evaluators;
 
         for (std::size_t i = 0; i < eval_count; ++i) {
             evaluators.push_back(
@@ -220,8 +219,7 @@ int main() {
             std::make_pair(-.5, .5));
 
         timer.start("3D Evaluator");
-        std::vector<decltype(interp3d_template.eval_proxy({0., 0., 0.}))>
-            evaluators;
+        std::vector<decltype(interp3d_template)::eval_proxy_t> evaluators;
         for (std::size_t i = 0; i < eval_count; ++i) {
             evaluators.push_back(
                 interp3d_template.eval_proxy(eval_coord_3d[i]));

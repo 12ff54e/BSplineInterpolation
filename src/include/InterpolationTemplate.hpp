@@ -165,6 +165,13 @@ class InterpolationFunctionTemplate {
         return base_.eval_proxy(coord);
     }
 
+#if __cplusplus >= 201402L
+    using eval_proxy_t = decltype(std::declval<function_type>().eval_proxy(
+        DimArray<coord_type>{}));
+#else
+    using eval_proxy_t = std::function<val_type(const function_type&)>;
+#endif
+
    private:
     using base_solver_type = BandLU<BandMatrix<coord_type>>;
     using extended_solver_type = BandLU<ExtendedBandMatrix<coord_type>>;
