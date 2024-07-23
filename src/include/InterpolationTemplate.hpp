@@ -142,6 +142,7 @@ class InterpolationFunctionTemplate {
                 std::forward<MeshOrIterPair>(mesh_or_iter_pair)}));
     }
 
+#ifdef INTP_CELL_LAYOUT
     // pre calculate base spline values that can be reused in evaluating the
     // spline before actually providing weights
     template <typename... Coords,
@@ -171,6 +172,8 @@ class InterpolationFunctionTemplate {
 #else
     using eval_proxy_t = std::function<val_type(const function_type&)>;
 #endif
+
+#endif  // INTP_CELL_LAYOUT
 
    private:
     using base_solver_type = BandLU<BandMatrix<coord_type>>;

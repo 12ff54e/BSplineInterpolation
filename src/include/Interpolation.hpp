@@ -490,6 +490,7 @@ class InterpolationFunction {
         }
     }
 
+#ifdef INTP_CELL_LAYOUT
 #if __cplusplus >= 201402L
     auto
 #else
@@ -502,6 +503,7 @@ class InterpolationFunction {
             return spline_proxy(interp.spline());
         };
     }
+#endif  // INTP_CELL_LAYOUT
 };
 
 template <std::size_t O = std::size_t{3},
