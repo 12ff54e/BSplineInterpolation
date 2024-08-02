@@ -9,18 +9,34 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 message(STATUS "Build type = " ${CMAKE_BUILD_TYPE})
 
+# Check compile flags availability
+include(CheckCXXCompilerFlag)
+# list(APPEND custom_opt_flags "-march=native" "-ffast-math")
+
+set(asan_flag -fsanitize=address)
+set(CMAKE_REQUIRED_LIBRARIES ${asan_flag}) # This is also a linker flag
+check_cxx_compiler_flag(${asan_flag} compiler_support_asan)
+if(${compiler_support_asan})
+    add_compile_options($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:${asan_flag}>)
+    add_link_options($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:${asan_flag}>)
+endif()
+
+foreach(custom_flag ${custom_opt_flags})
+    string(REPLACE "-" "" flag_without_hyphen ${custom_flag})
+    check_cxx_compiler_flag(${custom_flag} compiler_support_${flag_without_hyphen})
+    if(${compiler_support_${flag_without_hyphen}})
+        add_compile_options($<$<CONFIG:Release>:${custom_flag}>)
+    endif()
+endforeach(custom_flag ${custom_opt_flags})
+
 # Add options according to compiler.
 if(MSVC)
-    set(CMAKE_CXX_FLAGS "/W4 /EHsc")
+    set(CMAKE_CXX_FLAGS_INIT "/W4 /EHsc")
 else()
-    set(debug_flags " -fsanitize=address")
     if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
-        set(CMAKE_CXX_FLAGS "-Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-padded -Wno-exit-time-destructors")
+        set(CMAKE_CXX_FLAGS_INIT "-Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-padded -Wno-exit-time-destructors")
     else()
-        set(CMAKE_CXX_FLAGS "-Wall -Wextra")
-    endif()
-    if(CMAKE_BUILD_TYPE STREQUAL Debug)
-        string(APPEND CMAKE_CXX_FLAGS ${debug_flags})
+        set(CMAKE_CXX_FLAGS_INIT "-Wall -Wextra")
     endif()
 endif()
 
