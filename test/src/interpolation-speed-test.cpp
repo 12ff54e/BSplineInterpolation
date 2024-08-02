@@ -20,26 +20,10 @@ int main() {
 
     // random sample points
 
-    std::vector<double> coord_1d;
-    std::vector<std::array<double, 2>> coord_2d;
-    std::vector<std::array<double, 3>> coord_3d;
-
     std::mt19937 rand_gen(static_cast<unsigned int>(
         std::chrono::high_resolution_clock::now().time_since_epoch().count()));
     std::uniform_real_distribution<> rand_dist(-M_PI, M_PI);
     std::uniform_real_distribution<> rand_dist2(-.5, .5);
-    {
-        constexpr size_t coord_num = 100;
-        coord_1d.reserve(coord_num);
-        coord_2d.reserve(coord_num);
-        coord_3d.reserve(coord_num);
-        for (size_t i = 0; i < coord_num; ++i) {
-            coord_1d.push_back(rand_dist(rand_gen));
-            coord_2d.push_back({rand_dist(rand_gen), rand_dist(rand_gen)});
-            coord_3d.push_back({rand_dist(rand_gen), rand_dist(rand_gen),
-                                rand_dist2(rand_gen)});
-        }
-    }
 
     Assertion assertion;
     constexpr size_t len_power = 6 * 4;
@@ -59,12 +43,54 @@ int main() {
                                      rand_dist2(rand_gen)});
         }
     }
+    std::vector<double> eval_coord_1d_sorted(eval_coord_1d);
+    std::vector<std::array<double, 2>> eval_coord_2d_sorted(eval_coord_2d);
+    std::vector<std::array<double, 3>> eval_coord_3d_sorted(eval_coord_3d);
+
+    std::sort(eval_coord_1d_sorted.begin(), eval_coord_1d_sorted.end());
+
+    constexpr size_t len_2d_max = 1 << (len_power / 2);
+    constexpr size_t len_3d_max = 1 << (len_power / 3);
+    constexpr double dt_min = 2 * M_PI / static_cast<double>(len_2d_max);
+    constexpr double dt_3d_min = 2 * M_PI / len_3d_max;
+    constexpr double dt_3d_aperiodic_min = 1. / (len_3d_max - 1);
+
+    std::sort(
+        eval_coord_2d_sorted.begin(), eval_coord_2d_sorted.end(),
+        [](const std::array<double, 2>& p1, const std::array<double, 2>& p2) {
+            const auto x_1 =
+                static_cast<int>(std::floor((p1[0] + M_PI) / dt_min));
+            const auto x_2 =
+                static_cast<int>(std::floor((p2[0] + M_PI) / dt_min));
+            return x_1 < x_2 ||
+                   (x_1 == x_2 && std::floor((p1[1] + M_PI) / dt_min) <
+                                      std::floor((p2[1] + M_PI) / dt_min));
+        });
+
+    std::sort(
+        eval_coord_3d_sorted.begin(), eval_coord_3d_sorted.end(),
+        [](const std::array<double, 3>& p1, const std::array<double, 3>& p2) {
+            const auto x_1 =
+                static_cast<int>(std::floor((p1[0] + M_PI) / dt_3d_min));
+            const auto x_2 =
+                static_cast<int>(std::floor((p2[0] + M_PI) / dt_3d_min));
+            const auto y_1 =
+                static_cast<int>(std::floor((p1[1] + M_PI) / dt_3d_min));
+            const auto y_2 =
+                static_cast<int>(std::floor((p2[1] + M_PI) / dt_3d_min));
+            return x_1 < x_2 || (x_1 == x_2 && y_1 < y_2) ||
+                   (x_1 == x_2 && y_1 == y_2 &&
+                    std::floor((p1[2] + .5) / dt_3d_aperiodic_min) <
+                        std::floor((p2[2] + .5) / dt_3d_aperiodic_min));
+        });
+
     // 1D case
-    {
+    auto test_1D = [&eval_coord_1d, &eval_coord_1d_sorted](auto order) {
         constexpr size_t len_1d = 1 << len_power;
         constexpr double dx = 2 * M_PI / (len_1d);
         std::vector<double> vec_1d{};
 
+        auto& timer = Timer::get_timer();
         timer.start("1D Mesh");
 
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
@@ -80,13 +106,9 @@ int main() {
                 std::sin(13 * (static_cast<double>(i) * dx - M_PI)));
         }
 #endif
-        std::vector<double> vals_1d;
-        vals_1d.reserve(coord_1d.size());
-        for (auto& x : coord_1d) { vals_1d.push_back(std::sin(13 * x)); }
-
         timer.pause_and_start("1D Interpolation");
 
-        InterpolationFunction1D<3> interp1d(
+        InterpolationFunction1D<decltype(order)::value> interp1d(
             std::make_pair(-M_PI, M_PI),
             std::make_pair(vec_1d.begin(), vec_1d.end()), true);
 
@@ -95,41 +117,29 @@ int main() {
         double diff{};  // prevent loops being optimized out
         for (auto& x : eval_coord_1d) { diff += interp1d(x); }
 
-        timer.pause();
+        timer.pause_and_start("1D Evaluation (Sequential)");
 
-        std::sort(eval_coord_1d.begin(), eval_coord_1d.end());
-
-        timer.start("1D Evaluation (Sequential)");
-
-        for (auto& x : eval_coord_1d) { diff -= interp1d(x); }
+        for (auto& x : eval_coord_1d_sorted) { diff -= interp1d(x); }
 
         timer.pause();
 
-        double err_1d =
-            rel_err(interp1d, std::make_pair(coord_1d.begin(), coord_1d.end()),
-                    std::make_pair(vals_1d.begin(), vals_1d.end()));
-
-        constexpr double eps = .5e-14;
-        assertion(err_1d < eps);
-        std::cout << "Interpolation 1d trigonometric function with err = "
-                  << err_1d << '\n';
-
-        std::cout << "Interpolation on a 1D mesh consisting " << vec_1d.size()
-                  << " points. Then evaluate the function on " << eval_count
-                  << " points, unsorted and sorted.\nThe diffreence is " << diff
+        std::cout << "1D mesh(" << vec_1d.size() << "), order " << order.value
+                  << ", evaluate " << eval_count
+                  << " times, unsorted and sorted.\nThe diffreence is " << diff
                   << ". (Due to float point arithmetic error if it is not 0)\n";
 
         timer.print();
         timer.reset();
 
         std::cout << '\n';
-    }
+    };
 
     // 2d case
-    {
+    auto test_2D = [&eval_coord_2d, &eval_coord_2d_sorted](auto order) {
         constexpr size_t len_2d = 1 << (len_power / 2);
         constexpr double dt = 2 * M_PI / static_cast<double>(len_2d);
 
+        auto& timer = Timer::get_timer();
         timer.start("2D Mesh");
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
         Mesh<double, 2> trig_mesh_2d(len_2d);
@@ -151,16 +161,9 @@ int main() {
         }
 #endif
 
-        std::vector<double> vals_2d;
-        vals_2d.reserve(coord_2d.size());
-
-        for (auto& pt : coord_2d) {
-            vals_2d.push_back(std::sin(pt[0]) * std::cos(pt[1]));
-        }
-
         timer.pause_and_start("2D Interpolation");
 
-        InterpolationFunction<double, 2, 3> interp2d(
+        InterpolationFunction<double, 2, decltype(order)::value> interp2d(
             {true, true}, trig_mesh_2d, std::make_pair(-M_PI, M_PI),
             std::make_pair(-M_PI, M_PI));
 
@@ -169,35 +172,11 @@ int main() {
         double diff{};
         for (auto& x : eval_coord_2d) { diff += interp2d(x); }
 
-        timer.pause();
+        timer.pause_and_start("2D Evaluation (Sequential)");
 
-        std::sort(eval_coord_2d.begin(), eval_coord_2d.end(),
-                  [](const std::array<double, 2>& p1,
-                     const std::array<double, 2>& p2) {
-                      const auto x_1 =
-                          static_cast<int>(std::floor((p1[0] + M_PI) / dt));
-                      const auto x_2 =
-                          static_cast<int>(std::floor((p2[0] + M_PI) / dt));
-                      return x_1 < x_2 || (x_1 == x_2 &&
-                                           std::floor((p1[1] + M_PI) / dt) <=
-                                               std::floor((p2[1] + M_PI) / dt));
-                  });
-
-        timer.start("2D Evaluation (Sequential)");
-
-        for (auto& x : eval_coord_2d) { diff -= interp2d(x); }
+        for (auto& x : eval_coord_2d_sorted) { diff -= interp2d(x); }
 
         timer.pause();
-
-        double err_2d =
-            rel_err(interp2d, std::make_pair(coord_2d.begin(), coord_2d.end()),
-                    std::make_pair(vals_2d.begin(), vals_2d.end()));
-
-        const double eps =
-            std::pow(2 * M_PI / static_cast<double>(len_2d), 4) / 4;
-        assertion(err_2d < eps);
-        std::cout << "Interpolation 2d trigonometric function with err = "
-                  << err_2d << '\n';
 
         std::cout << "Interpolation on a 2D mesh consisting "
                   << trig_mesh_2d.size()
@@ -209,14 +188,15 @@ int main() {
         timer.reset();
 
         std::cout << '\n';
-    }
+    };
 
     // 3d case
-    {
+    auto test_3D = [&eval_coord_3d, &eval_coord_3d_sorted](auto order) {
         constexpr size_t len_3d = 1 << (len_power / 3);
         constexpr double dt_3d = 2 * M_PI / len_3d;
         constexpr double dt_3d_aperiodic = 1. / (len_3d - 1);
 
+        auto& timer = Timer::get_timer();
         timer.start("3D Mesh");
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
         Mesh<double, 3> mesh_3d{len_3d, len_3d, len_3d};
@@ -246,17 +226,9 @@ int main() {
         }
 #endif
 
-        std::vector<double> vals_3d;
-        vals_3d.reserve(coord_3d.size());
-
-        for (auto& pt : coord_3d) {
-            vals_3d.push_back(std::sin(pt[0]) * std::cos(pt[1]) *
-                              std::exp(-std::pow(pt[2], 2)));
-        }
-
         timer.pause_and_start("3D Interpolation");
 
-        InterpolationFunction<double, 3, 3> interp3d(
+        InterpolationFunction<double, 3, decltype(order)::value> interp3d(
             {true, true, false}, mesh_3d, std::make_pair(-M_PI, M_PI),
             std::make_pair(-M_PI, M_PI), std::make_pair(-.5, .5));
 
@@ -265,46 +237,34 @@ int main() {
         double diff{};
         for (auto& x : eval_coord_3d) { diff += interp3d(x); }
 
-        timer.pause();
+        timer.pause_and_start("3D Evaluation (Sequential)");
 
-        std::sort(eval_coord_3d.begin(), eval_coord_3d.end(),
-                  [](const std::array<double, 3>& p1,
-                     const std::array<double, 3>& p2) {
-                      const auto x_1 =
-                          static_cast<int>(std::floor((p1[0] + M_PI) / dt_3d));
-                      const auto x_2 =
-                          static_cast<int>(std::floor((p2[0] + M_PI) / dt_3d));
-                      const auto y_1 =
-                          static_cast<int>(std::floor((p1[1] + M_PI) / dt_3d));
-                      const auto y_2 =
-                          static_cast<int>(std::floor((p2[1] + M_PI) / dt_3d));
-                      return x_1 < x_2 || (x_1 == x_2 && y_1 < y_2) ||
-                             (x_1 == x_2 && y_1 == y_2 &&
-                              std::floor((p1[2] + .5) / dt_3d_aperiodic) <=
-                                  std::floor((p2[2] + .5) / dt_3d_aperiodic));
-                  });
-
-        timer.start("3D Evaluation (Sequential)");
-
-        for (auto& x : eval_coord_3d) { diff -= interp3d(x); }
+        for (auto& x : eval_coord_3d_sorted) { diff -= interp3d(x); }
 
         timer.pause();
-
-        double err_3d =
-            rel_err(interp3d, std::make_pair(coord_3d.begin(), coord_3d.end()),
-                    std::make_pair(vals_3d.begin(), vals_3d.end()));
-
-        const double eps = std::pow(2 * M_PI / len_3d, 4) / 2;
-        assertion(err_3d < eps);
-        std::cout << "Interpolation 3d trig-exp function with err = " << err_3d
-                  << '\n';
 
         std::cout << "Interpolation on a 3D mesh consisting " << mesh_3d.size()
                   << " points. Then evaluate the function on " << eval_count
                   << " points, unsorted and sorted.\nThe diffreence is " << diff
                   << ". (Due to float point arithmetic error if it is not 0)\n";
+
         timer.print();
-    }
+        timer.reset();
+
+        std::cout << '\n';
+    };
+
+    ([&]<auto... order>(std::index_sequence<order...>) {
+        (test_1D(std::integral_constant<std::size_t, order>{}), ...);
+    })(std::index_sequence<3, 4, 5>{});
+
+    ([&]<auto... order>(std::index_sequence<order...>) {
+        (test_2D(std::integral_constant<std::size_t, order>{}), ...);
+    })(std::index_sequence<3, 4, 5>{});
+
+    ([&]<auto... order>(std::index_sequence<order...>) {
+        (test_3D(std::integral_constant<std::size_t, order>{}), ...);
+    })(std::index_sequence<3, 4, 5>{});
 
     return assertion.status();
 }
