@@ -21,6 +21,8 @@ int main() {
                          0.262974, 0.423888, -0.562671, -0.915567, -0.261017,
                          -0.47915, -0.00939326, -0.445962}};
 
+    InterpolationFunction1D<0> interp1_segment(util::get_range(f));
+
     InterpolationFunction1D<1> interp1_linear(util::get_range(f));
 
     InterpolationFunction1D<3> interp1{std::make_pair(0, .5 * (f.size() - 1)),
@@ -39,6 +41,7 @@ int main() {
                       2.5491368777592243, 0.4267839509148281,
                       3.064288819169027,  1.28330941106692};
 
+    std::vector<double> vals_1d_segment;
     // linear interpolation results
     std::vector<double> vals_1d_linear;
     for (auto&& coord : coords_1d) {
@@ -46,6 +49,8 @@ int main() {
         const double val =
             f[idx] + (f[idx + 1] - f[idx]) * (coord - static_cast<double>(idx));
         vals_1d_linear.push_back(val);
+        vals_1d_segment.push_back(
+            f[static_cast<std::size_t>(std::round(coord))]);
     }
 
     // Values pre-computed by MMA
@@ -57,8 +62,17 @@ int main() {
 
     std::cout << "\n1D Interpolation Test:\n";
 
-    double d = rel_err(interp1_linear, util::get_range(coords_1d),
-                       util::get_range(vals_1d_linear));
+    double d = rel_err(interp1_segment, util::get_range(coords_1d),
+                       util::get_range(vals_1d_segment));
+    assertion(d < tol);
+    std::cout << "\n1D test (segment) "
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
+    std::cout << "Relative Error = " << d << '\n';
+
+    d = rel_err(interp1_linear, util::get_range(coords_1d),
+                util::get_range(vals_1d_linear));
     assertion(d < tol);
     std::cout << "\n1D test (linear) "
               << (assertion.last_status() == 0 ? "succeed"
@@ -297,6 +311,8 @@ int main() {
 
 #ifdef INTP_PERIODIC_NO_DUMMY_POINT
     const auto f_periodic_range = std::make_pair(f.begin(), std::prev(f.end()));
+    InterpolationFunction1D<0> interp1_periodic_segment(f_periodic_range, true);
+
     InterpolationFunction1D<1> interp1_periodic_linear(f_periodic_range, true);
 
     InterpolationFunction1D<4> interp1_periodic(f_periodic_range, true);
@@ -306,6 +322,8 @@ int main() {
     // dimension, thus we can use the origin non-periodic data to interpolate a
     // periodic spline function
 
+    InterpolationFunction1D<1> interp1_periodic_segment(util::get_range(f),
+                                                        true);
     InterpolationFunction1D<1> interp1_periodic_linear(util::get_range(f),
                                                        true);
 
@@ -313,12 +331,15 @@ int main() {
 #endif
 
     // linear interpolation results
+    std::vector<double> vals_1d_periodic_segment;
     std::vector<double> vals_1d_periodic_linear;
     for (auto&& coord : coords_1d) {
         const std::size_t idx = static_cast<std::size_t>(std::floor(coord));
         const double val = f[idx] + (f[(idx + 1) % (f.size() - 1)] - f[idx]) *
                                         (coord - static_cast<double>(idx));
         vals_1d_periodic_linear.push_back(val);
+        vals_1d_periodic_segment.push_back(
+            f[static_cast<std::size_t>(std::round(coord))]);
     }
 
     auto vals_1d_periodic = {
@@ -327,6 +348,15 @@ int main() {
         -0.00445415461594469, 1.159234754035029,  0.4508845136779133,
         0.45967108162968584,
     };
+
+    d = rel_err(interp1_periodic_segment, util::get_range(coords_1d),
+                util::get_range(vals_1d_periodic_segment));
+    assertion(d < tol);
+    std::cout << "\n1D test (segment) with periodic boundary "
+              << (assertion.last_status() == 0 ? "succeed"
+                                               : "\033[1;91mfailed\033[0m")
+              << '\n';
+    std::cout << "Relative Error = " << d << '\n';
 
     d = rel_err(interp1_periodic_linear, util::get_range(coords_1d),
                 util::get_range(vals_1d_periodic_linear));
@@ -497,6 +527,9 @@ int main() {
                             10.078257485188475,
                             11.440973163521294,
                             12.};
+
+    // InterpolationFunction1D<0> interp1_nonuniform_segment(
+    //     util::get_range(input_coords_1d), util::get_range(f));
 
     InterpolationFunction1D<1> interp1_nonuniform_linear(
         util::get_range(input_coords_1d), util::get_range(f));

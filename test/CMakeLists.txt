@@ -68,7 +68,7 @@ foreach(test ${regular_tests})
     message(STATUS ${test} " from source file " ${test_src_file})
 endforeach(test ${regular_tests})
 
-if(CMAKE_BUILD_TYPE STREQUAL Release)
+if(CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL RelWithDebInfo)
     message(STATUS)
     list(LENGTH speed_tests test_num)
     message(STATUS  ${test_num} " speed tests found: ")

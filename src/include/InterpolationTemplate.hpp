@@ -288,7 +288,7 @@ class InterpolationFunctionTemplate {
             bool periodic = base_.periodicity(d);
             bool uniform = base_.uniform(d);
             auto mat_dim = mesh_dimension_.dim_size(d);
-            auto band_width = periodic ? order / 2 : order - 1;
+            auto band_width = periodic ? order / 2 : order == 0 ? 0 : order - 1;
 
 #if __cplusplus >= 201703L
             std::variant<typename base_solver_type::matrix_type,
