@@ -39,7 +39,7 @@ void Timer::reset() {
     time_consuming.clear();
 }
 
-void Timer::print() {
+void Timer::print() const {
     std::size_t max_length = 0;
     for (auto& name : entries) {
         max_length = max_length < name.size() ? name.size() : max_length;
@@ -69,4 +69,12 @@ void Timer::print() {
 Timer& Timer::get_timer() {
     static Timer timer{};
     return timer;
+}
+
+high_resolution_clock::duration Timer::get_duration(
+    std::string func_name) const {
+    auto iter = time_consuming.find(func_name);
+    return iter == time_consuming.cend()
+               ? high_resolution_clock::duration::zero()
+               : iter->second.first;
 }
