@@ -50,7 +50,8 @@ int main() {
     auto cp = {1., 16. / 3, -16. / 3, 4. / 3, 3.};
 
     BSpline<double, 1, 3> spline_1d_3(
-        AlignedMesh<1>(cp), std::make_pair(knots.begin(), knots.end()));
+        AlignedMesh<1>(std::make_pair(cp.begin(), cp.end())),
+        std::make_pair(knots.begin(), knots.end()));
 
     // some random points
     auto coords_1d = {0.4560373422725581,  0.8888069703323336,

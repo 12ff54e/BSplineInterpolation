@@ -85,12 +85,10 @@ int main() {
     // test special constructor for 1D case
 
     std::vector<int> vec{1, 1, 2, 3, 5, 8, 13, 21};
-    Mesh<int, 1> mesh_1d_from_container(vec);
     Mesh<int, 1> mesh_1d_from_iterator(std::make_pair(vec.begin(), vec.end()));
 
     for (unsigned i = 0; i < vec.size(); ++i) {
-        assertion(mesh_1d_from_container(i) == vec[i] &&
-                  mesh_1d_from_iterator(i) == vec[i]);
+        assertion(mesh_1d_from_iterator(i) == vec[i]);
         if (assertion.last_status() != 0) {
             std::cout << "Mesh 1D from container test failed.\n";
         }
