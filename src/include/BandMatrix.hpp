@@ -83,7 +83,7 @@ class BandMatrix {
     friend std::ostream& operator<<(std::ostream& os, const BandMatrix& mat) {
         for (size_t i = 0; i < mat.n_; ++i) {
             for (size_t j = i > mat.p_ ? i - mat.p_ : 0;
-                 j<i + mat.q_ + 1> mat.n_ ? mat.n_ : i + mat.q_ + 1; ++j) {
+                 j < (i + mat.q_ + 1 > mat.n_ ? mat.n_ : i + mat.q_ + 1); ++j) {
                 os << "{" << i << ", " << j << "}->" << mat(i, j) << '\n';
             }
         }
