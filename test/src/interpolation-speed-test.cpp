@@ -38,8 +38,8 @@ auto sort_coord(auto coords) {
     constexpr double dt_min = 2. * M_PI / (1 << (max_len_power / dim));
 
     std::sort(coords.begin(), coords.end(), [](auto c0, auto c1) {
-        auto to_linear =
-            []<std::size_t... idx>(std::index_sequence<idx...>, auto coord) {
+        auto to_linear = []<std::size_t... idx>(std::index_sequence<idx...>,
+                                                auto coord) {
             return (... +
                     (static_cast<std::size_t>((coord[idx] + M_PI) / dt_min)
                      << ((dim - idx - 1) * max_len_power / dim)));
@@ -109,7 +109,7 @@ int main() {
 
         std::cout << dimension << "D mesh(" << mesh.size() << "), order "
                   << order.value << " complete\n";
-#ifdef EMME_DEBUG
+#ifdef INTP_DEBUG
         std::cout << "Evaluate " << eval_coord.size()
                   << " times, unsorted and sorted. The diffreence is " << diff
                   << ". (Due to float point arithmetic error if it is not 0)\n";
@@ -166,8 +166,7 @@ int main() {
         for (std::size_t i = 0; i < col_width_2s - 1; ++i) { std::cout << '-'; }
         std::cout << "+\n";
         std::cout << "|mesh   |" << std::setw(col_width_2s - 1) << std::left
-                  << "spline order"
-                  << "|\n";
+                  << "spline order" << "|\n";
         std::cout << "|point  ";
         for (std::size_t i = 0; i < spline_orders::size(); ++i) {
             std::cout << '+';

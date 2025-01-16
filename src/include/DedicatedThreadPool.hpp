@@ -7,6 +7,10 @@
 #include <thread>   // hardware_concurrency
 #include <utility>  // move
 
+#ifdef INTP_DEBUG
+#include <iostream>
+#endif
+
 namespace intp {
 
 /**
@@ -163,9 +167,7 @@ class DedicatedThreadPool {
         return queue_empty;
     }
 
-    size_t thread_num() const {
-        return threads.size();
-    }
+    size_t thread_num() const { return threads.size(); }
 
     /**
      * @brief Singleton style instance getter
