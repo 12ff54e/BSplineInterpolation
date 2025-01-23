@@ -61,14 +61,12 @@ Check matlab/Example.m for instructions. Please notice that matlab/bspline.mexw6
 
 ## Note
 
-- Limited compiler support: only tested using g++ 11.3 and clang++ 14.0 (on Ubuntu).
 - The Interpolation Template feature is not efficient in dimension 2 or higher.
 
 ## Known Issues
 
-- Not found yet
+- Periodic interpolation of high orders (>=6, maybe) are extremely slow.
 
 ## Future Plan
 
-- [x] Support multithreading.
 - [ ] Interpolation with boundary derivative specified.

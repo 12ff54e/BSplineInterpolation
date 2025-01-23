@@ -21,6 +21,8 @@ class MeshDimension {
    public:
     MeshDimension() = default;
 
+    MeshDimension(index_type dim_size) : dim_size_(dim_size) {}
+
     template <typename... Args,
               typename = typename std::enable_if<sizeof...(Args) == dim>::type>
     MeshDimension(Args... args) : dim_size_{static_cast<size_type>(args)...} {}
@@ -254,7 +256,9 @@ class Mesh {
         : Mesh(MeshDimension<dim>(n), alloc) {}
 
     template <typename... Args,
-              typename = typename std::enable_if<sizeof...(Args) == dim>::type>
+              typename = typename std::enable_if<sizeof...(Args) == dim>::type,
+              typename = typename std::enable_if<std::is_integral<
+                  typename std::common_type<Args...>::type>::value>::type>
     explicit Mesh(Args... args)
         : Mesh(MeshDimension<dim>(static_cast<size_type>(args)...)) {}
 
@@ -268,13 +272,6 @@ class Mesh {
                   const allocator_type& alloc = allocator_type())
         : storage_(range.first, range.second, alloc),
           dimension_{static_cast<size_type>(storage_.size())} {}
-
-    template <typename Array,
-              typename = typename std::enable_if<
-                  dim == 1u && util::is_iterable<Array>::value>::type>
-    explicit Mesh(const Array& array,
-                  const allocator_type& alloc = allocator_type())
-        : Mesh(std::make_pair(array.begin(), array.end()), alloc) {}
 
     // convert constructor from mesh using different allocator
     template <typename Allocator>

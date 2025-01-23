@@ -20,7 +20,7 @@
 
 namespace intp {
 
-template <typename T, size_t D, typename U = double>
+template <typename T, std::size_t D, std::size_t O, typename U = double>
 class InterpolationFunction;  // Forward declaration, since template has
                               // a member of it.
 
@@ -29,10 +29,10 @@ class InterpolationFunction;  // Forward declaration, since template has
  * interpolation function when fed by function values.
  *
  */
-template <typename T, size_t D, typename U = double>
+template <typename T, std::size_t D, std::size_t O, typename U = double>
 class InterpolationFunctionTemplate {
    public:
-    using function_type = InterpolationFunction<T, D, U>;
+    using function_type = InterpolationFunction<T, D, O, U>;
     using size_type = typename function_type::size_type;
     using coord_type = typename function_type::coord_type;
     using val_type = typename function_type::val_type;
@@ -42,6 +42,7 @@ class InterpolationFunctionTemplate {
         typename function_type::spline_type::ControlPointContainer;
 
     static constexpr size_type dim = D;
+    static constexpr size_type order = O;
 
     template <typename V>
     using DimArray = std::array<V, dim>;
@@ -52,23 +53,17 @@ class InterpolationFunctionTemplate {
      * @brief Construct a new Interpolation Function Template object, all other
      * constructors delegate to this one
      *
-     * @param order Order of BSpline
      * @param periodicity Periodicity of each dimension
      * @param interp_mesh_dimension The structure of coordinate mesh
      * @param x_ranges Begin and end iterator/value pairs of each dimension
      */
     template <typename... Ts>
-    InterpolationFunctionTemplate(size_type order,
-                                  DimArray<bool> periodicity,
+    InterpolationFunctionTemplate(DimArray<bool> periodicity,
                                   MeshDim interp_mesh_dimension,
                                   std::pair<Ts, Ts>... x_ranges)
         : input_coords_{},
           mesh_dimension_(interp_mesh_dimension),
-          base_(order,
-                periodicity,
-                input_coords_,
-                mesh_dimension_,
-                x_ranges...),
+          base_(periodicity, input_coords_, mesh_dimension_, x_ranges...),
           solvers_{} {
         // active union member accordingly
         for (size_type i = 0; i < dim; ++i) {
@@ -86,19 +81,15 @@ class InterpolationFunctionTemplate {
     /**
      * @brief Construct a new 1D Interpolation Function Template object.
      *
-     * @param order order of interpolation, the interpolated function is of
-     * $C^{order-1}$
      * @param periodicity whether to construct a periodic spline
      * @param f_length point number of to-be-interpolated data
      * @param x_range a pair of x_min and x_max
      */
     template <typename C1, typename C2>
-    InterpolationFunctionTemplate(size_type order,
-                                  bool periodicity,
+    InterpolationFunctionTemplate(bool periodicity,
                                   size_type f_length,
                                   std::pair<C1, C2> x_range)
-        : InterpolationFunctionTemplate(order,
-                                        {periodicity},
+        : InterpolationFunctionTemplate({periodicity},
                                         MeshDim{f_length},
                                         x_range) {
         static_assert(
@@ -107,25 +98,20 @@ class InterpolationFunctionTemplate {
     }
 
     template <typename C1, typename C2>
-    InterpolationFunctionTemplate(size_type order,
-                                  size_type f_length,
-                                  std::pair<C1, C2> x_range)
-        : InterpolationFunctionTemplate(order, false, f_length, x_range) {}
+    InterpolationFunctionTemplate(size_type f_length, std::pair<C1, C2> x_range)
+        : InterpolationFunctionTemplate(false, f_length, x_range) {}
 
     /**
      * @brief Construct a new (aperiodic) Interpolation Function Template
      * object
      *
-     * @param order Order of BSpline
      * @param interp_mesh_dimension The structure of coordinate mesh
      * @param x_ranges Begin and end iterator/value pairs of each dimension
      */
     template <typename... Ts>
-    InterpolationFunctionTemplate(size_type order,
-                                  MeshDim interp_mesh_dimension,
+    InterpolationFunctionTemplate(MeshDim interp_mesh_dimension,
                                   std::pair<Ts, Ts>... x_ranges)
-        : InterpolationFunctionTemplate(order,
-                                        {},
+        : InterpolationFunctionTemplate({},
                                         interp_mesh_dimension,
                                         x_ranges...) {}
 
@@ -156,6 +142,7 @@ class InterpolationFunctionTemplate {
                 std::forward<MeshOrIterPair>(mesh_or_iter_pair)}));
     }
 
+#ifdef INTP_CELL_LAYOUT
     // pre calculate base spline values that can be reused in evaluating the
     // spline before actually providing weights
     template <typename... Coords,
@@ -178,6 +165,15 @@ class InterpolationFunctionTemplate {
     eval_proxy(DimArray<coord_type> coord) const {
         return base_.eval_proxy(coord);
     }
+
+#if __cplusplus >= 201402L
+    using eval_proxy_t = decltype(std::declval<function_type>().eval_proxy(
+        DimArray<coord_type>{}));
+#else
+    using eval_proxy_t = std::function<val_type(const function_type&)>;
+#endif
+
+#endif  // INTP_CELL_LAYOUT
 
    private:
     using base_solver_type = BandLU<BandMatrix<coord_type>>;
@@ -256,7 +252,6 @@ class InterpolationFunctionTemplate {
     DimArray<EitherSolver> solvers_;
 
     void build_solver_() {
-        const auto& order = base_.order_;
 #ifndef INTP_PERIODIC_NO_DUMMY_POINT
         // adjust dimension according to periodicity
         {
@@ -293,7 +288,7 @@ class InterpolationFunctionTemplate {
             bool periodic = base_.periodicity(d);
             bool uniform = base_.uniform(d);
             auto mat_dim = mesh_dimension_.dim_size(d);
-            auto band_width = periodic ? order / 2 : order - 1;
+            auto band_width = periodic ? order / 2 : order == 0 ? 0 : order - 1;
 
 #if __cplusplus >= 201703L
             std::variant<typename base_solver_type::matrix_type,
@@ -458,9 +453,9 @@ class InterpolationFunctionTemplate {
             auto f_indices = f_mesh.iter_indices(it);
             for (size_type d = 0; d < dim; ++d) {
                 if (base_.periodicity(d)) {
-                    f_indices[d] = (f_indices[d] + weights.dim_size(d) +
-                                    base_.order_ / 2) %
-                                   weights.dim_size(d);
+                    f_indices[d] =
+                        (f_indices[d] + weights.dim_size(d) + order / 2) %
+                        weights.dim_size(d);
                 }
             }
             weights(f_indices) = *it;
@@ -475,9 +470,9 @@ class InterpolationFunctionTemplate {
                             // Skip last point of periodic dimension
                             keep_flag =
                                 keep_flag && indices[d] != weights.dim_size(d);
-                            indices[d] = (indices[d] + weights.dim_size(d) +
-                                          base_.order_ / 2) %
-                                         weights.dim_size(d);
+                            indices[d] =
+                                (indices[d] + weights.dim_size(d) + order / 2) %
+                                weights.dim_size(d);
                         }
                     }
                     return keep_flag;
@@ -585,30 +580,27 @@ class InterpolationFunctionTemplate {
     }
 };
 
-template <typename T = double, typename U = double>
+template <std::size_t O, typename T = double, typename U = double>
 class InterpolationFunctionTemplate1D
-    : public InterpolationFunctionTemplate<T, size_t{1}, U> {
+    : public InterpolationFunctionTemplate<T, size_t{1}, O, U> {
    private:
-    using base = InterpolationFunctionTemplate<T, size_t{1}, U>;
+    using base = InterpolationFunctionTemplate<T, size_t{1}, O, U>;
 
    public:
     InterpolationFunctionTemplate1D(typename base::size_type f_length,
-                                    typename base::size_type order = 3,
                                     bool periodicity = false)
         : InterpolationFunctionTemplate1D(
               std::make_pair(
                   typename base::coord_type{},
                   static_cast<typename base::coord_type>(f_length - 1)),
               f_length,
-              order,
               periodicity) {}
 
     template <typename C1, typename C2>
     InterpolationFunctionTemplate1D(std::pair<C1, C2> x_range,
                                     typename base::size_type f_length,
-                                    typename base::size_type order = 3,
                                     bool periodicity = false)
-        : base(order, periodicity, f_length, x_range) {}
+        : base(periodicity, f_length, x_range) {}
 };
 
 }  // namespace intp

@@ -71,8 +71,8 @@ int main() {
 
     timer.pause_and_start("1D Interpolation Template");
 
-    InterpolationFunctionTemplate1D<> interp1d_template(
-        std::make_pair(-M_PI, M_PI), trig_vec.size(), 3, true);
+    InterpolationFunctionTemplate1D<3> interp1d_template(
+        std::make_pair(-M_PI, M_PI), trig_vec.size(), true);
 
     timer.pause_and_start("1D Interpolation");
 
@@ -141,9 +141,9 @@ int main() {
 
     timer.pause_and_start("2D Interpolation Template");
 
-    InterpolationFunctionTemplate<double, 2> interp2d_template(
-        3, {true, true}, trig_mesh_2d_1.dimension(),
-        std::make_pair(-M_PI, M_PI), std::make_pair(-M_PI, M_PI));
+    InterpolationFunctionTemplate<double, 2, 3> interp2d_template(
+        {true, true}, trig_mesh_2d_1.dimension(), std::make_pair(-M_PI, M_PI),
+        std::make_pair(-M_PI, M_PI));
 
     timer.pause_and_start("2D Interpolation (2)");
 
@@ -233,13 +233,13 @@ int main() {
 
     timer.pause_and_start("3D Interpolation Template");
 
-    InterpolationFunctionTemplate<double, 3> interp3d_template(
-        3, {true, true, false}, mesh_3d_1.dimension(),
-        std::make_pair(-M_PI, M_PI), std::make_pair(-M_PI, M_PI),
-        std::make_pair(-.5, .5));
+    InterpolationFunctionTemplate<double, 3, 2> interp3d_template(
+        {true, true, false}, mesh_3d_1.dimension(), std::make_pair(-M_PI, M_PI),
+        std::make_pair(-M_PI, M_PI), std::make_pair(-.5, .5));
 
     timer.pause_and_start("3D Interpolation (2)");
 
+    // InterplationFunction is default constructible
     decltype(interp3d_template)::function_type interp3d_1, interp3d_2;
     interp3d_template.interpolate(interp3d_1, mesh_3d_1);
     interp3d_template.interpolate(interp3d_2, mesh_3d_2);

@@ -15,7 +15,10 @@ class Timer {
     void pause();
     void pause(std::string func_name);
     void reset();
-    void print();
+    void print() const;
+
+    std::chrono::high_resolution_clock::duration get_duration(
+        std::string) const;
 
    private:
     Timer() = default;
