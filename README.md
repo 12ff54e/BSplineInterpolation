@@ -34,11 +34,16 @@ and in the source file:
 #include <BSplineInterpolation/Interpolation.hpp>
 
 using namespace intp;
-InterpolationFunction<double, 2> func(
-    3, // interpolation function order
-    z_mesh, // mesh storing z values, an object of type intp::Mesh<double, 2>
-    std::make_pair(x_min, x_max), // x range
-    std::make_pair(y_min, y_max)); // y range
+
+// template arguments are type of interpolated value, dimension,
+    interpolation order and type of coordinate, respectively
+InterpolationFunction<double, 2, 3, double> func(
+    // mesh storing z values, an object of type intp::Mesh<double, 2>
+    z_mesh,
+    // x range
+    std::make_pair(x_min, x_max),
+    // y range
+    std::make_pair(y_min, y_max));
 ```
 Note: this project follows [Semantic Version 2.0.0](https://semver.org/) so the interface will be compatible within one major version.
 
