@@ -36,7 +36,7 @@ and in the source file:
 using namespace intp;
 
 // template arguments are type of interpolated value, dimension,
-    interpolation order and type of coordinate, respectively
+//  interpolation order and type of coordinate, respectively
 InterpolationFunction<double, 2, 3, double> func(
     // mesh storing z values, an object of type intp::Mesh<double, 2>
     z_mesh,
