@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <type_traits>
 
 int main() {
     using namespace std;
@@ -15,6 +16,14 @@ int main() {
     Assertion assertion;
     constexpr double tol = 1e-14;
 
+    {
+        static_assert(
+            std::is_default_constructible_v<InterpolationFunction1D<>>,
+            "InterpolationFunction1D default constructibility");
+        static_assert(std::is_default_constructible_v<
+                          InterpolationFunction<double, 2, 3>>,
+                      "InterpolationFunction default constructibility");
+    }
     // 1D interpolation test
 
     array<double, 13> f{{0.905515, 0.894638, -0.433134, 0.43131, -0.131052,

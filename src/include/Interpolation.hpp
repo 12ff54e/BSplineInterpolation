@@ -537,6 +537,8 @@ class InterpolationFunction1D
                             std::pair<InputIter, InputIter> f_range,
                             bool periodicity = false)
         : base(periodicity, f_range, x_range) {}
+
+    InterpolationFunction1D() = default;
 };
 
 }  // namespace intp
