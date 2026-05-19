@@ -539,6 +539,9 @@ class InterpolationFunction1D
         : base(periodicity, f_range, x_range) {}
 
     InterpolationFunction1D() = default;
+
+    InterpolationFunction1D(const base& b) : base{b} {}
+    InterpolationFunction1D(base&& b) : base{b} {}
 };
 
 }  // namespace intp

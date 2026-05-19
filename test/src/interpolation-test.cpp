@@ -17,13 +17,22 @@ int main() {
     constexpr double tol = 1e-14;
 
     {
-        static_assert(
-            std::is_default_constructible_v<InterpolationFunction1D<>>,
-            "InterpolationFunction1D default constructibility");
+        using IF1D = InterpolationFunction1D<3, double, double>;
+        static_assert(std::is_default_constructible_v<IF1D>,
+                      "InterpolationFunction1D default constructibility");
         static_assert(std::is_default_constructible_v<
                           InterpolationFunction<double, 2, 3>>,
                       "InterpolationFunction default constructibility");
+
+        using IF = InterpolationFunction<double, 1, 3, double>;
+        static_assert(std::is_constructible_v<IF1D, IF>,
+                      "InterpolationFunction1D constructible from 1D "
+                      "InterpolationFunction");
+        static_assert(std::is_constructible_v<IF, IF1D>,
+                      "InterpolationFunction constructible from 1D "
+                      "InterpolationFunction1D");
     }
+
     // 1D interpolation test
 
     array<double, 13> f{{0.905515, 0.894638, -0.433134, 0.43131, -0.131052,
