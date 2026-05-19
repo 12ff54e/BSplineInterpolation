@@ -365,7 +365,7 @@ class Mesh {
                                       index_type indices) const {
         indices[dim_ind] = dimension_.dim_size(dim_ind);
         return skip_iterator<const val_type>(
-            storage_.data() + indexing(indices),
+            storage_.data() + dimension_.indexing(indices),
             dimension_.dim_acc_size(dim - dim_ind - 1));
     }
 
