@@ -12,9 +12,15 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-constexpr std::size_t max_len_power = 6 * 4;
+constexpr std::size_t min_len_power = 12;
+constexpr std::size_t max_len_power = 18;
+
 constexpr std::size_t eval_count_power = 20;
 constexpr std::size_t eval_count = 1 << eval_count_power;
+
+using spline_orders =
+    std::make_index_sequence<6>;  // interpolation orders vary from 0 to 5
+using dimensions = std::index_sequence<1, 2, 3>;
 
 template <std::size_t dim>
 auto generate_coordinates() {
@@ -56,9 +62,6 @@ int main() {
     auto& timer = Timer::get_timer();
 
     // random sample points
-
-    constexpr std::size_t min_len_power = 6 * 2;
-    constexpr std::size_t max_len_power = 6 * 4;
 
     auto test_nDx = [&]<std::size_t... dim>(std::index_sequence<dim...>,
                                             auto order, auto point_nums) {
@@ -127,25 +130,38 @@ int main() {
 
     using namespace std::chrono;
 
-    using spline_orders =
-        std::make_index_sequence<6>;  // interpolation orders vary from 0 to 5
-
     auto time_consumptions = ([&]<auto... dim>(std::index_sequence<dim...>) {
+        auto func = [&]<auto... idx>(std::index_sequence<idx...> dim_seq,
+                                     auto order, auto p) {
+            return ([&]<auto... repeat_idx>(
+                        std::index_sequence<repeat_idx...>) {
+                return ((repeat_idx,
+                         test_nDx(dim_seq, order,
+                                  std::array<std::size_t, sizeof...(idx)>{
+                                      1u << ((p + idx) / sizeof...(idx))...})),
+                        ...);
+            })(std::make_index_sequence<3>{});
+            // repeat 3 times, only return the result of the last one, previous
+            // runs are used as warm up.
+            // // warm up
+            // for (std::size_t pre = 0; pre < 3; ++pre) {
+            //     test_nDx(dim_seq, order,
+            //              std::array<std::size_t, sizeof...(idx)>{
+            //                  1u << ((p + idx) / sizeof...(idx))...});
+            // }
+            // // expand dimension-wise size
+            // return test_nDx(dim_seq, order,
+            //                 std::array<std::size_t, sizeof...(idx)>{
+            //                     1u << ((p + idx) / sizeof...(idx))...});
+        };
         return std::array{([&]<auto d>(std::integral_constant<std::size_t, d>) {
-            auto func = [&]<auto... idx>(std::index_sequence<idx...> dim_seq,
-                                         auto order, auto p) {
-                // expand dimension-wise size
-                return test_nDx(dim_seq, order,
-                                std::array<std::size_t, sizeof...(idx)>{
-                                    1u << ((p + idx) / sizeof...(idx))...});
-            };
             return ([&]<auto... order>(std::index_sequence<order...>) {
                 std::vector<
                     std::array<std::array<high_resolution_clock::duration, 3>,
                                sizeof...(order)>>
                     time_consumption;
-                for (std::size_t p = min_len_power; p <= max_len_power;
-                     ++p) {  // 2^p = point number
+                // 2^p = point number
+                for (std::size_t p = min_len_power; p <= max_len_power; ++p) {
                     // expand order
                     time_consumption.push_back({func(
                         std::make_index_sequence<d>{},
@@ -154,7 +170,7 @@ int main() {
                 return time_consumption;
             })(spline_orders{});
         })(std::integral_constant<std::size_t, dim>{})...};
-    })(std::index_sequence<1, 2, 3>{} /* dimensions */);
+    })(dimensions{});
 
     constexpr std::size_t col_width_1 = 8;
 

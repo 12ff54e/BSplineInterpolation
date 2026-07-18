@@ -12,8 +12,8 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-constexpr std::size_t min_len_power = 10;
-constexpr std::size_t max_len_power = 24;
+constexpr std::size_t min_len_power = 12;
+constexpr std::size_t max_len_power = 18;
 constexpr std::size_t eval_count_power = 15;
 constexpr std::size_t eval_count = 1 << eval_count_power;
 constexpr std::size_t repeat_time_power = 5;
