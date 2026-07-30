@@ -88,6 +88,14 @@ class BSpline {
         BaseSpline base_spline{};
         base_spline[order] = 1;
 
+        base_spline_value_helper(seg_idx_iter, x, spline_order, base_spline);
+        return base_spline;
+    }
+
+    void base_spline_value_helper(knot_const_iterator seg_idx_iter,
+                                  knot_type x,
+                                  size_type spline_order,
+                                  BaseSpline& base_spline) const {
         for (size_type i = 1; i <= spline_order; ++i) {
             // Each iteration will expand buffer zone by one, from back
             // to front.
@@ -107,7 +115,6 @@ class BSpline {
                                (*right_iter - *(left_iter + 1)));
             }
         }
-        return base_spline;
     }
 
     /**
@@ -235,8 +242,7 @@ class BSpline {
     typename std::enable_if<
         std::is_same<typename std::remove_reference<C>::type,
                      ControlPointContainer>::value,
-        void>::type
-    load_ctrlPts(C&& control_points) {
+        void>::type load_ctrlPts(C&& control_points) {
         control_points_ = std::forward<C>(control_points);
     }
 #endif
@@ -603,9 +609,7 @@ class BSpline {
         return periodicity_[dim_ind];
     }
 
-    inline constexpr size_type get_order() const {
-        return order;
-    }
+    inline constexpr size_type get_order() const { return order; }
 
 #ifdef INTP_DEBUG
     void debug_output() const {
