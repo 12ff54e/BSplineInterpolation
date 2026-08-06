@@ -778,9 +778,10 @@ class BSpline {
     MeshDimension<dim + 1> calculate_cell_dim_from_knots() const {
         MeshDimension<dim + 1> cell_dim(util::pow(order + 1, dim - 1));
         for (size_type d = 0; d < dim; ++d) {
-            cell_dim.dim_size(d) = knots_[d].size() -
-                                   (periodicity(d) ? order + 1 : order + 1) -
-                                   (d == dim - 1 ? 0 : order);
+            cell_dim.dim_size(d) =
+                knots_[d].size() -
+                (order + (periodicity(d) && order % 2 == 0 ? 2 : 1)) -
+                (d == dim - 1 ? 0 : order);
         }
         return cell_dim;
     }
