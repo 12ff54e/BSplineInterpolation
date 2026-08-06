@@ -302,7 +302,8 @@ class BSpline {
         knots_[dim_ind] = std::forward<C>(_knots);
         range_[dim_ind].first = knots_[dim_ind][order];
         range_[dim_ind].second =
-            knots_[dim_ind][knots_[dim_ind].size() - order - (2 - order % 2)];
+            knots_[dim_ind][knots_[dim_ind].size() - order -
+                            (periodicity(dim_ind) && order % 2 == 0 ? 2 : 1)];
     }
 
     /**
