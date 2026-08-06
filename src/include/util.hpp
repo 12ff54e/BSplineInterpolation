@@ -96,7 +96,7 @@ class stack_allocator {
 
    public:
     explicit stack_allocator(pointer buffer)
-        : m_begin(buffer), m_end(buffer + N), m_stack_pointer(buffer){};
+        : m_begin(buffer), m_end(buffer + N), m_stack_pointer(buffer) {};
 
     template <typename U>
     stack_allocator(const stack_allocator<U, N>& other)
@@ -208,6 +208,19 @@ using remove_cvref_t =
 #define CPP17_CONSTEXPR_
 #endif
 
+#if defined(_MSC_VER)
+#define INTP_ALWAYS_INLINE __forceinline
+#define INTP_NOINLINE __declspec(noinline)
+
+#elif defined(__GNUC__) || defined(__clang__)
+#define INTP_ALWAYS_INLINE inline __attribute__((always_inline))
+#define INTP_NOINLINE __attribute__((noinline))
+
+#else
+#define INTP_ALWAYS_INLINE
+#define INTP_NOINLINE
+#endif
+
 /**
  * @brief CRTP helper, used for downward casting.
  *
@@ -221,24 +234,20 @@ struct CRTP {
 };
 
 template <bool B,
-          template <typename...>
-          class TrueTemplate,
-          template <typename...>
-          class FalseTemplate,
+          template <typename...> class TrueTemplate,
+          template <typename...> class FalseTemplate,
           typename... Args>
 struct lazy_conditional;
 
 template <template <typename...> class TrueTemplate,
-          template <typename...>
-          class FalseTemplate,
+          template <typename...> class FalseTemplate,
           typename... Args>
 struct lazy_conditional<true, TrueTemplate, FalseTemplate, Args...> {
     using type = TrueTemplate<Args...>;
 };
 
 template <template <typename...> class TrueTemplate,
-          template <typename...>
-          class FalseTemplate,
+          template <typename...> class FalseTemplate,
           typename... Args>
 struct lazy_conditional<false, TrueTemplate, FalseTemplate, Args...> {
     using type = FalseTemplate<Args...>;
@@ -300,6 +309,12 @@ struct default_init_allocator : public A {
                                             std::forward<Args>(args)...);
     }
 };
+
+// invoked occasionally
+template <typename T>
+constexpr T factorial(T n) {
+    return n == 0 ? T{1} : n * factorial(n - 1);
+}
 
 }  // namespace util
 

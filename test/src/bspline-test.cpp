@@ -44,6 +44,38 @@ int main() {
     Assertion assertion;
     constexpr double tol = 1e-15;
 
+    // 1D uniform test
+    {
+        std::array<double, 16> knots;
+        std::array<double, 12> cp;
+        for (std::size_t i = 0; i < knots.size(); ++i) {
+            knots[i] = static_cast<double>(i < 4 ? 0 : i > 11 ? 9 : i - 3);
+        }
+        for (std::size_t i = 0; i < cp.size(); ++i) { cp[i] = 1.; }
+
+        BSpline<double, 1, 3> spline_1d_3(
+            AlignedMesh<1>(std::make_pair(cp.begin(), cp.end())),
+            std::make_pair(knots.begin(), knots.end()));
+
+        spline_1d_3.set_uniform(0);
+
+        std::array<double, 91> coords_1d;
+        std::array<double, 91> vals_1d;
+        for (std::size_t i = 0; i < coords_1d.size(); ++i) {
+            coords_1d[i] = static_cast<double>(i) / 10.;
+            vals_1d[i] = 1.;
+        }
+        std::cout << "\nB-Spline Base Test:\n";
+        double d = rel_err([&](double x) { return spline_1d_3({x}); },
+                           std::make_pair(coords_1d.begin(), coords_1d.end()),
+                           std::make_pair(vals_1d.begin(), vals_1d.end()));
+
+        assertion(d < tol);
+        std::cout << "\nBase test "
+                  << (assertion.last_status() == 0 ? "succeed" : "failed")
+                  << '\n';
+        std::cout << "Relative Error = " << d << '\n';
+    }
     // 1D B-Spline
 
     auto knots = {0., 0., 0., 0., .5, 1., 1., 1., 1.};

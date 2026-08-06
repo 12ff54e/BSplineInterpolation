@@ -80,22 +80,53 @@ class BSpline {
      * order
      * @return a reference to local buffer
      */
-    inline const BaseSpline base_spline_value(
-        size_type,
-        knot_const_iterator seg_idx_iter,
-        knot_type x,
-        size_type spline_order = order) const {
+    INTP_ALWAYS_INLINE const BaseSpline
+    base_spline_value(size_type dim_ind,
+                      knot_const_iterator seg_idx_iter,
+                      knot_type x,
+                      size_type spline_order = order) const {
+        if (spline_order == order &&
+            uniformity(dim_ind, seg_idx_iter - knots_begin(dim_ind))) {
+            // uniform case, use polynominal expression instead of Cox-de Boor
+            // algorithm
+            const auto t = (x - *seg_idx_iter) * knot_spacing_inv(dim_ind);
+
+            BaseSpline t_powers;
+            t_powers[0] = 1;
+            for (size_type i = 1; i <= order; ++i) {
+                t_powers[i] = t_powers[i - 1] * t;
+            }
+
+#if __cplusplus >= 201402L
+            // invoke constexpr directly
+            const auto poly_coef = calc_uniform_poly_coef();
+#else
+            // C++11 fallback, use function scope static to ensure poly_coef is
+            // initialized only once
+            const auto& poly_coef = uniform_poly_coef();
+#endif
+
+            BaseSpline base_spline{};
+            for (size_type i = 0; i <= order; ++i) {
+                for (size_type j = 0; j <= order; ++j) {
+                    base_spline[i] += poly_coef[i][j] * t_powers[j];
+                }
+            }
+            return base_spline;
+        } else {
+            return base_spline_value_helper(seg_idx_iter, x, spline_order);
+        }
+    }
+
+    // Cox-de Boor Formula
+    template <typename Iter>
+    static CPP14_CONSTEXPR_ INTP_NOINLINE BaseSpline
+    base_spline_value_helper(Iter seg_idx_iter,
+                             knot_type x,
+                             size_type spline_order) {
         BaseSpline base_spline{};
         base_spline[order] = 1;
 
-        base_spline_value_helper(seg_idx_iter, x, spline_order, base_spline);
-        return base_spline;
-    }
-
-    void base_spline_value_helper(knot_const_iterator seg_idx_iter,
-                                  knot_type x,
-                                  size_type spline_order,
-                                  BaseSpline& base_spline) const {
         for (size_type i = 1; i <= spline_order; ++i) {
             // Each iteration will expand buffer zone by one, from back
             // to front.
@@ -115,6 +146,47 @@ class BSpline {
                                (*right_iter - *(left_iter + 1)));
             }
         }
+        return base_spline;
+    }
+
+    static CPP14_CONSTEXPR_
+        std::array<std::array<knot_type, order + 1>, order + 1>
+        calc_uniform_poly_coef() {
+        std::array<knot_type, 2 * order + 2> uniform_knots{};
+        for (size_type i = 0; i < uniform_knots.size(); ++i) {
+            uniform_knots[i] = i;
+        }
+        std::array<std::array<knot_type, order + 1>, order + 1>
+            basic_poly_coef{};
+
+        for (size_type d = 0; d <= order; ++d) {
+            auto coef = base_spline_value_helper(
+                uniform_knots.begin() + order + 1,
+                static_cast<knot_type>(order + 1), order - d);
+            for (size_type p = order - d + 1; p <= order; ++p) {
+                const size_type idx_begin = order - p;
+                for (size_type j = 0; j <= p; ++j) {
+                    coef[idx_begin + j] =
+                        (j == 0 ? knot_type{} : coef[idx_begin + j]) -
+                        (idx_begin + j == order ? knot_type{}
+                                                : coef[idx_begin + j + 1]);
+                }
+            }
+
+            const auto c =
+                knot_type{1} / static_cast<knot_type>(util::factorial(d));
+            for (size_type i = 0; i <= order; ++i) {
+                basic_poly_coef[i][d] = coef[i] * c;
+            }
+        }
+        return basic_poly_coef;
+    }
+
+    // C++11 fallback
+    static const std::array<std::array<knot_type, order + 1>, order + 1>&
+    uniform_poly_coef() {
+        static const auto poly_coef = calc_uniform_poly_coef();
+        return poly_coef;
     }
 
     /**
@@ -129,10 +201,10 @@ class BSpline {
      * knots beyond it.
      * @return knot_const_iterator
      */
-    inline knot_const_iterator get_knot_iter(size_type dim_ind,
-                                             knot_type& x,
-                                             size_type hint,
-                                             size_type last) const {
+    INTP_ALWAYS_INLINE knot_const_iterator get_knot_iter(size_type dim_ind,
+                                                         knot_type& x,
+                                                         size_type hint,
+                                                         size_type last) const {
         const auto iter = knots_begin(dim_ind) + static_cast<diff_type>(hint);
         if (periodicity_[dim_ind]) {
             const knot_type period =
@@ -163,9 +235,9 @@ class BSpline {
                                          x));
     }
 
-    inline knot_const_iterator get_knot_iter(size_type dim_ind,
-                                             knot_type& x,
-                                             size_type hint) const {
+    INTP_ALWAYS_INLINE knot_const_iterator get_knot_iter(size_type dim_ind,
+                                                         knot_type& x,
+                                                         size_type hint) const {
         return get_knot_iter(dim_ind, x, hint, knots_num(dim_ind) - order - 2);
     }
 
@@ -231,6 +303,21 @@ class BSpline {
         range_[dim_ind].first = knots_[dim_ind][order];
         range_[dim_ind].second =
             knots_[dim_ind][knots_[dim_ind].size() - order - (2 - order % 2)];
+    }
+
+    /**
+     * @brief Mark a dimension as uniform and pre-compute the base spline
+     * lookup table for fast evaluation. This can only be set by
+     * InterpolationFunction
+     *
+     * @param dim_ind dimension index
+     * @param spacing uniform knot spacing
+     */
+    void set_uniform(size_type dim_ind) {
+        uniform_[dim_ind] = true;
+        knot_spacing_inv_[dim_ind] =
+            knot_type{1} /
+            (knots_[dim_ind][order + 2] - knots_[dim_ind][order + 1]);
     }
 
 #ifdef INTP_CELL_LAYOUT
@@ -308,7 +395,7 @@ class BSpline {
      * locates, dimension wise).
      *
      */
-    val_type operator()(
+    inline val_type operator()(
         DimArray<std::pair<knot_type, size_type>> coord_with_hints) const {
         using Indices = util::make_index_sequence<dim>;
         // get knot point iter, it will modifies coordinate value into
@@ -609,6 +696,23 @@ class BSpline {
         return periodicity_[dim_ind];
     }
 
+    /**
+     * @brief Whether all BSpline base function on given interval is uniform
+     *
+     * @param dim_ind dimension index
+     * @param knot_ind knot index to the left of given interval
+     */
+    inline bool uniformity(size_type dim_ind, diff_type knot_ind) const {
+        return uniform_[dim_ind] &&
+               (periodicity(dim_ind) ||
+                (knot_ind > 2 * order &&
+                 knot_ind < knots_num(dim_ind) - 2 * (order + 1)));
+    }
+
+    inline knot_type knot_spacing_inv(size_type dim_ind) const {
+        return knot_spacing_inv_[dim_ind];
+    }
+
     inline constexpr size_type get_order() const { return order; }
 
 #ifdef INTP_DEBUG
@@ -633,7 +737,10 @@ class BSpline {
 
    private:
     DimArray<bool> periodicity_;
+    DimArray<bool> uniform_{};
 
+    // Used only in uniform case
+    DimArray<knot_type> knot_spacing_inv_{};
     DimArray<KnotContainer> knots_;
 #ifdef INTP_CELL_LAYOUT
     ControlPointCellContainer control_points_;

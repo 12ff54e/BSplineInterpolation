@@ -132,7 +132,7 @@ class InterpolationFunction {
     template <typename... Coords,
               typename = typename std::enable_if<std::is_arithmetic<
                   typename std::common_type<Coords...>::type>::value>::type>
-    val_type operator()(Coords... x) const {
+    inline val_type operator()(Coords... x) const {
         return call_op_helper({static_cast<coord_type>(x)...});
     }
 
@@ -141,7 +141,7 @@ class InterpolationFunction {
      *
      * @param coord coordinate array
      */
-    val_type operator()(DimArray<coord_type> coord) const {
+    inline val_type operator()(DimArray<coord_type> coord) const {
         return call_op_helper(coord);
     }
 
@@ -359,6 +359,7 @@ class InterpolationFunction {
         }
 
         spline_.load_knots(dim_ind, std::move(xs));
+        spline_.set_uniform(dim_ind);
     }
 
     // overload for nonuniform knots, given by iterator pair
