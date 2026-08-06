@@ -1,2 +1,7 @@
 .vscode
 build
+
+*.swp
+*.swo
+
+tags
