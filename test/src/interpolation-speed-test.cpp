@@ -1,5 +1,6 @@
 #include <Interpolation.hpp>
 #include "include/Timer.h"
+#include "include/bench.h"
 
 #include <algorithm>  // sort
 #include <iomanip>    // setw
@@ -15,7 +16,7 @@
 constexpr std::size_t min_len_power = 12;
 constexpr std::size_t max_len_power = 18;
 
-constexpr std::size_t eval_count_power = 20;
+constexpr std::size_t eval_count_power = 16;
 constexpr std::size_t eval_count = 1 << eval_count_power;
 
 using spline_orders =
@@ -74,7 +75,8 @@ int main() {
         auto& timer = Timer::get_timer();
         timer.reset();
 
-        timer.start("Mesh");
+        constexpr auto mesh_name = "Mesh";
+        timer.start(mesh_name);
 
         auto pn = point_nums;
 #ifndef INTP_PERIODIC_NO_DUMMY_POINT
@@ -107,11 +109,12 @@ int main() {
         timer.pause_and_start(eval_seq_name);
 
         for (auto& x : eval_coord_sorted) { diff -= interpND(x); }
+        do_not_optimize(diff);
 
         timer.pause();
 
-        std::cout << dimension << "D mesh(" << mesh.size() << "), order "
-                  << order.value << " complete\n";
+        std::cout << "\r\033[2K" << dimension << "D mesh(" << mesh.size()
+                  << "), order " << order.value << " complete..." << std::flush;
 #ifdef INTP_DEBUG
         std::cout << "Evaluate " << eval_coord.size()
                   << " times, unsorted and sorted. The diffreence is " << diff
@@ -121,7 +124,8 @@ int main() {
         std::cout << '\n';
 #endif
 
-        std::array result{timer.get_duration(interp_name),
+        std::array result{timer.get_duration(mesh_name),
+                          timer.get_duration(interp_name),
                           timer.get_duration(eval_rand_name),
                           timer.get_duration(eval_seq_name)};
 
@@ -143,21 +147,11 @@ int main() {
             })(std::make_index_sequence<3>{});
             // repeat 3 times, only return the result of the last one, previous
             // runs are used as warm up.
-            // // warm up
-            // for (std::size_t pre = 0; pre < 3; ++pre) {
-            //     test_nDx(dim_seq, order,
-            //              std::array<std::size_t, sizeof...(idx)>{
-            //                  1u << ((p + idx) / sizeof...(idx))...});
-            // }
-            // // expand dimension-wise size
-            // return test_nDx(dim_seq, order,
-            //                 std::array<std::size_t, sizeof...(idx)>{
-            //                     1u << ((p + idx) / sizeof...(idx))...});
         };
         return std::array{([&]<auto d>(std::integral_constant<std::size_t, d>) {
             return ([&]<auto... order>(std::index_sequence<order...>) {
                 std::vector<
-                    std::array<std::array<high_resolution_clock::duration, 3>,
+                    std::array<std::array<high_resolution_clock::duration, 4>,
                                sizeof...(order)>>
                     time_consumption;
                 // 2^p = point number
@@ -220,9 +214,12 @@ int main() {
     std::cout << std::fixed << std::setprecision(2);
     std::size_t dim = 1;
     for (auto& dimensional_result : time_consumptions) {
-        std::cout << "\n" << dim << "D Interpolation time consumption\n";
+        std::cout << "\n"
+                  << dim
+                  << "D mesh construction and interpolation from template time "
+                     "consumption(ms)\n";
         // table head
-        constexpr std::size_t col_width_interp_time = 11;
+        constexpr std::size_t col_width_interp_time = 16;
         print_table_head(col_width_interp_time);
         auto p = min_len_power;
         for (auto& row : dimensional_result) {
@@ -230,17 +227,22 @@ int main() {
                       << p++;
             for (auto& ts : row) {
                 std::cout
-                    << "|" << std::setw(col_width_interp_time - 1) << std::right
-                    << duration<double, milliseconds::period>(ts[0]).count();
+                    << "|" << std::setw(col_width_interp_time / 2 - 1)
+                    << std::right
+                    << duration<double, milliseconds::period>(ts[0]).count()
+                    << ',' << std::setw((col_width_interp_time - 1) / 2)
+                    << std::right
+                    << duration<double, milliseconds::period>(ts[1]).count();
             }
             std::cout << "|\n";
         }
         print_table_foot(col_width_interp_time);
 
-        std::cout << "\n"
-                  << dim << "D Evaluation(2^" << eval_count_power
-                  << ", random and sequential) time consumption\n";
-        constexpr std::size_t col_width_eval_time = 14;
+        std::cout
+            << "\n"
+            << dim << "D Evaluation(2^" << eval_count_power
+            << ", random and sequential), time consumption(ns) per eval\n";
+        constexpr std::size_t col_width_eval_time = 16;
         print_table_head(col_width_eval_time);
         p = min_len_power;
         for (auto& row : dimensional_result) {
@@ -248,10 +250,14 @@ int main() {
                       << p++;
             for (auto& ts : row) {
                 std::cout
-                    << "|" << std::setw(6) << std::right
-                    << duration<double, milliseconds::period>(ts[1]).count()
-                    << ',' << std::setw(6) << std::right
-                    << duration<double, milliseconds::period>(ts[2]).count();
+                    << "|" << std::setw(col_width_eval_time / 2 - 1)
+                    << std::right
+                    << duration<double, nanoseconds::period>(ts[2]).count() /
+                           eval_count
+                    << ',' << std::setw((col_width_eval_time - 1) / 2)
+                    << std::right
+                    << duration<double, nanoseconds::period>(ts[3]).count() /
+                           eval_count;
             }
             std::cout << "|\n";
         }

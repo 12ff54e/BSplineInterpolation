@@ -1,5 +1,6 @@
 #include "Interpolation.hpp"
 #include "include/Timer.h"
+#include "include/bench.h"
 
 #include <algorithm>  // sort
 #include <iomanip>    // setw
@@ -14,10 +15,12 @@
 
 constexpr std::size_t min_len_power = 12;
 constexpr std::size_t max_len_power = 18;
-constexpr std::size_t eval_count_power = 15;
+constexpr std::size_t eval_count_power = 16;
 constexpr std::size_t eval_count = 1 << eval_count_power;
-constexpr std::size_t repeat_time_power = 5;
-constexpr std::size_t repeat_time = 1 << repeat_time_power;
+
+using spline_orders =
+    std::make_index_sequence<6>;  // interpolation orders vary from 0 to 5
+using dimensions = std::index_sequence<1, 2, 3>;
 
 template <std::size_t dim>
 auto generate_coordinates() {
@@ -109,22 +112,24 @@ int main() {
         auto interpND = interpND_template.interpolate(mesh);
 
         constexpr auto eval_direct_name = "Evaluation (Direct)";
-        constexpr auto eval_proxy_name = "Evaluation (use proxy)";
+        timer.pause_and_start(eval_direct_name);
+
         double diff{};
-        for (std::size_t t{}; t < repeat_time; ++t) {
-            timer.pause_and_start(eval_direct_name);
-            for (auto& x : eval_coord_sorted) { diff += interpND(x); }
+        for (auto& x : eval_coord_sorted) { diff += interpND(x); }
 
-            timer.pause_and_start(eval_proxy_name);
-            for (auto& evaluator : evaluators) { diff -= evaluator(interpND); }
-        }
+        constexpr auto eval_proxy_name = "Evaluation (use proxy)";
+        timer.pause_and_start(eval_proxy_name);
 
-        std::cout << dimension << "D mesh(" << mesh.size() << "), order "
-                  << order.value << " complete\n";
+        for (auto& evaluator : evaluators) { diff -= evaluator(interpND); }
+        do_not_optimize(diff);
+
+        timer.pause();
+
+        std::cout << "\r\033[2K" << dimension << "D mesh(" << mesh.size()
+                  << "), order " << order.value << " complete..." << std::flush;
 #ifdef INTP_DEBUG
-        std::cout << "Evaluate " << eval_coord_sorted.size() << "*"
-                  << repeat_time
-                  << " times, unsorted and sorted. The diffreence is "
+        std::cout << "Sequential evaluate " << eval_coord_sorted.size() << "*"
+                  << repeat_time << " times. The diffreence is "
                   << diff / repeat_time
                   << ". (Due to float point arithmetic error if it is not 0)\n";
 
@@ -142,25 +147,60 @@ int main() {
 
     using namespace std::chrono;
 
-    using spline_orders =
-        std::make_index_sequence<6>;  // interpolation orders vary from 0 to 5
+    //    auto time_consumptions = ([&]<auto...
+    //    dim>(std::index_sequence<dim...>) {
+    //        return std::array{([&]<auto d>(std::integral_constant<std::size_t,
+    //        d>) {
+    //            auto func = [&]<auto... idx>(std::index_sequence<idx...>
+    //            dim_seq,
+    //                                         auto order, auto p) {
+    //                // expand dimension-wise size
+    //                return test_nDx(dim_seq, order,
+    //                                std::array<std::size_t, sizeof...(idx)>{
+    //                                    1u << ((p + idx) /
+    //                                    sizeof...(idx))...});
+    //            };
+    //            return ([&]<auto... order>(std::index_sequence<order...>) {
+    //                std::vector<
+    //                    std::array<std::array<high_resolution_clock::duration,
+    //                    4>,
+    //                               sizeof...(order)>>
+    //                    time_consumption;
+    //                for (std::size_t p = min_len_power; p <= max_len_power;
+    //                     ++p) {  // 2^p = point number
+    //                    // expand order
+    //                    time_consumption.push_back({func(
+    //                        std::make_index_sequence<d>{},
+    //                        std::integral_constant<std::size_t, order>{},
+    //                        p)...});
+    //                }
+    //                return time_consumption;
+    //            })(spline_orders{});
+    //        })(std::integral_constant<std::size_t, dim>{})...};
+    //    })(std::index_sequence<1, 2, 3>{} /* dimensions */);
 
     auto time_consumptions = ([&]<auto... dim>(std::index_sequence<dim...>) {
+        auto func = [&]<auto... idx>(std::index_sequence<idx...> dim_seq,
+                                     auto order, auto p) {
+            return ([&]<auto... repeat_idx>(
+                        std::index_sequence<repeat_idx...>) {
+                return ((repeat_idx,
+                         test_nDx(dim_seq, order,
+                                  std::array<std::size_t, sizeof...(idx)>{
+                                      1u << ((p + idx) / sizeof...(idx))...})),
+                        ...);
+            })(std::make_index_sequence<3>{});
+            // repeat 3 times, only return the result of the last one, previous
+            // runs are used as warm up.
+        };
         return std::array{([&]<auto d>(std::integral_constant<std::size_t, d>) {
-            auto func = [&]<auto... idx>(std::index_sequence<idx...> dim_seq,
-                                         auto order, auto p) {
-                // expand dimension-wise size
-                return test_nDx(dim_seq, order,
-                                std::array<std::size_t, sizeof...(idx)>{
-                                    1u << ((p + idx) / sizeof...(idx))...});
-            };
             return ([&]<auto... order>(std::index_sequence<order...>) {
                 std::vector<
                     std::array<std::array<high_resolution_clock::duration, 4>,
                                sizeof...(order)>>
                     time_consumption;
-                for (std::size_t p = min_len_power; p <= max_len_power;
-                     ++p) {  // 2^p = point number
+                // 2^p = point number
+                for (std::size_t p = min_len_power; p <= max_len_power; ++p) {
                     // expand order
                     time_consumption.push_back({func(
                         std::make_index_sequence<d>{},
@@ -169,7 +209,7 @@ int main() {
                 return time_consumption;
             })(spline_orders{});
         })(std::integral_constant<std::size_t, dim>{})...};
-    })(std::index_sequence<1, 2, 3>{} /* dimensions */);
+    })(dimensions{});
 
     constexpr std::size_t col_width_1 = 8;
 
@@ -222,7 +262,7 @@ int main() {
         std::cout << "\n"
                   << dim
                   << "D mesh construction and interpolation from template time "
-                     "consumption\n";
+                     "consumption(ms)\n";
         // table head
         constexpr std::size_t col_width_interp_time = 16;
         print_table_head(col_width_interp_time);
@@ -244,9 +284,8 @@ int main() {
         print_table_foot(col_width_interp_time);
 
         std::cout << "\n"
-                  << dim << "D Evaluation(2^"
-                  << (eval_count_power + repeat_time_power)
-                  << ", direct and proxy) time consumption\n";
+                  << dim << "D Evaluation(2^" << eval_count_power
+                  << ", direct and proxy), time consumption(ns) per eval\n";
         constexpr std::size_t col_width_eval_time = 14;
         print_table_head(col_width_eval_time);
         p = min_len_power;
@@ -257,10 +296,12 @@ int main() {
                 std::cout
                     << "|" << std::setw(col_width_eval_time / 2 - 1)
                     << std::right
-                    << duration<double, milliseconds::period>(ts[2]).count()
+                    << duration<double, nanoseconds::period>(ts[2]).count() /
+                           eval_count
                     << ',' << std::setw((col_width_eval_time - 1) / 2)
                     << std::right
-                    << duration<double, milliseconds::period>(ts[3]).count();
+                    << duration<double, nanoseconds::period>(ts[3]).count() /
+                           eval_count;
             }
             std::cout << "|\n";
         }
