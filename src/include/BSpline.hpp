@@ -244,12 +244,13 @@ class BSpline {
 
     // Multiplying every control point scales the spline and all of its
     // derivatives by the same factor without re-interpolating the mesh.
-    void scale_control_points(val_type factor) {
+    void scale_control_points(knot_type factor) {
         if (!std::isfinite(factor)) {
             throw std::invalid_argument("B-spline scale factor must be finite");
         }
+        auto* cp = control_points_.data();
         for (size_type i = 0; i < control_points_.size(); ++i) {
-            control_points_.data()[i] *= factor;
+            cp[i] = factor * cp[i];
         }
     }
 

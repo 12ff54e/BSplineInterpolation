@@ -266,9 +266,7 @@ class InterpolationFunction {
 
     // Scale the already solved B-spline coefficients. This does not change
     // knots or the interpolation domain.
-    void scale_coefficients(val_type factor) {
-        spline_.scale_control_points(factor);
-    }
+    void scale_coefficients(coord_type factor) { spline_.scale_control_points(factor); }
 
     static constexpr size_type get_order() { return order; }
 
