@@ -322,6 +322,7 @@ class Mesh {
         return storage_[dimension_.indexing(indices)];
     }
 
+    val_type* data() { return storage_.data(); }
     const val_type* data() const { return storage_.data(); }
 
     // iterator
