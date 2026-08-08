@@ -116,7 +116,7 @@ int main() {
         std::cout << "\r\033[2K" << dimension << "D mesh(" << mesh.size()
                   << "), order " << order.value << " complete..." << std::flush;
 #ifdef INTP_DEBUG
-        std::cout << "Evaluate " << eval_coord.size()
+        std::cout << "\nEvaluate " << eval_coord.size()
                   << " times, unsorted and sorted. The diffreence is " << diff
                   << ". (Due to float point arithmetic error if it is not 0)\n";
 

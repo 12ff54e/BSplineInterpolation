@@ -128,9 +128,8 @@ int main() {
         std::cout << "\r\033[2K" << dimension << "D mesh(" << mesh.size()
                   << "), order " << order.value << " complete..." << std::flush;
 #ifdef INTP_DEBUG
-        std::cout << "Sequential evaluate " << eval_coord_sorted.size() << "*"
-                  << repeat_time << " times. The diffreence is "
-                  << diff / repeat_time
+        std::cout << "\nSequential evaluate " << eval_coord_sorted.size()
+                  << " times. The diffreence is " << diff
                   << ". (Due to float point arithmetic error if it is not 0)\n";
 
         timer.print();
