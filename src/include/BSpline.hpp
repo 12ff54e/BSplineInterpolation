@@ -99,7 +99,7 @@ class BSpline {
 
 #if __cplusplus >= 201402L
             // invoke constexpr directly
-            const auto poly_coef = calc_uniform_poly_coef();
+            constexpr auto poly_coef = calc_uniform_poly_coef();
 #else
             // C++11 fallback, use function scope static to ensure poly_coef is
             // initialized only once
@@ -160,9 +160,9 @@ class BSpline {
             basic_poly_coef{};
 
         for (size_type d = 0; d <= order; ++d) {
-            auto coef = base_spline_value_helper(
-                uniform_knots.begin() + order + 1,
-                static_cast<knot_type>(order + 1), order - d);
+            auto coef = base_spline_value_helper(uniform_knots.begin() + order,
+                                                 static_cast<knot_type>(order),
+                                                 order - d);
             for (size_type p = order - d + 1; p <= order; ++p) {
                 const size_type idx_begin = order - p;
                 for (size_type j = 0; j <= p; ++j) {
