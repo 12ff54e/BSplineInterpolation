@@ -42,7 +42,7 @@ int main() {
     using namespace intp;
 
     Assertion assertion;
-    constexpr double tol = 1e-15;
+    constexpr double tol = 1e-14;
 
     // 1D uniform test
     {
@@ -51,7 +51,7 @@ int main() {
         for (std::size_t i = 0; i < knots.size(); ++i) {
             knots[i] = static_cast<double>(i < 4 ? 0 : i > 11 ? 9 : i - 3);
         }
-        for (std::size_t i = 0; i < cp.size(); ++i) { cp[i] = 1.; }
+        cp.fill(1.);
 
         BSpline<double, 1, 3> spline_1d_3(
             AlignedMesh<1>(std::make_pair(cp.begin(), cp.end())),

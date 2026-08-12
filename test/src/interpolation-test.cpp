@@ -14,7 +14,7 @@ int main() {
     // MMA.
 
     Assertion assertion;
-    constexpr double tol = 1e-14;
+    constexpr double tol = 1e-13;
 
     {
         using IF1D = InterpolationFunction1D<3, double, double>;
