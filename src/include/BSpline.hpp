@@ -980,22 +980,26 @@ class BSpline {
                     // sum over all base spline polynomial, weighted by control
                     // points, buffer is used to adopt a modified Horner's
                     // scheme
-                    std::array<val_type, dim + 1> buffer{};
+                    DimArray<val_type> buffer{};
                     // Original design loops over a combined index and calculate
                     // index of each dimension on-the-fly, but it comes out
                     // integer division is so expensive to be written casually.
                     // New method is to use local_indices to store each digit of
                     // a (order+1) radix number, essentially the same as index
                     // of each dimension
-                    std::array<size_type, dim> local_indices{};
-                    for (size_type k = 0; k < local_cp.size(); ++k) {
-                        buffer[0] = local_cp[k];
-                        for (size_type d = 0; d < dim; ++d) {
-                            buffer[d + 1] +=
-                                buffer[d] *
-                                poly_1d[dim - d - 1][local_indices[d]]
-                                       [local_poly_order[dim - d - 1]];
-                            buffer[d] = val_type{};
+                    DimArray<size_type> local_indices{};
+                    for (size_type k = 0; k < local_cp.size(); k += order + 1) {
+                        // unroll 1st dimension by hand, help auto vectorization
+                        for (size_type l = 0; l < order + 1; ++l) {
+                            buffer[0] +=
+                                local_cp[k + l] *
+                                poly_1d[dim - 1][l][local_poly_order[dim - 1]];
+                        }
+                        for (size_type d = 1; d < dim; ++d) {
+                            buffer[d] += buffer[d - 1] *
+                                         poly_1d[dim - d - 1][local_indices[d]]
+                                                [local_poly_order[dim - d - 1]];
+                            buffer[d - 1] = val_type{};
                             if (local_indices[d]++ != order) { break; }
                             local_indices[d] = 0;
                         }
