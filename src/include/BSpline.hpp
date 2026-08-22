@@ -303,10 +303,10 @@ class BSpline {
               KnotContainer(knot_iter_pairs.first, knot_iter_pairs.second)...},
 #ifdef INTP_CELL_LAYOUT
           control_points_(generate_cell_layout(ctrl_pts)),
-          poly_coefs_(cal_spline_poly_coef(ctrl_pts)),
+          poly_coefs_(calc_spline_poly_coef(ctrl_pts)),
 #else
           control_points_(std::move(ctrl_pts)),
-          poly_coefs_(cal_spline_poly_coef(control_points_),
+          poly_coefs_(calc_spline_poly_coef(control_points_),
 #endif
           range_{std::make_pair(
               (knot_iter_pairs.first)[order],
@@ -356,7 +356,7 @@ class BSpline {
 #ifdef INTP_CELL_LAYOUT
     void load_ctrlPts(const ControlPointContainer& control_points) {
         control_points_ = generate_cell_layout(control_points);
-        poly_coefs_ = cal_spline_poly_coef(control_points);
+        poly_coefs_ = calc_spline_poly_coef(control_points);
     }
 #else
     template <typename C>
@@ -365,7 +365,7 @@ class BSpline {
                      ControlPointContainer>::value,
         void>::type load_ctrlPts(C&& control_points) {
         control_points_ = std::forward<C>(control_points);
-        poly_coefs_ = cal_spline_poly_coef(control_points_);
+        poly_coefs_ = calc_spline_poly_coef(control_points_);
     }
 #endif
 
@@ -916,7 +916,7 @@ class BSpline {
      * evaluating the spline function, using polynomial should be faster,
      * especially for low dimension case.
      */
-    SplinePoynomialCoefficientContainer cal_spline_poly_coef(
+    SplinePoynomialCoefficientContainer calc_spline_poly_coef(
         const ControlPointContainer& ctrl_pts) const {
         // Determine the dimension
         MeshDimension<dim + 1> coef_dim(buf_size_);
