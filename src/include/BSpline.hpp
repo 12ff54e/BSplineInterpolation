@@ -439,8 +439,8 @@ class BSpline {
         // interpolation range of periodic dimension.
         const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints);
 
-        return get_value_from_polynomial(Indices{}, knot_iters,
-                                         coord_with_hints);
+        return calc_value_from_polynomial(Indices{}, knot_iters,
+                                          coord_with_hints);
 
         DimArray<size_type> spline_order;
         spline_order.fill(order);
@@ -926,69 +926,105 @@ class BSpline {
         }
         SplinePoynomialCoefficientContainer polynomial_coef(coef_dim);
 
-        // Storage for control points needed for local polynomial
-        // coefficient calculation
-        std::array<val_type, buf_size_> local_cp;
-        // Storage for 1D polynomial coefficient of each dimension, the layout
-        // is (dim, base_index, order)
-        std::array<std::array<std::array<knot_type, order + 1>, order + 1>, dim>
-            poly_1d;
-        // loop over hypercube, each "point" in hypercube store (order+1)^dim
-        // coefficients (flattened) of a dim dimensional polynomial
-        for (size_type i = 0; i < polynomial_coef.size();
-             i += coef_dim.dim_size(dim)) {
-            auto indices = polynomial_coef.dimension().dimwise_indices(i);
-            typename ControlPointContainer::index_type cp_indices;
-            // loop control points needed
-            for (size_type j = 0; j < coef_dim.dim_size(dim); ++j) {
-                for (size_type d = dim - 1, jp = j; d < dim; --d) {
-                    cp_indices[d] = (indices[d] + jp % (order + 1)) %
-                                    ctrl_pts.dimension().dim_size(d);
-                    jp /= order + 1;
+        auto fill_cell = [this, &polynomial_coef, &ctrl_pts, coef_dim](
+                             size_type begin, size_type end) {
+            // Storage for control points needed for local polynomial
+            // coefficient calculation
+            std::array<val_type, buf_size_> local_cp;
+            // Storage for 1D polynomial coefficient of each dimension, the
+            // layout is (dim, base_index, order)
+            std::array<std::array<std::array<knot_type, order + 1>, order + 1>,
+                       dim>
+                poly_1d;
+            // loop over hypercube, each "point" in hypercube store
+            // (order+1)^dim coefficients (flattened) of a dim dimensional
+            // polynomial
+            for (size_type i = begin; i < end; i += coef_dim.dim_size(dim)) {
+                auto indices = coef_dim.dimwise_indices(i);
+                typename ControlPointContainer::index_type cp_indices;
+                // gather control points needed
+                for (size_type j = 0; j < coef_dim.dim_size(dim); ++j) {
+                    for (size_type d = dim - 1, jp = j; d < dim; --d) {
+                        cp_indices[d] = (indices[d] + jp % (order + 1)) %
+                                        ctrl_pts.dimension().dim_size(d);
+                        jp /= order + 1;
+                    }
+                    local_cp[j] = ctrl_pts(cp_indices);
                 }
-                local_cp[j] = ctrl_pts(cp_indices);
-            }
 
-            // 1D base spline polynomial coefficients of each dimension
-            for (size_type d = 0; d < dim; ++d) {
-                poly_1d[d] =
-                    calc_local_poly_coef(knots_begin(d) + indices[d] + order);
-            }
-
-            DimArray<size_type> local_poly_order{};
-            // Below j is the combined indices of coefficient of polynomial
-            // representation, k is the combined indices of local control points
-            for (size_type j = 0; j < coef_dim.dim_size(dim); ++j) {
-                // dimension index get swapped here, the polynomial coefficients
-                // are stored in a column-major manner
-                for (size_type d = 0, jp = j; d < dim; ++d) {
-                    local_poly_order[d] = jp % (order + 1);
-                    jp /= order + 1;
-                }
-                // sum over all base spline polynomial, weighted by control
-                // points, buffer is used to adopt a modified Horner's scheme
-                std::array<val_type, dim + 1> buffer{};
-                for (size_type k = 0; k < local_cp.size(); ++k) {
-                    buffer[0] = local_cp[k];
-                    for (size_type d = 0, kp = k; d < dim; ++d) {
-                        buffer[d + 1] += buffer[d] *
-                                         poly_1d[dim - d - 1][kp % (order + 1)]
-                                                [local_poly_order[dim - d - 1]];
-                        buffer[d] = val_type{};
-                        if (kp % (order + 1) < order) { break; }
-                        kp /= order + 1;
+                // 1D base spline polynomial coefficients of each dimension
+                for (size_type d = 0; d < dim; ++d) {
+                    if (uniformity(d, indices[d] + order)) {
+#if __cplusplus >= 201703L
+                        poly_1d[d] = calc_uniform_poly_coef();
+#else
+                        poly_1d[d] = uniform_poly_coef();
+#endif
+                    } else {
+                        poly_1d[d] = calc_local_poly_coef(knots_begin(d) +
+                                                          indices[d] + order);
                     }
                 }
-                indices[dim] = j;
-                polynomial_coef(indices) = buffer[dim];
+
+                DimArray<size_type> local_poly_order{};
+                // Below j is the combined indices of coefficient of polynomial
+                // representation, k is the combined indices of local control
+                // points
+                for (size_type j = 0; j < coef_dim.dim_size(dim); ++j) {
+                    // dimension index get swapped here, the polynomial
+                    // coefficients are stored in a column-major manner
+                    for (size_type d = 0, jp = j; d < dim; ++d) {
+                        local_poly_order[d] = jp % (order + 1);
+                        jp /= order + 1;
+                    }
+                    // sum over all base spline polynomial, weighted by control
+                    // points, buffer is used to adopt a modified Horner's
+                    // scheme
+                    std::array<val_type, dim + 1> buffer{};
+                    for (size_type k = 0; k < local_cp.size(); ++k) {
+                        buffer[0] = local_cp[k];
+                        for (size_type d = 0, kp = k; d < dim; ++d) {
+                            buffer[d + 1] +=
+                                buffer[d] *
+                                poly_1d[dim - d - 1][kp % (order + 1)]
+                                       [local_poly_order[dim - d - 1]];
+                            buffer[d] = val_type{};
+                            if (kp % (order + 1) < order) { break; }
+                            kp /= order + 1;
+                        }
+                    }
+                    indices[dim] = j;
+                    polynomial_coef(indices) = buffer[dim];
+                }
             }
+        };
+
+#ifdef INTP_MULTITHREAD
+        const auto block_size =
+            polynomial_coef.size() / coef_dim.dim_size(0) * (order + 1) * 2;
+        const auto block_num = polynomial_coef.size() / block_size;
+
+        auto& thread_pool = DedicatedThreadPool<void>::get_instance(8);
+        std::vector<std::future<void>> res;
+
+        for (size_type i = 0; i < block_num; ++i) {
+            res.push_back(thread_pool.queue_task(
+                [=]() { fill_cell(i * block_size, (i + 1) * block_size); }));
         }
+        // main thread deals with the remaining part in case hyper_surface_size
+        // not divisible by thread_num
+        fill_cell(block_num * block_size, polynomial_coef.size());
+        // wait for all tasks are complete
+        for (auto&& f : res) { f.get(); }
+#else
+        fill_cell(0, polynomial_coef.size());
+#endif
 
         return polynomial_coef;
     }
 
     template <size_type... Indices>
-    inline val_type get_value_from_polynomial(
+    inline val_type calc_value_from_polynomial(
         util::index_sequence<Indices...>,
         DimArray<knot_const_iterator> knot_iters,
         DimArray<std::pair<knot_type, size_type>> coord_with_hints) const {
