@@ -981,16 +981,23 @@ class BSpline {
                     // points, buffer is used to adopt a modified Horner's
                     // scheme
                     std::array<val_type, dim + 1> buffer{};
+                    // Original design loops over a combined index and calculate
+                    // index of each dimension on-the-fly, but it comes out
+                    // integer division is so expensive to be written casually.
+                    // New method is to use local_indices to store each digit of
+                    // a (order+1) radix number, essentially the same as index
+                    // of each dimension
+                    std::array<size_type, dim> local_indices{};
                     for (size_type k = 0; k < local_cp.size(); ++k) {
                         buffer[0] = local_cp[k];
-                        for (size_type d = 0, kp = k; d < dim; ++d) {
+                        for (size_type d = 0; d < dim; ++d) {
                             buffer[d + 1] +=
                                 buffer[d] *
-                                poly_1d[dim - d - 1][kp % (order + 1)]
+                                poly_1d[dim - d - 1][local_indices[d]]
                                        [local_poly_order[dim - d - 1]];
                             buffer[d] = val_type{};
-                            if (kp % (order + 1) < order) { break; }
-                            kp /= order + 1;
+                            if (local_indices[d]++ != order) { break; }
+                            local_indices[d] = 0;
                         }
                     }
                     indices[dim] = j;
