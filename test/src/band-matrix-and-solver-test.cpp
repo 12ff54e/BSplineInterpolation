@@ -1,7 +1,7 @@
-#include <BandLU.hpp>
-#include <BandMatrix.hpp>
-#include "include/Assertion.hpp"
-#include "include/rel_err.hpp"
+#include "Assertion.hpp"
+#include "bsintp/BandLU.hpp"
+#include "bsintp/BandMatrix.hpp"
+#include "rel_err.hpp"
 
 #include <chrono>
 #include <cmath>

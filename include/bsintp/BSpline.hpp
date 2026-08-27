@@ -236,8 +236,7 @@ class BSpline {
     typename std::enable_if<
         std::is_same<typename std::remove_reference<C>::type,
                      ControlPointContainer>::value,
-        void>::type
-    load_ctrlPts(C&& control_points) {
+        void>::type load_ctrlPts(C&& control_points) {
         control_points_ = std::forward<C>(control_points);
     }
 #endif
@@ -604,9 +603,7 @@ class BSpline {
         return periodicity_[dim_ind];
     }
 
-    inline constexpr size_type get_order() const {
-        return order;
-    }
+    inline constexpr size_type get_order() const { return order; }
 
 #ifdef INTP_DEBUG
     void debug_output() const {

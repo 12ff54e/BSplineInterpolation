@@ -96,7 +96,7 @@ class stack_allocator {
 
    public:
     explicit stack_allocator(pointer buffer)
-        : m_begin(buffer), m_end(buffer + N), m_stack_pointer(buffer){};
+        : m_begin(buffer), m_end(buffer + N), m_stack_pointer(buffer) {};
 
     template <typename U>
     stack_allocator(const stack_allocator<U, N>& other)
@@ -221,24 +221,20 @@ struct CRTP {
 };
 
 template <bool B,
-          template <typename...>
-          class TrueTemplate,
-          template <typename...>
-          class FalseTemplate,
+          template <typename...> class TrueTemplate,
+          template <typename...> class FalseTemplate,
           typename... Args>
 struct lazy_conditional;
 
 template <template <typename...> class TrueTemplate,
-          template <typename...>
-          class FalseTemplate,
+          template <typename...> class FalseTemplate,
           typename... Args>
 struct lazy_conditional<true, TrueTemplate, FalseTemplate, Args...> {
     using type = TrueTemplate<Args...>;
 };
 
 template <template <typename...> class TrueTemplate,
-          template <typename...>
-          class FalseTemplate,
+          template <typename...> class FalseTemplate,
           typename... Args>
 struct lazy_conditional<false, TrueTemplate, FalseTemplate, Args...> {
     using type = FalseTemplate<Args...>;

@@ -1,5 +1,5 @@
-#include <Interpolation.hpp>
-#include "include/Timer.h"
+#include "Timer.h"
+#include "bsintp/Interpolation.hpp"
 
 #include <algorithm>  // sort
 #include <iomanip>    // setw
