@@ -71,13 +71,9 @@ class VecBase {
 
     // element access
 
-    T& operator[](std::size_t i) noexcept {
-        return coord[i];
-    }
+    T& operator[](std::size_t i) noexcept { return coord[i]; }
 
-    const T& operator[](std::size_t i) const noexcept {
-        return coord[i];
-    }
+    const T& operator[](std::size_t i) const noexcept { return coord[i]; }
 
     // comparison operations
 
@@ -131,17 +127,13 @@ class VecBase {
     // conversion operator
 
     // convert to the underlying coordinate array
-    constexpr operator std::array<value_type, dim>() const {
-        return coord;
-    }
+    constexpr operator std::array<value_type, dim>() const { return coord; }
 
     // convert to derived class
     constexpr operator vec_type() const& {
         return static_cast<vec_type>(*this);
     }
-    operator vec_type() && {
-        return static_cast<vec_type&&>(std::move(*this));
-    }
+    operator vec_type() && { return static_cast<vec_type&&>(std::move(*this)); }
 
     // properties
 
@@ -151,9 +143,7 @@ class VecBase {
         return norm;
     }
 
-    T mag() const {
-        return std::sqrt(L2_norm_square());
-    }
+    T mag() const { return std::sqrt(L2_norm_square()); }
 };
 
 /**

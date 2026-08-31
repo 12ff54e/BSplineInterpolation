@@ -1,9 +1,9 @@
+#include "bsintp/util.hpp"
+#include "Assertion.hpp"
+
 #include <iostream>
 #include <type_traits>
 #include <vector>
-
-#include <util.hpp>
-#include "include/Assertion.hpp"
 
 int main() {
     using namespace intp;

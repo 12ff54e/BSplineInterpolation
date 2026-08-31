@@ -1,7 +1,7 @@
-#include <Interpolation.hpp>
-#include "include/Assertion.hpp"
-#include "include/Timer.h"
-#include "include/rel_err.hpp"
+#include "Assertion.hpp"
+#include "Timer.h"
+#include "bsintp/Interpolation.hpp"
+#include "rel_err.hpp"
 
 #include <chrono>
 #include <iostream>

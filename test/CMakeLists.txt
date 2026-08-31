@@ -60,7 +60,9 @@ foreach(test ${regular_tests})
     string(JOIN "" test_src_file src/ ${test} .cpp)
     add_executable(${test} ${test_src_file})
     target_include_directories(
-        ${test} PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/include>)
+        ${test} PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
+    target_include_directories(
+        ${test} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
 
     string(JOIN "-" test_name intp ${test})
     add_test(${test_name} ${test})
@@ -76,7 +78,9 @@ if(CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL RelWithDebInfo
         string(JOIN "" test_src_file src/ ${test} .cpp)
         add_executable(${test} ${test_src_file} src/Timer.cpp)
         target_include_directories(
-            ${test} PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/include>)
+            ${test} PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
+        target_include_directories(
+            ${test} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
 
         string(JOIN "-" test_name intp ${test})
         add_test(${test_name} ${test})
