@@ -6,6 +6,7 @@
 #include <cmath>        // fmod
 #include <functional>   // ref
 #include <iterator>     // distance
+#include <stdexcept>    // invalid_argument
 #include <type_traits>  // is_same, is_arithmatic
 #include <vector>
 
@@ -254,6 +255,36 @@ class BSpline {
     }
 
 #ifdef INTP_CELL_LAYOUT
+    class PrecalculatedEvaluator {
+       public:
+        val_type operator()(const spline_type& spline) const {
+            const auto& control_points = spline.control_points();
+            for (size_type d = 0; d < dim + 1; ++d) {
+                if (control_points.dim_size(d) != layout_dimensions_[d]) {
+                    throw std::invalid_argument(
+                        "B-spline evaluation proxy used with an incompatible grid");
+                }
+            }
+            if (zero_) { return val_type{}; }
+
+            val_type value{};
+            auto cell_iter = control_points.begin() +
+                             static_cast<std::ptrdiff_t>(total_offset_);
+            for (size_type i = 0; i < coefficients_.size(); ++i) {
+                value += coefficients_[i] * (*cell_iter++);
+            }
+            return value;
+        }
+
+       private:
+        friend class BSpline;
+
+        std::array<knot_type, util::pow(order + 1, dim)> coefficients_{};
+        std::array<size_type, dim + 1> layout_dimensions_{};
+        size_type total_offset_{};
+        bool zero_{};
+    };
+
 #if __cplusplus >= 201402L
     auto
 #else
@@ -281,30 +312,102 @@ class BSpline {
 
         auto total_offset = calculate_cell_dim_from_knots().indexing(ind_arr);
 
-        return
-            [base_spline_values_1d, total_offset](const spline_type& spline) {
-                val_type v{};
-
-                const auto& control_points = spline.control_points();
-                auto cell_iter = control_points.begin() +
-                                 static_cast<std::ptrdiff_t>(total_offset);
-                for (size_type i = 0;
-                     i < control_points.dim_size(dim) * (order + 1); ++i) {
-                    knot_type coef = 1;
-                    if CPP17_CONSTEXPR_ (dim == 1) {
-                        // helps with vectorization in 1D case
-                        coef = base_spline_values_1d[0][i];
-                    } else {
-                        for (size_type d = 0, combined_ind = i; d < dim; ++d) {
-                            coef *= base_spline_values_1d[d][combined_ind %
-                                                             (order + 1)];
-                            combined_ind /= (order + 1);
-                        }
-                    }
-                    v += coef * (*cell_iter++);
+        PrecalculatedEvaluator evaluator{};
+        evaluator.total_offset_ = total_offset;
+        for (size_type d = 0; d < dim + 1; ++d) {
+            evaluator.layout_dimensions_[d] = control_points_.dim_size(d);
+        }
+        for (size_type i = 0; i < evaluator.coefficients_.size(); ++i) {
+            knot_type coefficient = 1;
+            if CPP17_CONSTEXPR_ (dim == 1) {
+                coefficient = base_spline_values_1d[0][i];
+            } else {
+                for (size_type d = 0, combined_ind = i; d < dim; ++d) {
+                    coefficient *= base_spline_values_1d[d]
+                                                         [combined_ind %
+                                                          (order + 1)];
+                    combined_ind /= (order + 1);
                 }
-                return v;
-            };
+            }
+            evaluator.coefficients_[i] = coefficient;
+        }
+        return evaluator;
+    }
+
+    PrecalculatedEvaluator pre_calc_derivative_coef(
+        DimArray<std::tuple<knot_type, size_type, size_type>>
+            coord_derivative_hint) const {
+        PrecalculatedEvaluator evaluator{};
+        for (size_type d = 0; d < dim + 1; ++d) {
+            evaluator.layout_dimensions_[d] = control_points_.dim_size(d);
+        }
+
+        DimArray<size_type> spline_order{};
+        for (size_type d = 0; d < dim; ++d) {
+            const size_type derivative_order =
+                std::get<2>(coord_derivative_hint[d]);
+            if (derivative_order > order) {
+                evaluator.zero_ = true;
+                return evaluator;
+            }
+            spline_order[d] = order - derivative_order;
+        }
+
+        using Indices = util::make_index_sequence<dim>;
+        const auto knot_iters =
+            get_knot_iters(Indices{}, coord_derivative_hint);
+        const auto base_spline_values_1d = calc_base_spline_vals(
+            Indices{}, knot_iters, spline_order, coord_derivative_hint);
+
+        std::array<size_type, dim + 1> cell_indices{};
+        for (size_type d = 0; d < dim; ++d) {
+            cell_indices[d] = static_cast<size_type>(
+                                  distance(knots_begin(d), knot_iters[d])) -
+                              order;
+        }
+        evaluator.total_offset_ =
+            calculate_cell_dim_from_knots().indexing(cell_indices);
+
+        constexpr size_type line_width = order + 1;
+        for (size_type i = 0; i < evaluator.coefficients_.size(); ++i) {
+            knot_type coefficient = 1;
+            for (size_type d = 0, combined_ind = i; d < dim; ++d) {
+                coefficient *= base_spline_values_1d[d]
+                                                     [combined_ind % line_width];
+                combined_ind /= line_width;
+            }
+            evaluator.coefficients_[i] = coefficient;
+        }
+
+        // derivative_at() differentiates the local control points.  Apply
+        // the transpose of those difference operations to the already
+        // calculated tensor-product basis weights, leaving a direct dot
+        // product with the original control points for every future field.
+        for (size_type reverse_d = dim; reverse_d > 0; --reverse_d) {
+            const size_type d = reverse_d - 1;
+            const size_type stride = util::pow(line_width, d);
+            for (size_type k = spline_order[d] + 1; k <= order; ++k) {
+                for (size_type line = 0;
+                     line < evaluator.coefficients_.size(); ++line) {
+                    if ((line / stride) % line_width != 0) { continue; }
+                    for (size_type j = 1; j <= k; ++j) {
+                        const size_type target = order + j - k;
+                        const size_type target_index = line + target * stride;
+                        const size_type previous_index = target_index - stride;
+                        const knot_type factor = static_cast<knot_type>(k) /
+                            (knot_iters[d][static_cast<diff_type>(j)] -
+                             knot_iters[d][static_cast<diff_type>(j - k)]);
+                        const knot_type adjoint =
+                            evaluator.coefficients_[target_index];
+                        evaluator.coefficients_[target_index] =
+                            factor * adjoint;
+                        evaluator.coefficients_[previous_index] -=
+                            factor * adjoint;
+                    }
+                }
+            }
+        }
+        return evaluator;
     }
 #endif
 
