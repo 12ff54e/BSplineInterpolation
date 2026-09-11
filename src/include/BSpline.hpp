@@ -1005,7 +1005,7 @@ class BSpline {
                         }
                     }
                     indices[dim] = j;
-                    polynomial_coef(indices) = buffer[dim];
+                    polynomial_coef(indices) = buffer.back();
                 }
             }
         };
