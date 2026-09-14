@@ -316,6 +316,11 @@ constexpr T factorial(T n) {
     return n == 0 ? T{1} : n * factorial(n - 1);
 }
 
+template <typename T>
+constexpr T factorial(T n, T m) {
+    return n == 0 || m == 0 ? T{1} : n * factorial(n - 1, m - 1);
+}
+
 }  // namespace util
 
 }  // namespace intp
