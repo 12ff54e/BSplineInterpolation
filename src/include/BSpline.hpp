@@ -1092,8 +1092,8 @@ class BSpline {
 
         auto deri_coef = knot_type{1};
         for (size_type i = 0; i < dim; ++i) {
-            deri_coef *= std::pow(knot_iters[i][1] - knot_iters[i][0],
-                                  std::get<2>(coord_deri_hint_tuple[i]));
+            deri_coef *= util::pow(knot_iters[i][1] - knot_iters[i][0],
+                                   std::get<2>(coord_deri_hint_tuple[i]));
         }
         return buffer[dim] / deri_coef;
     }
