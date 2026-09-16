@@ -68,9 +68,9 @@ class BandMatrix {
     util::remove_cvref_t<Vec> operator*(const Vec& x) const {
         util::remove_cvref_t<Vec> xx(x.size());
         for (size_type i = 0; i < x.size(); ++i) {
-            for (size_type j = p_ > i ? p_ - i : 0, k = i > p_ ? i - p_ : 0;
-                 j < std::min(p_ + q_ + 1, n_ + p_ - i); ++j, ++k) {
-                xx[i] += bands_(i, j) * x[k];
+            for (size_type j = q_ > i ? q_ - i : 0;
+                 j < std::min(p_ + q_ + 1, n_ + q_ - i); ++j) {
+                xx[i + j - q_] += bands_(i, j) * x[i];
             }
         }
         return xx;
