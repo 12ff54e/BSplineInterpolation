@@ -310,12 +310,13 @@ class BSpline {
                          order;
         }
 
-        auto total_offset = calculate_cell_dim_from_knots().indexing(ind_arr);
+        const auto cell_dim = calculate_cell_dim_from_knots();
 
         PrecalculatedEvaluator evaluator{};
-        evaluator.total_offset_ = total_offset;
+        evaluator.total_offset_ = cell_dim.indexing(ind_arr);
+        // Interpolation templates provide knots before loading control points.
         for (size_type d = 0; d < dim + 1; ++d) {
-            evaluator.layout_dimensions_[d] = control_points_.dim_size(d);
+            evaluator.layout_dimensions_[d] = cell_dim.dim_size(d);
         }
         for (size_type i = 0; i < evaluator.coefficients_.size(); ++i) {
             knot_type coefficient = 1;
@@ -338,8 +339,9 @@ class BSpline {
         DimArray<std::tuple<knot_type, size_type, size_type>>
             coord_derivative_hint) const {
         PrecalculatedEvaluator evaluator{};
+        const auto cell_dim = calculate_cell_dim_from_knots();
         for (size_type d = 0; d < dim + 1; ++d) {
-            evaluator.layout_dimensions_[d] = control_points_.dim_size(d);
+            evaluator.layout_dimensions_[d] = cell_dim.dim_size(d);
         }
 
         DimArray<size_type> spline_order{};
@@ -365,8 +367,7 @@ class BSpline {
                                   distance(knots_begin(d), knot_iters[d])) -
                               order;
         }
-        evaluator.total_offset_ =
-            calculate_cell_dim_from_knots().indexing(cell_indices);
+        evaluator.total_offset_ = cell_dim.indexing(cell_indices);
 
         constexpr size_type line_width = order + 1;
         for (size_type i = 0; i < evaluator.coefficients_.size(); ++i) {
@@ -872,6 +873,11 @@ class BSpline {
     }
 #endif  // INTP_CELL_LAYOUT
 };
+
+#if __cplusplus < 201703L
+template <typename T, std::size_t D, std::size_t O, typename U>
+constexpr typename BSpline<T, D, O, U>::size_type BSpline<T, D, O, U>::order;
+#endif
 
 }  // namespace intp
 

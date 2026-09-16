@@ -49,7 +49,7 @@ add_compile_definitions(INTP_PERIODIC_NO_DUMMY_POINT
 #add_compile_definitions(INTP_TRACE)
 
 # Specify tests
-list(APPEND regular_tests "util-test" "mesh-test" "band-matrix-and-solver-test" "bspline-test" "interpolation-test")
+list(APPEND regular_tests "util-test" "mesh-test" "band-matrix-and-solver-test" "bspline-test" "interpolation-test" "interpolation-proxy-regression-test")
 list(APPEND speed_tests "interpolation-speed-test" "interpolation-template-test" "interpolation-eval-proxy-test")
 
 list(LENGTH regular_tests test_num)

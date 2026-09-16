@@ -549,6 +549,12 @@ class InterpolationFunction {
 #endif  // INTP_CELL_LAYOUT
 };
 
+#if __cplusplus < 201703L
+template <typename T, std::size_t D, std::size_t O, typename U>
+constexpr typename InterpolationFunction<T, D, O, U>::size_type
+    InterpolationFunction<T, D, O, U>::order;
+#endif
+
 template <std::size_t O = std::size_t{3},
           typename T = double,
           typename U = double>
