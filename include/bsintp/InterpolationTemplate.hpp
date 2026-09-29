@@ -167,6 +167,16 @@ class InterpolationFunctionTemplate {
     }
 
 #if __cplusplus >= 201402L
+    auto
+#else
+    std::function<val_type(const function_type&)>
+#endif
+    derivative_eval_proxy(DimArray<coord_type> coord,
+                          DimArray<size_type> derivatives) const {
+        return base_.derivative_eval_proxy(coord, derivatives);
+    }
+
+#if __cplusplus >= 201402L
     using eval_proxy_t = decltype(std::declval<function_type>().eval_proxy(
         DimArray<coord_type>{}));
 #else

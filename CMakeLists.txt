@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12.0)
 project(
     BSplineInterpolation
-    VERSION 2.0.2
+    VERSION 2.1.2
     HOMEPAGE_URL "https://github.com/12ff54e/BSplineInterpolation.git"
     LANGUAGES CXX)
 include(CTest)
@@ -16,7 +16,7 @@ set(VerPostfix ${ConfigPostfix}Version)
 add_library(BSplineInterpolation INTERFACE)
 target_include_directories(
     BSplineInterpolation INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 # Version management boilerplate
@@ -32,8 +32,8 @@ configure_package_config_file(
 # Specify install target and location
 install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets)
 install(
-    DIRECTORY src/include/
-    TYPE DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME})
+    DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(
     EXPORT ${PROJECT_NAME}Targets
     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/cmake

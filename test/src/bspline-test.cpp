@@ -1,5 +1,5 @@
-#include <BSpline.hpp>
-#include "include/Assertion.hpp"
+#include "bsintp/BSpline.hpp"
+#include "Assertion.hpp"
 
 #include <algorithm>
 #include <cmath>

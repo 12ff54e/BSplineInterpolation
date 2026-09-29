@@ -1,7 +1,7 @@
-#include <BandLU.hpp>
-#include <BandMatrix.hpp>
-#include "include/Assertion.hpp"
-#include "include/rel_err.hpp"
+#include "Assertion.hpp"
+#include "bsintp/BandLU.hpp"
+#include "bsintp/BandMatrix.hpp"
+#include "rel_err.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -35,6 +35,33 @@ int main() {
     using namespace intp;
 
     Assertion assertion;
+
+    // Unequal bands and nonsymmetric coefficients expose transposed storage
+    // access. Form the reference by matrix entries, independently of mat*x.
+    for (const auto widths : {std::make_pair(1u, 2u), std::make_pair(2u, 1u)}) {
+        BandMatrix<double> mat(6, widths.first, widths.second);
+        std::vector<double> x{1.0, -2.0, 3.0, -4.0, 5.0, -6.0};
+        std::vector<double> expected(x.size(), 0.0);
+        for (size_t i = 0; i < x.size(); ++i) {
+            const size_t first = i > widths.first ? i - widths.first : 0;
+            const size_t last = std::min(x.size(), i + widths.second + 1);
+            for (size_t j = first; j < last; ++j) {
+                mat(i, j) = i == j ? 8.0 : 0.25 * (i + 1) - 0.5 * (j + 1);
+                expected[i] += mat(i, j) * x[j];
+            }
+        }
+        const auto product = mat * x;
+        for (size_t i = 0; i < x.size(); ++i)
+            assertion(std::abs(product[i] - expected[i]) < 1e-12);
+        const BandMatrix<double>& original = mat;
+        BandLU<BandMatrix<double>> solver;
+        solver.compute(original);
+        const auto solved = solver.solve(expected);
+        for (size_t i = 0; i < x.size(); ++i) {
+            assertion(std::abs(solved[i] - x[i]) < 1e-12);
+            assertion(mat(i, i) == 8.0);
+        }
+    }
 
     // matrix dimension
     constexpr size_t n = 1 << 6;

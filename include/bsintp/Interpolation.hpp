@@ -264,6 +264,10 @@ class InterpolationFunction {
      */
     const spline_type& spline() const { return spline_; }
 
+    // Scale the already solved B-spline coefficients. This does not change
+    // knots or the interpolation domain.
+    void scale_coefficients(coord_type factor) { spline_.scale_control_points(factor); }
+
     static constexpr size_type get_order() { return order; }
 
    private:
@@ -316,6 +320,28 @@ class InterpolationFunction {
                                order)
                 : order,
             static_cast<size_type>(d[di]))...});
+    }
+
+    template <size_type... di>
+    inline DimArray<std::tuple<coord_type, size_type, size_type>>
+    add_derivative_hint_for_spline(util::index_sequence<di...>,
+                                   DimArray<coord_type> c,
+                                   DimArray<size_type> d) const {
+        return {std::make_tuple(
+            static_cast<coord_type>(c[di]),
+            uniform_[di]
+                ? std::min(spline_.knots_num(di) - order - 2,
+                           static_cast<size_type>(std::ceil(std::max(
+                               coord_type{0.},
+                               (c[di] - range(di).first) / dx_[di] -
+                                   (periodicity(di)
+                                        ? coord_type{1.}
+                                        : coord_type{.5} *
+                                              static_cast<coord_type>(
+                                                  order + 1))))) +
+                               order)
+                : order,
+            static_cast<size_type>(d[di]))...};
     }
 
     // overload for uniform knots
@@ -491,6 +517,7 @@ class InterpolationFunction {
         }
     }
 
+   public:
 #ifdef INTP_CELL_LAYOUT
 #if __cplusplus >= 201402L
     auto
@@ -504,8 +531,30 @@ class InterpolationFunction {
             return spline_proxy(interp.spline());
         };
     }
+
+#if __cplusplus >= 201402L
+    auto
+#else
+    std::function<val_type(const function_type&)>
+#endif
+    derivative_eval_proxy(DimArray<coord_type> coords,
+                          DimArray<size_type> derivatives) const {
+        const auto coord_derivative_hint = add_derivative_hint_for_spline(
+            util::make_index_sequence<dim>{}, coords, derivatives);
+        auto spline_proxy =
+            spline().pre_calc_derivative_coef(coord_derivative_hint);
+        return [spline_proxy](const function_type& interp) {
+            return spline_proxy(interp.spline());
+        };
+    }
 #endif  // INTP_CELL_LAYOUT
 };
+
+#if __cplusplus < 201703L
+template <typename T, std::size_t D, std::size_t O, typename U>
+constexpr typename InterpolationFunction<T, D, O, U>::size_type
+    InterpolationFunction<T, D, O, U>::order;
+#endif
 
 template <std::size_t O = std::size_t{3},
           typename T = double,

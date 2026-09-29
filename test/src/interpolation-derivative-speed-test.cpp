@@ -1,6 +1,6 @@
-#include <Interpolation.hpp>
-#include "include/Timer.h"
-#include "include/bench.h"
+#include "Timer.h"
+#include "bench.h"
+#include "bsintp/Interpolation.hpp"
 
 #include <algorithm>  // sort
 #include <format>

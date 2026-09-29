@@ -34,7 +34,7 @@ class BandLUBase : public util::CRTP<Solver<Matrix>> {
             std::is_same<util::remove_cvref_t<Mat_>, matrix_type>::value,
             "Matrix type mismatch");
         if (!is_computed_) {
-            lu_store_ = std::forward<matrix_type>(mat);
+            lu_store_ = std::forward<Mat_>(mat);
             this->cast().compute_impl();
             is_computed_ = true;
         }

@@ -1,7 +1,7 @@
-#include <iterator>
+#include "bsintp/Mesh.hpp"
+#include "Assertion.hpp"
 
-#include <Mesh.hpp>
-#include "include/Assertion.hpp"
+#include <iterator>
 
 int main() {
     using namespace std;
