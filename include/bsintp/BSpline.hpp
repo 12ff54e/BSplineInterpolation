@@ -66,6 +66,7 @@ class BSpline {
              util::default_init_allocator<
                  val_type,
                  AlignedAllocator<val_type, Alignment::AVX>>>;
+    using poly_type = SplinePoynomialCoefficientContainer;
 
     using BaseSpline = std::array<knot_type, order + 1>;
     using diff_type = typename KnotContainer::iterator::difference_type;
@@ -826,6 +827,8 @@ class BSpline {
         return control_points_;
     }
 
+    inline const poly_type& polynomial_coef() const { return poly_coefs_; }
+
     /**
      * @brief Get range of one dimension
      *
@@ -904,7 +907,7 @@ class BSpline {
 #else
     ControlPointContainer control_points_;
 #endif
-    SplinePoynomialCoefficientContainer poly_coefs_;
+    poly_type poly_coefs_;
 
     DimArray<std::pair<knot_type, knot_type>> range_;
 
@@ -1033,7 +1036,7 @@ class BSpline {
      * evaluating the spline function, using polynomial should be faster,
      * especially for low dimension case.
      */
-    SplinePoynomialCoefficientContainer calc_spline_poly_coef(
+    poly_type calc_spline_poly_coef(
         const ControlPointContainer& ctrl_pts) const {
         // Determine the dimension
         MeshDimension<dim + 1> coef_dim(buf_size_);
@@ -1041,7 +1044,7 @@ class BSpline {
             coef_dim.dim_size(d) =
                 ctrl_pts.dim_size(d) - (periodicity(d) ? 0 : order);
         }
-        SplinePoynomialCoefficientContainer polynomial_coef(coef_dim);
+        poly_type polynomial_coef(coef_dim);
 
         auto fill_cell = [this, &polynomial_coef, &ctrl_pts, coef_dim](
                              size_type begin, size_type end) {
