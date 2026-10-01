@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cmath>
+#include <format>
 #include <stdexcept>
 #include <vector>
 
@@ -45,22 +46,21 @@ void check_polynomial(const Template& interpolation_template,
                 for (auto& value : scaled) { value *= scale; }
                 const auto interpolation = interpolation_template.interpolate(
                     intp::util::get_range(scaled));
-                assertion(std::abs(value_proxy(interpolation) -
-                                   scale * polynomial(x, 0)) < 1e-11,
-                          "Template value proxy must reproduce a cubic");
-                assertion(std::abs(derivative_proxy(interpolation) -
-                                   scale * polynomial(x, derivative)) < 1e-10,
-                          "Template derivative proxy must reproduce cubic "
-                          "derivatives and be reusable across fields");
-            }
 
-            bool rejected = false;
-            try {
-                derivative_proxy(other);
-            } catch (const std::invalid_argument&) { rejected = true; }
-            assertion(rejected,
-                      "Derivative proxy must reject a different grid "
-                      "extent, including zero derivatives");
+                const auto value = value_proxy(interpolation);
+                const auto deriv = derivative_proxy(interpolation);
+                const auto real_value = scale * polynomial(x, 0);
+                const auto real_deriv = scale * polynomial(x, derivative);
+                assertion(std::abs(value - real_value) < 1e-11,
+                          std::format(
+                              "Template value proxy failed, expect {}, get {}",
+                              value, real_value));
+                assertion(
+                    std::abs(deriv - real_deriv) < 1e-10,
+                    std::format("Template derivative proxy failed, derivative "
+                                "order {}, expect {}, get {}",
+                                derivative, real_deriv, deriv));
+            }
         }
         bool rejected = false;
         try {

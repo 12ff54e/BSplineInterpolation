@@ -132,7 +132,7 @@ class BSpline {
         }
     }
 
-    // Cox-de Boor Formula
+    // Cox-de Boor Formula, extended for derivative calculation
     template <typename Iter>
     static CPP14_CONSTEXPR_ INTP_NOINLINE BaseSpline
     base_spline_value_helper(Iter seg_idx_iter,
@@ -158,6 +158,26 @@ class BSpline {
                          ? 0
                          : base_spline[idx_begin + j + 1] * (*right_iter - x) /
                                (*right_iter - *(left_iter + 1)));
+            }
+        }
+
+        // derivative needs (order - spline_order) iteration
+        for (size_type i = spline_order + 1; i <= order; ++i) {
+            const size_type idx_begin = order - i;
+            for (size_type j = 0; j <= i; ++j) {
+                const auto left_iter =
+                    seg_idx_iter - static_cast<diff_type>(i - j);
+                const auto right_iter =
+                    seg_idx_iter + static_cast<diff_type>(j + 1);
+                base_spline[idx_begin + j] =
+                    static_cast<knot_type>(i) *
+                    ((j == 0 ? knot_type{}
+                             : base_spline[idx_begin + j] /
+                                   (*(right_iter - 1) - *left_iter)) -
+                     (idx_begin + j == order
+                          ? knot_type{}
+                          : base_spline[idx_begin + j + 1] /
+                                (*right_iter - *(left_iter + 1))));
             }
         }
         return base_spline;
@@ -191,27 +211,8 @@ class BSpline {
         for (size_type d = 0; d <= order; ++d) {
             auto coef = base_spline_value_helper(seg_idx_iter, *seg_idx_iter,
                                                  order - d);
-            for (size_type p = order - d + 1; p <= order; ++p) {
-                const auto idx_begin = order - p;
-                const auto cc = static_cast<knot_type>(p) * dx;
-                for (size_type j = 0; j <= p; ++j) {
-                    const auto left_iter =
-                        seg_idx_iter - static_cast<diff_type>(p - j);
-                    const auto right_iter =
-                        seg_idx_iter + static_cast<diff_type>(j + 1);
-                    coef[idx_begin + j] =
-                        cc * ((j == 0 ? knot_type{}
-                                      : coef[idx_begin + j] /
-                                            (*(right_iter - 1) - *left_iter)) -
-                              (idx_begin + j == order
-                                   ? knot_type{}
-                                   : coef[idx_begin + j + 1] /
-                                         (*right_iter - *(left_iter + 1))));
-                }
-            }
-
             const auto c =
-                knot_type{1} / static_cast<knot_type>(util::factorial(d));
+                util::pow(dx, d) / static_cast<knot_type>(util::factorial(d));
             for (size_type i = 0; i <= order; ++i) {
                 basic_poly_coef[i][d] = coef[i] * c;
             }
@@ -509,35 +510,6 @@ class BSpline {
             evaluator.coefficients_[i] = coefficient;
         }
 
-        // derivative_at() differentiates the local control points.  Apply
-        // the transpose of those difference operations to the already
-        // calculated tensor-product basis weights, leaving a direct dot
-        // product with the original control points for every future field.
-        for (size_type reverse_d = dim; reverse_d > 0; --reverse_d) {
-            const size_type d = reverse_d - 1;
-            const size_type stride = util::pow(line_width, d);
-            for (size_type k = spline_order[d] + 1; k <= order; ++k) {
-                for (size_type line = 0; line < evaluator.coefficients_.size();
-                     ++line) {
-                    if ((line / stride) % line_width != 0) { continue; }
-                    for (size_type j = 1; j <= k; ++j) {
-                        const size_type target = order + j - k;
-                        const size_type target_index = line + target * stride;
-                        const size_type previous_index = target_index - stride;
-                        const knot_type factor =
-                            static_cast<knot_type>(k) /
-                            (knot_iters[d][static_cast<diff_type>(j)] -
-                             knot_iters[d][static_cast<diff_type>(j - k)]);
-                        const knot_type adjoint =
-                            evaluator.coefficients_[target_index];
-                        evaluator.coefficients_[target_index] =
-                            factor * adjoint;
-                        evaluator.coefficients_[previous_index] -=
-                            factor * adjoint;
-                    }
-                }
-            }
-        }
         return evaluator;
     }
 #endif
@@ -555,8 +527,10 @@ class BSpline {
         // interpolation range of periodic dimension.
         const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints);
 
-        return calc_value_from_polynomial(Indices{}, knot_iters,
-                                          coord_with_hints);
+        if (has_polynomial()) {
+            return calc_value_from_polynomial(Indices{}, knot_iters,
+                                              coord_with_hints);
+        }
 
         DimArray<size_type> spline_order;
         spline_order.fill(order);
@@ -660,27 +634,15 @@ class BSpline {
         const auto knot_iters =
             get_knot_iters(Indices{}, coord_deriOrder_hint_tuple);
 
-        return calc_derivative_from_polynomial(Indices{}, knot_iters,
-                                               coord_deriOrder_hint_tuple);
+        if (has_polynomial()) {
+            return calc_derivative_from_polynomial(Indices{}, knot_iters,
+                                                   coord_deriOrder_hint_tuple);
+        }
+
         // calculate basic spline
         const auto base_spline_values_1d = calc_base_spline_vals(
             Indices{}, knot_iters, spline_order, coord_deriOrder_hint_tuple);
-
-#ifdef STACK_ALLOCATOR
-        // create local buffer
-        val_type buffer[MAX_BUF_SIZE_];
-        util::stack_allocator<val_type, MAX_BUF_SIZE_> alloc(buffer);
-
-        Mesh<val_type, dim, util::stack_allocator<val_type, MAX_BUF_SIZE_>>
-            local_control_points(order + 1, alloc);
-        auto local_spline_val = local_control_points;
-#else
-        Mesh<val_type, dim> local_control_points(order + 1);
-        auto local_spline_val = local_control_points;
-#endif
-
-        // get local control points and basic spline values
-
+        val_type v{};
 #ifdef INTP_CELL_LAYOUT
         std::array<size_type, dim + 1> ind_arr{};
         for (size_type d = 0; d < dim; ++d) {
@@ -690,94 +652,37 @@ class BSpline {
         }
         auto cell_iter = control_points_.begin(dim, ind_arr);
         for (size_type i = 0; i < buf_size_; ++i) {
-            DimArray<size_type> local_ind_arr{};
+            auto coef = *cell_iter++;
             for (size_type d = 0, combined_ind = i; d < dim; ++d) {
-                local_ind_arr[d] = combined_ind % (order + 1);
+                coef *= base_spline_values_1d[d][combined_ind % (order + 1)];
                 combined_ind /= (order + 1);
             }
-
-            knot_type coef = 1;
-            for (size_type d = 0; d < dim; ++d) {
-                coef *= base_spline_values_1d[d][local_ind_arr[d]];
-            }
-
-            local_spline_val(local_ind_arr) = coef;
-            local_control_points(local_ind_arr) = *cell_iter++;
+            v += coef;
         }
 #else
+        MeshDimension<dim> local_mesh_dim(order + 1);
         for (size_type i = 0; i < buf_size_; ++i) {
-            DimArray<size_type> local_ind_arr{};
-            for (size_type d = 0, combined_ind = i; d < dim; ++d) {
-                local_ind_arr[d] = combined_ind % (order + 1);
-                combined_ind /= (order + 1);
-            }
+            DimArray<size_type> ind_arr = local_mesh_dim.dimwise_indices(i);
 
             knot_type coef = 1;
-            DimArray<size_type> ind_arr{};
             for (size_type d = 0; d < dim; ++d) {
-                coef *= base_spline_values_1d[d][local_ind_arr[d]];
+                coef *= base_spline_values_1d[d][ind_arr[d]];
 
-                ind_arr[d] = local_ind_arr[d] +
-                             (knot_iters[d] == knots_begin(d) ? 0
+                ind_arr[d] += knot_iters[d] == knots_begin(d) ? 0
                               : knot_iters[d] == knots_end(d)
                                   ? control_points_.dim_size(d) - order - 1
-                                  : static_cast<size_t>(distance(
+                                  : static_cast<size_type>(distance(
                                         knots_begin(d), knot_iters[d])) -
-                                        order);
+                                        order;
 
-                // check periodicity, put out-of-right-boundary index to
-                // left
                 if (periodicity_[d]) {
                     ind_arr[d] %= control_points_.dim_size(d);
                 }
             }
 
-            local_spline_val(local_ind_arr) = coef;
-            local_control_points(local_ind_arr) = control_points_(ind_arr);
+            v += coef * control_points_(ind_arr);
         }
 #endif
-
-        for (size_type d = 0; d < dim; ++d) {
-            if (spline_order[d] == order) { continue; }
-            // calculate control points for derivative along this dimension
-
-            const size_type hyper_surface_size =
-                local_control_points.size() / local_control_points.dim_size(d);
-            // transverse the hyper surface of fixing dimension d
-            for (size_type i = 0; i < hyper_surface_size; ++i) {
-                DimArray<size_type> local_ind_arr{};
-                for (size_type dd = 0, combined_ind = i; dd < dim; ++dd) {
-                    if (dd == d) { continue; }
-                    local_ind_arr[dd] = combined_ind % (order + 1);
-                    combined_ind /= (order + 1);
-                }
-
-                auto iter = local_control_points.begin(d, local_ind_arr);
-                // Taking derivative is effectively computing new control
-                // points. Number of iteration is order of derivative.
-                for (diff_type k = static_cast<diff_type>(order);
-                     k > static_cast<diff_type>(spline_order[d]); --k) {
-                    // Each reduction reduce control points number by one.
-                    // Reduce backward to match pattern of local_spline_val.
-                    for (diff_type j = k; j > 0; --j) {
-                        iter[static_cast<diff_type>(order) + j - k] =
-                            static_cast<val_type>(k) *
-                            (iter[static_cast<diff_type>(order) + j - k] -
-                             iter[static_cast<diff_type>(order) + j - k - 1]) /
-                            (knot_iters[d][j] - knot_iters[d][j - k]);
-                    }
-                }
-            }
-        }
-
-        // combine spline value and control points to get spline derivative
-        // value
-        val_type v{};
-        for (auto s_it = local_spline_val.begin(),
-                  c_it = local_control_points.begin();
-             s_it != local_spline_val.end(); ++s_it, ++c_it) {
-            v += (*s_it) * (*c_it);
-        }
 
         return v;
     }
@@ -874,6 +779,8 @@ class BSpline {
     }
 
     inline constexpr size_type get_order() const { return order; }
+
+    inline bool has_polynomial() const { return poly_coefs_.size() > 0; }
 
 #ifdef INTP_DEBUG
     void debug_output() const {
@@ -1167,18 +1074,21 @@ class BSpline {
              order)...,
             0};
 
-        std::array<val_type, dim + 1> buffer{};
+        DimArray<val_type> buffer{};
+        DimArray<size_type> local_indices{};
         auto poly_iter = poly_coefs_.begin(dim, polynomial_indices);
-        for (size_type i = 0; i < buf_size_; ++i) {
-            buffer[0] = *poly_iter++;
-            for (size_type d = 0, ip = i; d < dim; ++d) {
-                buffer[d + 1] += buffer[d] * monomials[d][ip % (order + 1)];
-                buffer[d] = val_type{};
-                if (ip % (order + 1) < order) { break; }
-                ip /= order + 1;
+        for (size_type i = 0; i < buf_size_; i += order + 1) {
+            for (size_type j = 0; j < order + 1; ++j) {
+                buffer[0] += *poly_iter++ * monomials[0][j];
+            }
+            for (size_type d = 1; d < dim; ++d) {
+                buffer[d] += buffer[d - 1] * monomials[d][local_indices[d]];
+                buffer[d - 1] = val_type{};
+                if (local_indices[d]++ != order) { break; }
+                local_indices[d] = 0;
             }
         }
-        return buffer[dim];
+        return buffer.back();
     }
 
     template <size_type... Indices>
