@@ -69,12 +69,16 @@ class BSpline {
     using poly_type = SplinePoynomialCoefficientContainer;
 
     using BaseSpline = std::array<knot_type, order + 1>;
+    using base_poly_arr_type = BaseSpline;
+    using base_poly_mat_type = std::array<BaseSpline, order + 1>;
     using diff_type = typename KnotContainer::iterator::difference_type;
     using knot_const_iterator = typename KnotContainer::const_iterator;
 
     // Container for dimension-wise storage
     template <typename T_>
     using DimArray = std::array<T_, dim>;
+
+    using ext_ind_type = std::array<size_type, dim + 1>;
 
     /**
      * @brief Calculate values on base spline function. This is the core of
@@ -183,9 +187,7 @@ class BSpline {
         return base_spline;
     }
 
-    static CPP17_CONSTEXPR_
-        std::array<std::array<knot_type, order + 1>, order + 1>
-        calc_uniform_poly_coef() {
+    static CPP17_CONSTEXPR_ base_poly_mat_type calc_uniform_poly_coef() {
         std::array<knot_type, 2 * order + 2> uniform_knots{};
         for (size_type i = 0; i < uniform_knots.size(); ++i) {
             uniform_knots[i] = i;
@@ -194,18 +196,15 @@ class BSpline {
     }
 
     // C++11 fallback
-    static const std::array<std::array<knot_type, order + 1>, order + 1>&
-    uniform_poly_coef() {
+    static const base_poly_mat_type& uniform_poly_coef() {
         static const auto poly_coef = calc_uniform_poly_coef();
         return poly_coef;
     }
 
     template <typename Iter>
-    static CPP14_CONSTEXPR_
-        std::array<std::array<knot_type, order + 1>, order + 1>
-        calc_local_poly_coef(Iter seg_idx_iter) {
-        std::array<std::array<knot_type, order + 1>, order + 1>
-            basic_poly_coef{};
+    static CPP14_CONSTEXPR_ base_poly_mat_type
+    calc_local_poly_coef(Iter seg_idx_iter) {
+        base_poly_mat_type basic_poly_coef{};
 
         auto dx = seg_idx_iter[1] - seg_idx_iter[0];
         for (size_type d = 0; d <= order; ++d) {
@@ -434,7 +433,7 @@ class BSpline {
         const auto base_spline_values_1d = calc_base_spline_vals(
             Indices{}, knot_iters, spline_order, coord_with_hints);
 
-        std::array<size_type, dim + 1> ind_arr{};
+        ext_ind_type ind_arr{};
         for (size_type d = 0; d < dim; ++d) {
             ind_arr[d] = static_cast<size_type>(
                              distance(knots_begin(d), knot_iters[d])) -
@@ -491,7 +490,7 @@ class BSpline {
         const auto base_spline_values_1d = calc_base_spline_vals(
             Indices{}, knot_iters, spline_order, coord_derivative_hint);
 
-        std::array<size_type, dim + 1> cell_indices{};
+        ext_ind_type cell_indices{};
         for (size_type d = 0; d < dim; ++d) {
             cell_indices[d] = static_cast<size_type>(
                                   distance(knots_begin(d), knot_iters[d])) -
@@ -541,7 +540,7 @@ class BSpline {
         // combine control points and basic spline values to get spline value
         val_type v{};
 #ifdef INTP_CELL_LAYOUT
-        std::array<size_type, dim + 1> ind_arr{};
+        ext_ind_type ind_arr{};
         for (size_type d = 0; d < dim; ++d) {
             ind_arr[d] = static_cast<size_type>(
                              distance(knots_begin(d), knot_iters[d])) -
@@ -644,7 +643,7 @@ class BSpline {
             Indices{}, knot_iters, spline_order, coord_deriOrder_hint_tuple);
         val_type v{};
 #ifdef INTP_CELL_LAYOUT
-        std::array<size_type, dim + 1> ind_arr{};
+        ext_ind_type ind_arr{};
         for (size_type d = 0; d < dim; ++d) {
             ind_arr[d] = static_cast<size_type>(
                              distance(knots_begin(d), knot_iters[d])) -
@@ -960,9 +959,7 @@ class BSpline {
             std::array<val_type, buf_size_> local_cp;
             // Storage for 1D polynomial coefficient of each dimension, the
             // layout is (dim, base_index, order)
-            std::array<std::array<std::array<knot_type, order + 1>, order + 1>,
-                       dim>
-                poly_1d;
+            DimArray<base_poly_mat_type> poly_1d;
             // loop over hypercube, each "point" in hypercube store
             // (order+1)^dim coefficients (flattened) of a dim dimensional
             // polynomial
@@ -970,13 +967,20 @@ class BSpline {
                 auto indices = coef_dim.dimwise_indices(i);
                 typename ControlPointContainer::index_type cp_indices;
                 // gather control points needed
-                for (size_type j = 0; j < coef_dim.dim_size(dim); ++j) {
-                    for (size_type d = dim - 1, jp = j; d < dim; --d) {
-                        cp_indices[d] = (indices[d] + jp % (order + 1)) %
-                                        ctrl_pts.dimension().dim_size(d);
-                        jp /= order + 1;
+                {
+                    DimArray<size_type> local_indices{};
+                    for (size_type j = 0; j < coef_dim.dim_size(dim);
+                         ++j, ++local_indices[dim - 1]) {
+                        for (size_type d = dim - 1; d < dim; --d) {
+                            if (local_indices[d] > order) {
+                                local_indices[d] = 0;
+                                local_indices[d - 1]++;
+                            }
+                            cp_indices[d] = (indices[d] + local_indices[d]) %
+                                            ctrl_pts.dimension().dim_size(d);
+                        }
+                        local_cp[j] = ctrl_pts(cp_indices);
                     }
-                    local_cp[j] = ctrl_pts(cp_indices);
                 }
 
                 // 1D base spline polynomial coefficients of each dimension
@@ -997,12 +1001,15 @@ class BSpline {
                 // Below j is the combined indices of coefficient of polynomial
                 // representation, k is the combined indices of local control
                 // points
-                for (size_type j = 0; j < coef_dim.dim_size(dim); ++j) {
+                for (size_type j = 0; j < coef_dim.dim_size(dim);
+                     ++j, ++local_poly_order[0]) {
                     // dimension index get swapped here, the polynomial
                     // coefficients are stored in a column-major manner
-                    for (size_type d = 0, jp = j; d < dim; ++d) {
-                        local_poly_order[d] = jp % (order + 1);
-                        jp /= order + 1;
+                    for (size_type d = 0; d < dim; ++d) {
+                        if (local_poly_order[d] > order) {
+                            local_poly_order[d] = 0;
+                            local_poly_order[d + 1]++;
+                        }
                     }
                     // sum over all base spline polynomial, weighted by control
                     // points, buffer is used to adopt a modified Horner's
@@ -1074,7 +1081,7 @@ class BSpline {
         DimArray<size_type> local_indices{};  // an (order+1)-radix counter
         // the end of local polynomial coefficients
         auto poly_iter = poly_coefs_.end(
-            dim, std::array<size_type, dim + 1>{
+            dim, ext_ind_type{
                      (std::distance(knots_begin(Indices), knot_iters[Indices]) -
                       order)...,
                      0});
@@ -1120,7 +1127,7 @@ class BSpline {
         DimArray<val_type> buffer{};
         DimArray<size_type> local_indices{};  // an (order+1)-radix counter
         auto poly_iter = poly_coefs_.end(
-            dim, std::array<size_type, dim + 1>{
+            dim, ext_ind_type{
                      (std::distance(knots_begin(Indices), knot_iters[Indices]) -
                       order)...,
                      0});
