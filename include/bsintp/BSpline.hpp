@@ -81,10 +81,7 @@ class BSpline {
     using ext_ind_type = std::array<size_type, dim + 1>;
 
     /**
-     * @brief Calculate values on base spline function. This is the core of
-     * B-Spline. Note: when the given order is smaller than order of spline
-     * (used in calculating derivative), spline value is aligned at right in
-     * result vector.
+     * @brief Calculate values on base spline function.
      *
      * @param seg_idx_iter the iterator points to left knot point of a segment
      * @param x coordinate
@@ -97,18 +94,9 @@ class BSpline {
                       knot_const_iterator seg_idx_iter,
                       knot_type x,
                       size_type spline_order = order) const {
-        if (spline_order == order &&
-            uniformity(dim_ind, seg_idx_iter - knots_begin(dim_ind))) {
-            // uniform case, use polynominal expression instead of Cox-de Boor
-            // algorithm
-            const auto t = (x - *seg_idx_iter) * knot_spacing_inv(dim_ind);
-
-            BaseSpline t_powers;
-            t_powers[0] = 1;
-            for (size_type i = 1; i <= order; ++i) {
-                t_powers[i] = t_powers[i - 1] * t;
-            }
-
+        // uniform case, use polynominal expression instead of Cox-de Boor
+        // algorithm
+        if (uniformity(dim_ind, seg_idx_iter - knots_begin(dim_ind))) {
             // Since std::array::begin(), which is invoked inside
             // calc_uniform_poly_coef, is constexpr since c++17.
 #if __cplusplus >= 201703L
@@ -125,10 +113,16 @@ class BSpline {
 #endif
 
             BaseSpline base_spline{};
+            const auto t = (x - *seg_idx_iter) * knot_spacing_inv(dim_ind);
             for (size_type i = 0; i <= order; ++i) {
-                for (size_type j = 0; j <= order; ++j) {
-                    base_spline[i] += poly_coef[i][j] * t_powers[j];
+                for (size_type j = 0; j <= spline_order; ++j) {
+                    base_spline[i] =
+                        util::factorial(order - j, order - spline_order) *
+                            poly_coef[i][order - j] +
+                        base_spline[i] * t;
                 }
+                base_spline[i] *=
+                    util::pow(knot_spacing_inv(dim_ind), order - spline_order);
             }
             return base_spline;
         } else {
