@@ -1066,28 +1066,32 @@ class BSpline {
         util::index_sequence<Indices...>,
         DimArray<knot_const_iterator> knot_iters,
         DimArray<std::pair<knot_type, size_type>> coord_with_hints) const {
-        const auto monomials = DimArray<std::array<knot_type, order + 1>>{
-            {calc_monomials(knot_iters[Indices],
-                            std::get<0>(coord_with_hints[Indices]))...}};
-        const auto polynomial_indices = std::array<size_type, dim + 1>{
-            (std::distance(knots_begin(Indices), knot_iters[Indices]) -
-             order)...,
-            0};
+        DimArray<knot_type> ts{
+            ((std::get<0>(coord_with_hints[Indices]) - knot_iters[Indices][0]) /
+             (knot_iters[Indices][1] - knot_iters[Indices][0]))...};
 
         DimArray<val_type> buffer{};
-        DimArray<size_type> local_indices{};
-        auto poly_iter = poly_coefs_.begin(dim, polynomial_indices);
+        DimArray<size_type> local_indices{};  // an (order+1)-radix counter
+        // the end of local polynomial coefficients
+        auto poly_iter = poly_coefs_.end(
+            dim, std::array<size_type, dim + 1>{
+                     (std::distance(knots_begin(Indices), knot_iters[Indices]) -
+                      order)...,
+                     0});
+        // Qin's algorithm for multi-var polynomial evaluation
         for (size_type i = 0; i < buf_size_; i += order + 1) {
+            // unroll 1st dimension by hand
             for (size_type j = 0; j < order + 1; ++j) {
-                buffer[0] += *poly_iter++ * monomials[0][j];
+                buffer[0] = *--poly_iter + buffer[0] * ts[0];
             }
             for (size_type d = 1; d < dim; ++d) {
-                buffer[d] += buffer[d - 1] * monomials[d][local_indices[d]];
+                buffer[d] = buffer[d - 1] + buffer[d] * ts[d];
                 buffer[d - 1] = val_type{};
                 if (local_indices[d]++ != order) { break; }
                 local_indices[d] = 0;
             }
         }
+
         return buffer.back();
     }
 
@@ -1097,50 +1101,48 @@ class BSpline {
         DimArray<knot_const_iterator> knot_iters,
         DimArray<std::tuple<knot_type, size_type, size_type>>
             coord_deri_hint_tuple) const {
-        const auto monomials = DimArray<std::array<knot_type, order + 1>>{
-            {calc_monomials(knot_iters[Indices],
-                            std::get<0>(coord_deri_hint_tuple[Indices]),
-                            std::get<2>(coord_deri_hint_tuple[Indices]))...}};
-        const auto polynomial_indices = std::array<size_type, dim + 1>{
-            (std::distance(knots_begin(Indices), knot_iters[Indices]) -
-             order)...,
-            0};
+        using util::factorial;
 
-        std::array<val_type, dim + 1> buffer{};
-        auto poly_iter = poly_coefs_.begin(dim, polynomial_indices);
-        for (size_type i = 0; i < buf_size_; ++i) {
-            buffer[0] = *poly_iter++;
-            for (size_type d = 0, ip = i; d < dim; ++d) {
-                buffer[d + 1] += buffer[d] * monomials[d][ip % (order + 1)];
-                buffer[d] = val_type{};
-                if (ip % (order + 1) < order) { break; }
-                ip /= order + 1;
+        DimArray<size_type> deri_order{};
+        DimArray<knot_type> ts{};
+        auto poly_size = size_type{1};
+        auto deri_coef = knot_type{1};
+        for (size_type d = 0; d < dim; ++d) {
+            deri_order[d] = std::get<2>(coord_deri_hint_tuple[d]);
+            poly_size *= order + 1 - deri_order[d];
+            const auto dx_inv =
+                knot_type{1} / (knot_iters[d][1] - knot_iters[d][0]);
+            deri_coef *= util::pow(dx_inv, deri_order[d]);
+            ts[d] = dx_inv *
+                    (std::get<0>(coord_deri_hint_tuple[d]) - knot_iters[d][0]);
+        }
+
+        DimArray<val_type> buffer{};
+        DimArray<size_type> local_indices{};  // an (order+1)-radix counter
+        auto poly_iter = poly_coefs_.end(
+            dim, std::array<size_type, dim + 1>{
+                     (std::distance(knots_begin(Indices), knot_iters[Indices]) -
+                      order)...,
+                     0});
+        for (size_type i = 0; i < poly_size; i += order + 1 - deri_order[0]) {
+            // unroll 1st dimension by hand
+            for (size_type j = 0; j < order + 1 - deri_order[0]; ++j) {
+                buffer[0] = factorial(order - j, deri_order[0]) * *--poly_iter +
+                            buffer[0] * ts[0];
+            }
+            poly_iter -= deri_order[0];
+            for (size_type d = 1; d < dim; ++d) {
+                buffer[d] = factorial(order - local_indices[d], deri_order[d]) *
+                                buffer[d - 1] +
+                            buffer[d] * ts[d];
+                buffer[d - 1] = val_type{};
+                if (local_indices[d]++ < order - deri_order[d]) { break; }
+                local_indices[d] = 0;
+                poly_iter -= deri_order[d] * util::pow(order + 1, d);
             }
         }
 
-        auto deri_coef = knot_type{1};
-        for (size_type i = 0; i < dim; ++i) {
-            deri_coef *= util::pow(knot_iters[i][1] - knot_iters[i][0],
-                                   std::get<2>(coord_deri_hint_tuple[i]));
-        }
-        return buffer[dim] / deri_coef;
-    }
-
-    inline std::array<knot_type, order + 1> calc_monomials(
-        knot_const_iterator knot_iter,
-        knot_type coord,
-        size_type deri_order = 0) const {
-        std::array<knot_type, order + 1> monomials{knot_type{1}};
-        std::array<knot_type, order + 1> result{
-            static_cast<knot_type>(deri_order == 0 ? 1 : 0)};
-        const auto t = (coord - knot_iter[0]) / (knot_iter[1] - knot_iter[0]);
-        for (size_type i = 1; i < order + 1; ++i) {
-            monomials[i] = monomials[i - 1] * t;
-            result[i] = deri_order > i ? knot_type{0}
-                                       : monomials[i - deri_order] *
-                                             util::factorial(i, deri_order);
-        }
-        return result;
+        return buffer.back() * deri_coef;
     }
 };
 
