@@ -221,22 +221,32 @@ class BSpline {
      * @param dim_ind specify the dimension
      * @param x coordinate
      * @param hint a hint for iter offset
-     * @param last an upper bound for iter offset, this function will not search
-     * knots beyond it.
+     * @param last upper bound for the fallback knot search.
      * @return knot_const_iterator
      */
     INTP_ALWAYS_INLINE knot_const_iterator get_knot_iter(size_type dim_ind,
                                                          knot_type& x,
                                                          size_type hint,
                                                          size_type last) const {
-        const auto iter = knots_begin(dim_ind) + static_cast<diff_type>(hint);
         if (periodicity_[dim_ind]) {
-            const knot_type period =
-                range(dim_ind).second - range(dim_ind).first;
-            x = range(dim_ind).first +
-                std::fmod(x - range(dim_ind).first, period) +
-                (x < range(dim_ind).first ? period : knot_type{});
+            const auto left = range(dim_ind).first;
+            const auto right = range(dim_ind).second;
+            const auto period = right - left;
+            const auto delta = x - left;
+            const auto remainder = delta >= knot_type{} && delta < period
+                                       ? delta
+                                       : std::fmod(delta, period);
+            x = left + remainder + (x < left ? period : knot_type{});
+            if (x >= right) { x = left; }  // prevent rounding error
+            if (uniform_[dim_ind]) {
+                hint =
+                    std::min(knots_num(dim_ind) - order - 2,
+                             std::max(order, static_cast<size_type>(
+                                                 (x - knots_[dim_ind].front()) *
+                                                 knot_spacing_inv_[dim_ind])));
+            }
         }
+        const auto iter = knots_begin(dim_ind) + static_cast<diff_type>(hint);
 #ifdef INTP_TRACE
         if ((*iter > x || *(iter + 1) < x) && x >= range(dim_ind).first &&
             x <= range(dim_ind).second) {

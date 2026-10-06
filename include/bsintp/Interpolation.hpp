@@ -306,17 +306,14 @@ class InterpolationFunction {
         DimArray<coord_type> c) const {
         return {std::make_pair(
             c[di],
-            uniform_[di]
-                ? std::min(
-                      spline_.knots_num(di) - order - 2,
-                      static_cast<size_type>(std::ceil(std::max(
-                          coord_type{0.},
-                          (c[di] - range(di).first) / dx_[di] -
-                              (periodicity(di)
-                                   ? coord_type{1.}
-                                   : coord_type{.5} * static_cast<coord_type>(
-                                                          order + 1))))) +
-                          order)
+            uniform_[di] && !periodicity(di)
+                ? std::min(spline_.knots_num(di) - order - 2,
+                           static_cast<size_type>(std::ceil(std::max(
+                               coord_type{0.},
+                               (c[di] - range(di).first) / dx_[di] -
+                                   (coord_type{.5} *
+                                    static_cast<coord_type>(order + 1))))) +
+                               order)
                 : order)...};
     }
 
@@ -331,15 +328,13 @@ class InterpolationFunction {
                                       DimArray<size_type> d) const {
         return spline_.derivative_at({std::make_tuple(
             static_cast<coord_type>(c[di]),
-            uniform_[di]
-                ? std::min(spline_.knots_num(di) - order - 2,
-                           static_cast<size_type>(std::ceil(std::max(
-                               0., (c[di] - range(di).first) / dx_[di] -
-                                       (periodicity(di)
-                                            ? 1.
-                                            : .5 * static_cast<coord_type>(
-                                                       order + 1))))) +
-                               order)
+            uniform_[di] && !periodicity(di)
+                ? std::min(
+                      spline_.knots_num(di) - order - 2,
+                      static_cast<size_type>(std::ceil(std::max(
+                          0., (c[di] - range(di).first) / dx_[di] -
+                                  (.5 * static_cast<coord_type>(order + 1))))) +
+                          order)
                 : order,
             static_cast<size_type>(d[di]))...});
     }
@@ -351,17 +346,14 @@ class InterpolationFunction {
                                    DimArray<size_type> d) const {
         return {std::make_tuple(
             static_cast<coord_type>(c[di]),
-            uniform_[di]
-                ? std::min(
-                      spline_.knots_num(di) - order - 2,
-                      static_cast<size_type>(std::ceil(std::max(
-                          coord_type{0.},
-                          (c[di] - range(di).first) / dx_[di] -
-                              (periodicity(di)
-                                   ? coord_type{1.}
-                                   : coord_type{.5} * static_cast<coord_type>(
-                                                          order + 1))))) +
-                          order)
+            uniform_[di] && !periodicity(di)
+                ? std::min(spline_.knots_num(di) - order - 2,
+                           static_cast<size_type>(std::ceil(std::max(
+                               coord_type{0.},
+                               (c[di] - range(di).first) / dx_[di] -
+                                   (coord_type{.5} *
+                                    static_cast<coord_type>(order + 1))))) +
+                               order)
                 : order,
             static_cast<size_type>(d[di]))...};
     }
