@@ -1,11 +1,393 @@
 #include "bsintp/Interpolation.hpp"
 #include "Assertion.hpp"
+#include "SplineReference.hpp"
 #include "Vec.hpp"
 #include "rel_err.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <iostream>
+#include <limits>
+#include <stdexcept>
 #include <type_traits>
+#include <vector>
+
+namespace {
+
+template <std::size_t degree>
+intp_test::ReferenceValue polynomial_value(long double x,
+                                           std::size_t derivative) {
+    long double value = derivative > degree ? 0 : 1;
+    if (derivative <= degree) {
+        for (std::size_t i = 0; i < derivative; ++i) {
+            value *= -.5L * (degree - i);
+        }
+        for (std::size_t i = derivative; i < degree; ++i) { value *= -.5L * x; }
+    }
+    return {value, std::abs(value)};
+}
+
+template <typename Function>
+intp_test::ReferenceValue reference_interpolation(
+    const Function& interpolation,
+    typename Function::coord_type x,
+    std::size_t derivative) {
+    const auto& spline = interpolation.spline();
+    const auto& cp = spline.control_points();
+    const auto control_point = [&](std::size_t i) {
+#ifdef INTP_CELL_LAYOUT
+        return cp(i, 0);
+#else
+        return cp(spline.periodicity(0) ? i % cp.dim_size(0) : i);
+#endif
+    };
+    return intp_test::reference_value(spline, x, derivative, control_point,
+                                      true);
+}
+
+template <typename Function, typename Expected>
+void check_interpolation_points(
+    const Function& interpolation,
+    const std::vector<typename Function::coord_type>& points,
+    Expected expected,
+    Assertion& assertion,
+    std::string_view name,
+    long double ulps = 128) {
+    for (const auto x : points) {
+        const auto value = expected(x, 0);
+        intp_test::check_close(assertion, interpolation(x), value, name,
+                               Function::order, x, 0, ulps);
+        const bool checked = interpolation.periodicity(0) ||
+                             (x >= interpolation.range(0).first &&
+                              x <= interpolation.range(0).second);
+        if (checked) {
+            intp_test::check_close(assertion, interpolation.at(x), value,
+                                   "Checked interpolation value",
+                                   Function::order, x, 0, ulps);
+        }
+#ifdef INTP_CELL_LAYOUT
+        intp_test::check_close(
+            assertion, interpolation.eval_proxy({x})(interpolation), value,
+            "Interpolation value proxy", Function::order, x, 0, ulps);
+#endif
+        for (std::size_t derivative = 0; derivative <= Function::order + 1;
+             ++derivative) {
+            const auto deriv = expected(x, derivative);
+            intp_test::check_close(
+                assertion, interpolation.derivative({x}, {derivative}), deriv,
+                name, Function::order, x, derivative, ulps);
+            if (checked) {
+                intp_test::check_close(
+                    assertion, interpolation.derivative_at({x}, {derivative}),
+                    deriv, "Checked interpolation derivative", Function::order,
+                    x, derivative, ulps);
+            }
+#ifdef INTP_CELL_LAYOUT
+            intp_test::check_close(assertion,
+                                   interpolation.derivative_eval_proxy(
+                                       {x}, {derivative})(interpolation),
+                                   deriv, "Interpolation derivative proxy",
+                                   Function::order, x, derivative, ulps);
+#endif
+        }
+    }
+}
+
+template <typename T, std::size_t degree>
+void check_interpolation_edges(Assertion& assertion) {
+    using Function = intp::InterpolationFunction<T, 1, degree, T>;
+    const auto infinity = std::numeric_limits<T>::infinity();
+    const auto add_neighbors = [&](std::vector<T>& points, T x) {
+        points.insert(points.end(), {std::nextafter(x, -infinity), x,
+                                     std::nextafter(x, infinity)});
+    };
+    const auto sample_value = [&](T x, std::size_t i) {
+        if constexpr (degree == 0) {
+            return static_cast<T>((i % 2 ? -1 : 2) + .25 * i);
+        } else {
+            return static_cast<T>(polynomial_value<degree>(x, 0).value);
+        }
+    };
+
+    for (const std::size_t count :
+         {std::max(std::size_t{2}, degree + 1), std::size_t{9}}) {
+        for (const bool uniform : {true, false}) {
+            // Nonperiodic nonuniform degree 0 needs its own constructor fix.
+            if constexpr (degree == 0) {
+                if (!uniform) { continue; }
+            }
+            std::vector<T> coords(count), values(count);
+            for (std::size_t i = 0; i < count; ++i) {
+                const T offset = !uniform && i > 0 && i + 1 < count
+                                     ? (i % 2 ? T{-.125} : T{.125})
+                                     : T{};
+                coords[i] = T{-1} + T{2} * (static_cast<T>(i) + offset) /
+                                        static_cast<T>(count - 1);
+                values[i] = sample_value(coords[i], i);
+            }
+            const Function interpolation =
+                uniform ? Function(intp::util::get_range(values),
+                                   std::make_pair(T{-1}, T{1}))
+                        : Function(intp::util::get_range(values),
+                                   intp::util::get_range(coords));
+            for (std::size_t i = 0; i < count; ++i) {
+                intp_test::check_close(assertion, interpolation(coords[i]),
+                                       {values[i], std::abs(values[i])},
+                                       "Interpolation at input node", degree,
+                                       coords[i]);
+            }
+            std::vector<T> points{T{-1.25}, T{-.75}, T{-.25}, T{},
+                                  T{.25},   T{.75},  T{1.25}};
+            for (const auto x : {T{-1}, T{1}}) { add_neighbors(points, x); }
+            if constexpr (degree == 0) {
+                for (std::size_t i = 1; i < count; ++i) {
+                    add_neighbors(points, (coords[i - 1] + coords[i]) / T{2});
+                }
+            }
+            check_interpolation_points(
+                interpolation, points,
+                [&](T x, std::size_t derivative) {
+                    if constexpr (degree == 0) {
+                        std::size_t i{};
+                        while (i + 1 < count &&
+                               x >= (coords[i] + coords[i + 1]) / T{2}) {
+                            ++i;
+                        }
+                        return intp_test::ReferenceValue{
+                            derivative == 0 ? values[i] : T{}, 1};
+                    } else {
+                        auto expected = reference_interpolation(interpolation,
+                                                                x, derivative);
+                        // Differentiation magnifies rounded sample values and
+                        // cancellation between large control-point terms.
+                        expected.value =
+                            polynomial_value<degree>(x, derivative).value;
+                        return expected;
+                    }
+                },
+                assertion, "Polynomial/nearest interpolation");
+
+            if (count == 9) {
+                // A global polynomial hides selection of the wrong interval.
+                // Alternating samples make the highest derivative jump at
+                // knots.
+                for (std::size_t i = 0; i < count; ++i) {
+                    values[i] = static_cast<T>((i % 2 ? -1 : 2) + .25 * i);
+                }
+                const Function piecewise =
+                    uniform ? Function(intp::util::get_range(values),
+                                       std::make_pair(T{-1}, T{1}))
+                            : Function(intp::util::get_range(values),
+                                       intp::util::get_range(coords));
+                const auto& spline = piecewise.spline();
+                for (std::size_t i = 0; i < count; ++i) {
+                    auto expected =
+                        reference_interpolation(piecewise, coords[i], 0);
+                    expected.value = values[i];
+                    intp_test::check_close(assertion, piecewise(coords[i]),
+                                           expected, "Piecewise input node",
+                                           degree, coords[i]);
+                }
+                for (std::size_t i = degree; i < spline.knots_num(0) - degree;
+                     ++i) {
+                    add_neighbors(points, spline.knots_begin(0)[i]);
+                }
+                check_interpolation_points(
+                    piecewise, points,
+                    [&](T x, std::size_t derivative) {
+                        return reference_interpolation(piecewise, x,
+                                                       derivative);
+                    },
+                    assertion, "Piecewise interpolation at knot neighbors");
+            }
+
+            for (const auto x : {std::nextafter(T{-1}, -infinity),
+                                 std::nextafter(T{1}, infinity)}) {
+                bool rejected_value = false, rejected_derivative = false;
+                try {
+                    interpolation.at(x);
+                } catch (const std::domain_error&) { rejected_value = true; }
+                try {
+                    interpolation.derivative_at({x}, {degree + 1});
+                } catch (const std::domain_error&) {
+                    rejected_derivative = true;
+                }
+                assertion(
+                    rejected_value && rejected_derivative,
+                    "Checked APIs must reject the first value outside "
+                    "each nonperiodic endpoint, even for a zero derivative");
+            }
+        }
+    }
+
+    for (const std::size_t count : {std::max(std::size_t{2}, degree + 1),
+                                    std::size_t{8}, std::size_t{13}}) {
+        for (const bool uniform : {true, false}) {
+            std::vector<T> coords(count + 1), values(count);
+            for (std::size_t i = 0; i <= count; ++i) {
+                const T offset = !uniform && i > 0 && i < count
+                                     ? (i % 2 ? T{-.125} : T{.125})
+                                     : T{};
+                coords[i] = T{-2} + T{4} * (static_cast<T>(i) + offset) /
+                                        static_cast<T>(count);
+                if (i < count) {
+                    values[i] = static_cast<T>((i % 2 ? -1 : 2) + .25 * i);
+                }
+            }
+#ifndef INTP_PERIODIC_NO_DUMMY_POINT
+            values.push_back(values.front());
+#endif
+            const Function interpolation =
+                uniform ? Function(true, intp::util::get_range(values),
+                                   std::make_pair(T{-2}, T{2}))
+                        : Function(true, intp::util::get_range(values),
+                                   intp::util::get_range(coords));
+            const auto& spline = interpolation.spline();
+            const auto period = spline.range(0).second - spline.range(0).first;
+            std::vector<T> points;
+            for (std::size_t i = 0; i < count; ++i) {
+                intp_test::check_close(assertion, interpolation(coords[i]),
+                                       {values[i], std::abs(values[i])},
+                                       "Periodic interpolation at input node",
+                                       degree, coords[i]);
+                if (count == 8) {
+                    // These nodes and their shifts are exact binary values.
+                    for (const int shift : {-3, -1, 1, 3}) {
+                        intp_test::check_close(
+                            assertion, interpolation(coords[i] + shift * T{4}),
+                            {values[i], std::abs(values[i])},
+                            "Periodic input node after exact shift", degree,
+                            coords[i]);
+                    }
+                }
+            }
+            for (auto iter = spline.knots_begin(0) + degree;
+                 iter != spline.knots_end(0) && *iter <= spline.range(0).second;
+                 ++iter) {
+                for (const auto x : {std::nextafter(*iter, -infinity), *iter,
+                                     std::nextafter(*iter, infinity)}) {
+                    for (const int shift : {-3, -1, 0, 1, 3}) {
+                        points.push_back(x + shift * period);
+                    }
+                }
+            }
+            points.push_back(std::numeric_limits<T>::max() / T{4});
+            points.push_back(-std::numeric_limits<T>::max() / T{4});
+            check_interpolation_points(
+                interpolation, points,
+                [&](T x, std::size_t derivative) {
+                    return reference_interpolation(interpolation, x,
+                                                   derivative);
+                },
+                assertion, "Periodic interpolation against recursive basis");
+        }
+    }
+}
+
+void check_asymmetric_period(Assertion& assertion) {
+    // A negative whole-period shift previously rounded to right + one ulp.
+    std::vector<double> values(13);
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        values[i] = i % 2 ? -1. : 2.;
+    }
+#ifndef INTP_PERIODIC_NO_DUMMY_POINT
+    values.push_back(values.front());
+#endif
+    const intp::InterpolationFunction<double, 1, 0> interpolation(
+        true, intp::util::get_range(values),
+        std::make_pair(-23.71056939134732, 132.5544782351665));
+    const auto [left, right] = interpolation.range(0);
+    const auto infinity = std::numeric_limits<double>::infinity();
+    const auto x = left - (right - left);
+    intp_test::check_close(assertion, interpolation(x), {values[0], 1},
+                           "Rounded negative period endpoint", 0, x, 0, 0);
+    check_interpolation_points(
+        interpolation,
+        {x, std::nextafter(x, -infinity), std::nextafter(x, infinity), left,
+         right, std::nextafter(right, infinity)},
+        [&](double coord, std::size_t derivative) {
+            auto wrapped = coord;
+            const auto cell =
+                intp_test::reference_cell(interpolation.spline(), wrapped);
+            return intp_test::ReferenceValue{
+                derivative == 0 ? values[cell] : 0., 1};
+        },
+        assertion, "Asymmetric periodic endpoint", 0);
+}
+
+void check_mixed_boundaries(Assertion& assertion) {
+    // Unequal dimensions, with the periodic axis last, exercise cell layout.
+    const std::array<double, 4> x{{-1., -.375, .25, 1.}};
+    const std::array<double, 7> y{{0., .5, 1., 1.5, 2., 2.5, 3.}};
+    const auto count = y.size()
+#ifndef INTP_PERIODIC_NO_DUMMY_POINT
+                       + 1
+#endif
+        ;
+    intp::Mesh<double, 2> values(x.size(), count);
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        for (std::size_t j = 0; j < count; ++j) {
+            values(i, j) = (1. + x[i] * x[i]) * ((j % y.size()) % 2 ? -1. : 2.);
+        }
+    }
+    const intp::InterpolationFunction<double, 2, 2> interpolation(
+        {{false, true}}, values, intp::util::get_range(x),
+        std::make_pair(0., 3.5));
+    for (const auto xi :
+         {-1., std::nextafter(-1., 0.), -.125, std::nextafter(1., 0.), 1.}) {
+        for (std::size_t j = 0; j < y.size(); ++j) {
+            for (const auto shift : {-3.5, 0., 7.}) {
+                const std::array<double, 2> coord{{xi, y[j] + shift}};
+                for (std::size_t derivative = 0; derivative <= 3;
+                     ++derivative) {
+                    const double factor = derivative == 0   ? 1. + xi * xi
+                                          : derivative == 1 ? 2. * xi
+                                          : derivative == 2 ? 2.
+                                                            : 0.;
+                    const auto expected = intp_test::ReferenceValue{
+                        factor * (j % 2 ? -1. : 2.), std::abs(factor) * 2.};
+                    intp_test::check_close(
+                        assertion,
+                        interpolation.derivative_at(coord, {derivative, 0}),
+                        expected, "Mixed-axis boundary derivative", 2, xi,
+                        derivative);
+#ifdef INTP_CELL_LAYOUT
+                    intp_test::check_close(
+                        assertion,
+                        interpolation.derivative_eval_proxy(
+                            coord, {derivative, 0})(interpolation),
+                        expected, "Mixed-axis boundary proxy", 2, xi,
+                        derivative);
+#endif
+                }
+                intp_test::check_close(assertion, interpolation.at(coord),
+                                       {(1. + xi * xi) * (j % 2 ? -1. : 2.), 4},
+                                       "Mixed-axis checked value", 2, xi);
+            }
+        }
+    }
+    for (const auto xi : {std::nextafter(-1., -2.), std::nextafter(1., 2.)}) {
+        bool rejected_value = false, rejected_derivative = false;
+        try {
+            interpolation.at(xi, -7.);
+        } catch (const std::domain_error&) { rejected_value = true; }
+        try {
+            interpolation.derivative_at({xi, -7.}, {3, 0});
+        } catch (const std::domain_error&) { rejected_derivative = true; }
+        assertion(rejected_value && rejected_derivative,
+                  "Mixed-axis checked APIs must reject an out-of-range "
+                  "nonperiodic coordinate while wrapping the periodic axis");
+    }
+}
+
+template <typename T, std::size_t... degree>
+void check_interpolation_orders(Assertion& assertion,
+                                std::index_sequence<degree...>) {
+    (check_interpolation_edges<T, degree>(assertion), ...);
+}
+
+}  // namespace
 
 int main() {
     using namespace std;
@@ -15,6 +397,12 @@ int main() {
 
     Assertion assertion;
     constexpr double tol = 1e-13;
+
+    check_interpolation_orders<float>(assertion, std::make_index_sequence<6>{});
+    check_interpolation_orders<double>(assertion,
+                                       std::make_index_sequence<6>{});
+    check_asymmetric_period(assertion);
+    check_mixed_boundaries(assertion);
 
     {
         using IF1D = InterpolationFunction1D<3, double, double>;

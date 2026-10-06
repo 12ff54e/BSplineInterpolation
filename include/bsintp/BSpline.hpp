@@ -423,7 +423,11 @@ class BSpline {
         DimArray<std::tuple<knot_type, size_type, size_type>>
             coord_derivative_hint) const {
         PrecalculatedEvaluator evaluator{};
-        const auto cell_dim = calculate_cell_dim_from_knots();
+        // Raw periodic splines and interpolation templates use different knot
+        // padding. Infer the layout only while control points are absent.
+        const auto cell_dim = control_points_.size() == 0
+                                  ? calculate_cell_dim_from_knots()
+                                  : control_points_.dimension();
         for (size_type d = 0; d < dim + 1; ++d) {
             evaluator.layout_dimensions_[d] = cell_dim.dim_size(d);
         }
