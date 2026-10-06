@@ -146,38 +146,6 @@ int main() {
 
     using namespace std::chrono;
 
-    //    auto time_consumptions = ([&]<auto...
-    //    dim>(std::index_sequence<dim...>) {
-    //        return std::array{([&]<auto d>(std::integral_constant<std::size_t,
-    //        d>) {
-    //            auto func = [&]<auto... idx>(std::index_sequence<idx...>
-    //            dim_seq,
-    //                                         auto order, auto p) {
-    //                // expand dimension-wise size
-    //                return test_nDx(dim_seq, order,
-    //                                std::array<std::size_t, sizeof...(idx)>{
-    //                                    1u << ((p + idx) /
-    //                                    sizeof...(idx))...});
-    //            };
-    //            return ([&]<auto... order>(std::index_sequence<order...>) {
-    //                std::vector<
-    //                    std::array<std::array<high_resolution_clock::duration,
-    //                    4>,
-    //                               sizeof...(order)>>
-    //                    time_consumption;
-    //                for (std::size_t p = min_len_power; p <= max_len_power;
-    //                     ++p) {  // 2^p = point number
-    //                    // expand order
-    //                    time_consumption.push_back({func(
-    //                        std::make_index_sequence<d>{},
-    //                        std::integral_constant<std::size_t, order>{},
-    //                        p)...});
-    //                }
-    //                return time_consumption;
-    //            })(spline_orders{});
-    //        })(std::integral_constant<std::size_t, dim>{})...};
-    //    })(std::index_sequence<1, 2, 3>{} /* dimensions */);
-
     auto time_consumptions = ([&]<auto... dim>(std::index_sequence<dim...>) {
         auto func = [&]<auto... idx>(std::index_sequence<idx...> dim_seq,
                                      auto order, auto p) {

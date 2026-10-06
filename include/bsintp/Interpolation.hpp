@@ -124,6 +124,9 @@ class InterpolationFunction {
     // InterpolationTemplate::interpolate().
     InterpolationFunction() = default;
 
+    // "up-cast", used only in eval proxy
+    operator const spline_type&() const { return spline_; }
+
     /**
      * @brief Get spline value.
      *
@@ -266,9 +269,28 @@ class InterpolationFunction {
 
     // Scale the already solved B-spline coefficients. This does not change
     // knots or the interpolation domain.
-    void scale_coefficients(coord_type factor) { spline_.scale_control_points(factor); }
+    void scale_coefficients(coord_type factor) {
+        spline_.scale_control_points(factor);
+    }
 
     static constexpr size_type get_order() { return order; }
+
+#ifdef INTP_CELL_LAYOUT
+    spline_type::PrecalculatedEvaluator eval_proxy(
+        DimArray<coord_type> coords) const {
+        DimArray<size_type> derivatives;
+        derivatives.fill(0);
+        return spline().pre_calc_coef_helper(add_derivative_hint_for_spline(
+            util::make_index_sequence<dim>{}, coords, derivatives));
+    }
+
+    spline_type::PrecalculatedEvaluator derivative_eval_proxy(
+        DimArray<coord_type> coords,
+        DimArray<size_type> derivatives) const {
+        return spline().pre_calc_coef_helper(add_derivative_hint_for_spline(
+            util::make_index_sequence<dim>{}, coords, derivatives));
+    }
+#endif  // INTP_CELL_LAYOUT
 
    private:
     spline_type spline_;
@@ -330,16 +352,16 @@ class InterpolationFunction {
         return {std::make_tuple(
             static_cast<coord_type>(c[di]),
             uniform_[di]
-                ? std::min(spline_.knots_num(di) - order - 2,
-                           static_cast<size_type>(std::ceil(std::max(
-                               coord_type{0.},
-                               (c[di] - range(di).first) / dx_[di] -
-                                   (periodicity(di)
-                                        ? coord_type{1.}
-                                        : coord_type{.5} *
-                                              static_cast<coord_type>(
-                                                  order + 1))))) +
-                               order)
+                ? std::min(
+                      spline_.knots_num(di) - order - 2,
+                      static_cast<size_type>(std::ceil(std::max(
+                          coord_type{0.},
+                          (c[di] - range(di).first) / dx_[di] -
+                              (periodicity(di)
+                                   ? coord_type{1.}
+                                   : coord_type{.5} * static_cast<coord_type>(
+                                                          order + 1))))) +
+                          order)
                 : order,
             static_cast<size_type>(d[di]))...};
     }
@@ -516,38 +538,6 @@ class InterpolationFunction {
             }
         }
     }
-
-   public:
-#ifdef INTP_CELL_LAYOUT
-#if __cplusplus >= 201402L
-    auto
-#else
-    std::function<val_type(const function_type&)>
-#endif
-    eval_proxy(DimArray<coord_type> coords) const {
-        auto spline_proxy = spline().pre_calc_coef(
-            add_hint_for_spline(util::make_index_sequence<dim>{}, coords));
-        return [spline_proxy](const function_type& interp) {
-            return spline_proxy(interp.spline());
-        };
-    }
-
-#if __cplusplus >= 201402L
-    auto
-#else
-    std::function<val_type(const function_type&)>
-#endif
-    derivative_eval_proxy(DimArray<coord_type> coords,
-                          DimArray<size_type> derivatives) const {
-        const auto coord_derivative_hint = add_derivative_hint_for_spline(
-            util::make_index_sequence<dim>{}, coords, derivatives);
-        auto spline_proxy =
-            spline().pre_calc_derivative_coef(coord_derivative_hint);
-        return [spline_proxy](const function_type& interp) {
-            return spline_proxy(interp.spline());
-        };
-    }
-#endif  // INTP_CELL_LAYOUT
 };
 
 #if __cplusplus < 201703L

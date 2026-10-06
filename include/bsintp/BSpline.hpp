@@ -409,56 +409,7 @@ class BSpline {
         bool zero_{};
     };
 
-#if __cplusplus >= 201402L
-    auto
-#else
-    std::function<val_type(const spline_type&)>
-#endif
-    pre_calc_coef(
-        DimArray<std::pair<knot_type, size_type>> coord_with_hints) const {
-        using Indices = util::make_index_sequence<dim>;
-        // get knot point iter, it will modifies coordinate value into
-        // interpolation range of periodic dimension.
-        const auto knot_iters = get_knot_iters(Indices{}, coord_with_hints);
-
-        DimArray<size_type> spline_order;
-        spline_order.fill(order);
-        // calculate basic spline (out of boundary check also conducted here)
-        const auto base_spline_values_1d = calc_base_spline_vals(
-            Indices{}, knot_iters, spline_order, coord_with_hints);
-
-        ext_ind_type ind_arr{};
-        for (size_type d = 0; d < dim; ++d) {
-            ind_arr[d] = static_cast<size_type>(
-                             distance(knots_begin(d), knot_iters[d])) -
-                         order;
-        }
-
-        const auto cell_dim = calculate_cell_dim_from_knots();
-
-        PrecalculatedEvaluator evaluator{};
-        evaluator.total_offset_ = cell_dim.indexing(ind_arr);
-        // Interpolation templates provide knots before loading control points.
-        for (size_type d = 0; d < dim + 1; ++d) {
-            evaluator.layout_dimensions_[d] = cell_dim.dim_size(d);
-        }
-        for (size_type i = 0; i < evaluator.coefficients_.size(); ++i) {
-            knot_type coefficient = 1;
-            if CPP17_CONSTEXPR_ (dim == 1) {
-                coefficient = base_spline_values_1d[0][i];
-            } else {
-                for (size_type d = 0, combined_ind = i; d < dim; ++d) {
-                    coefficient *=
-                        base_spline_values_1d[d][combined_ind % (order + 1)];
-                    combined_ind /= (order + 1);
-                }
-            }
-            evaluator.coefficients_[i] = coefficient;
-        }
-        return evaluator;
-    }
-
-    PrecalculatedEvaluator pre_calc_derivative_coef(
+    PrecalculatedEvaluator pre_calc_coef_helper(
         DimArray<std::tuple<knot_type, size_type, size_type>>
             coord_derivative_hint) const {
         PrecalculatedEvaluator evaluator{};
@@ -468,6 +419,7 @@ class BSpline {
         }
 
         DimArray<size_type> spline_order{};
+        // zero check
         for (size_type d = 0; d < dim; ++d) {
             const size_type derivative_order =
                 std::get<2>(coord_derivative_hint[d]);
@@ -492,19 +444,38 @@ class BSpline {
         }
         evaluator.total_offset_ = cell_dim.indexing(cell_indices);
 
-        constexpr size_type line_width = order + 1;
+        DimArray<size_type> local_indices{};
         for (size_type i = 0; i < evaluator.coefficients_.size(); ++i) {
             knot_type coefficient = 1;
-            for (size_type d = 0, combined_ind = i; d < dim; ++d) {
-                coefficient *=
-                    base_spline_values_1d[d][combined_ind % line_width];
-                combined_ind /= line_width;
+            if CPP17_CONSTEXPR_ (dim == 1) {
+                coefficient = base_spline_values_1d[0][i];
+            } else {
+                for (size_type d = 0; d < dim; ++d) {
+                    if (local_indices[d] > order) {
+                        local_indices[d] = 0;
+                        local_indices[d + 1]++;
+                    }
+                    coefficient *= base_spline_values_1d[d][local_indices[d]];
+                }
+                local_indices[0]++;
             }
             evaluator.coefficients_[i] = coefficient;
         }
-
         return evaluator;
     }
+
+    // used mainly for testing
+    PrecalculatedEvaluator pre_calc_coef(
+        DimArray<std::tuple<knot_type, size_type>> coord_hint) const {
+        DimArray<std::tuple<knot_type, size_type, size_type>> coord_deri_hint;
+        for (size_type d = 0; d < dim; ++d) {
+            std::get<0>(coord_deri_hint[d]) = std::get<0>(coord_hint[d]);
+            std::get<1>(coord_deri_hint[d]) = std::get<1>(coord_hint[d]);
+            std::get<2>(coord_deri_hint[d]) = 0;
+        }
+        return pre_calc_coef_helper(coord_deri_hint);
+    }
+
 #endif
 
     /**
