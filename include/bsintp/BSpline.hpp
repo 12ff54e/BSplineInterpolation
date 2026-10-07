@@ -312,7 +312,7 @@ class BSpline {
           poly_coefs_(calc_spline_poly_coef(ctrl_pts)),
 #else
           control_points_(std::move(ctrl_pts)),
-          poly_coefs_(calc_spline_poly_coef(control_points_),
+          poly_coefs_(calc_spline_poly_coef(control_points_)),
 #endif
           range_{std::make_pair(
               (knot_iter_pairs.first)[order],
