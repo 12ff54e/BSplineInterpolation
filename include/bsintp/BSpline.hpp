@@ -498,7 +498,7 @@ class BSpline {
      * locates, dimension wise).
      *
      */
-    inline val_type operator()(
+    INTP_ALWAYS_INLINE val_type operator()(
         DimArray<std::pair<knot_type, size_type>> coord_with_hints) const {
         using Indices = util::make_index_sequence<dim>;
         // get knot point iter, it will modifies coordinate value into
@@ -510,62 +510,10 @@ class BSpline {
                                               coord_with_hints);
         }
 
-        DimArray<size_type> spline_order;
+        DimArray<size_type> spline_order{};
         spline_order.fill(order);
-        // calculate basic spline
-        const auto base_spline_values_1d = calc_base_spline_vals(
-            Indices{}, knot_iters, spline_order, coord_with_hints);
-
-        // combine control points and basic spline values to get spline value
-        val_type v{};
-#ifdef INTP_CELL_LAYOUT
-        ext_ind_type ind_arr{};
-        for (size_type d = 0; d < dim; ++d) {
-            ind_arr[d] = static_cast<size_type>(
-                             distance(knots_begin(d), knot_iters[d])) -
-                         order;
-        }
-        auto cell_iter = control_points_.begin(dim, ind_arr);
-        for (size_type i = 0; i < buf_size_; ++i) {
-            auto coef = *cell_iter++;
-            for (size_type d = 0, combined_ind = i; d < dim; ++d) {
-                coef *= base_spline_values_1d[d][combined_ind % (order + 1)];
-                combined_ind /= (order + 1);
-            }
-            v += coef;
-        }
-#else
-        MeshDimension<dim> local_mesh_dim(order + 1);
-        for (size_type i = 0; i < buf_size_; ++i) {
-            DimArray<size_type> ind_arr = local_mesh_dim.dimwise_indices(i);
-
-            knot_type coef = 1;
-            for (size_type d = 0; d < dim; ++d) {
-                coef *= base_spline_values_1d[d][ind_arr[d]];
-
-                // Shift index array according to knot iter of each dimension.
-                // When the coordinate is out of range in some dimensions, the
-                // corresponding iterator was set to be begin or end iterator of
-                // knot vector in `get_knot_iters` method and it will be treated
-                // separately.
-                ind_arr[d] += knot_iters[d] == knots_begin(d) ? 0
-                              : knot_iters[d] == knots_end(d)
-                                  ? control_points_.dim_size(d) - order - 1
-                                  : static_cast<size_type>(distance(
-                                        knots_begin(d), knot_iters[d])) -
-                                        order;
-
-                // check periodicity, put out-of-right-boundary index to left
-                if (periodicity_[d]) {
-                    ind_arr[d] %= control_points_.dim_size(d);
-                }
-            }
-
-            v += coef * control_points_(ind_arr);
-        }
-#endif
-
-        return v;
+        return calc_value_from_spline(knot_iters, coord_with_hints,
+                                      spline_order);
     }
 
     /**
@@ -600,6 +548,7 @@ class BSpline {
                 order >= std::get<2>(coord_deriOrder_hint_tuple[d])
                     ? order - std::get<2>(coord_deriOrder_hint_tuple[d])
                     : order + 1;
+            // use order + 1 to indicate overflow
         }
 
         // if derivative order is larger than spline order, derivative is 0.
@@ -617,52 +566,8 @@ class BSpline {
                                                    coord_deriOrder_hint_tuple);
         }
 
-        // calculate basic spline
-        const auto base_spline_values_1d = calc_base_spline_vals(
-            Indices{}, knot_iters, spline_order, coord_deriOrder_hint_tuple);
-        val_type v{};
-#ifdef INTP_CELL_LAYOUT
-        ext_ind_type ind_arr{};
-        for (size_type d = 0; d < dim; ++d) {
-            ind_arr[d] = static_cast<size_type>(
-                             distance(knots_begin(d), knot_iters[d])) -
-                         order;
-        }
-        auto cell_iter = control_points_.begin(dim, ind_arr);
-        for (size_type i = 0; i < buf_size_; ++i) {
-            auto coef = *cell_iter++;
-            for (size_type d = 0, combined_ind = i; d < dim; ++d) {
-                coef *= base_spline_values_1d[d][combined_ind % (order + 1)];
-                combined_ind /= (order + 1);
-            }
-            v += coef;
-        }
-#else
-        MeshDimension<dim> local_mesh_dim(order + 1);
-        for (size_type i = 0; i < buf_size_; ++i) {
-            DimArray<size_type> ind_arr = local_mesh_dim.dimwise_indices(i);
-
-            knot_type coef = 1;
-            for (size_type d = 0; d < dim; ++d) {
-                coef *= base_spline_values_1d[d][ind_arr[d]];
-
-                ind_arr[d] += knot_iters[d] == knots_begin(d) ? 0
-                              : knot_iters[d] == knots_end(d)
-                                  ? control_points_.dim_size(d) - order - 1
-                                  : static_cast<size_type>(distance(
-                                        knots_begin(d), knot_iters[d])) -
-                                        order;
-
-                if (periodicity_[d]) {
-                    ind_arr[d] %= control_points_.dim_size(d);
-                }
-            }
-
-            v += coef * control_points_(ind_arr);
-        }
-#endif
-
-        return v;
+        return calc_value_from_spline(knot_iters, coord_deriOrder_hint_tuple,
+                                      spline_order);
     }
 
     /**
@@ -1129,6 +1034,68 @@ class BSpline {
         }
 
         return buffer.back() * deri_coef;
+    }
+
+    template <typename C>
+    INTP_NOINLINE val_type
+    calc_value_from_spline(DimArray<knot_const_iterator> knot_iters,
+                           C coords,
+                           DimArray<size_type> spline_order) const {
+        using Indices = util::make_index_sequence<dim>;
+        // calculate basic spline
+        const auto base_spline_values_1d =
+            calc_base_spline_vals(Indices{}, knot_iters, spline_order, coords);
+
+        // combine control points and basic spline values to get spline value
+        val_type v{};
+#ifdef INTP_CELL_LAYOUT
+        ext_ind_type ind_arr{};
+        for (size_type d = 0; d < dim; ++d) {
+            ind_arr[d] = static_cast<size_type>(
+                             distance(knots_begin(d), knot_iters[d])) -
+                         order;
+        }
+        auto cell_iter = control_points_.begin(dim, ind_arr);
+        for (size_type i = 0; i < buf_size_; ++i) {
+            auto coef = *cell_iter++;
+            for (size_type d = 0, combined_ind = i; d < dim; ++d) {
+                coef *= base_spline_values_1d[d][combined_ind % (order + 1)];
+                combined_ind /= (order + 1);
+            }
+            v += coef;
+        }
+#else
+        MeshDimension<dim> local_mesh_dim(order + 1);
+        for (size_type i = 0; i < buf_size_; ++i) {
+            DimArray<size_type> ind_arr = local_mesh_dim.dimwise_indices(i);
+
+            knot_type coef = 1;
+            for (size_type d = 0; d < dim; ++d) {
+                coef *= base_spline_values_1d[d][ind_arr[d]];
+
+                // Shift index array according to knot iter of each dimension.
+                // When the coordinate is out of range in some dimensions, the
+                // corresponding iterator was set to be begin or end iterator of
+                // knot vector in `get_knot_iters` method and it will be treated
+                // separately.
+                ind_arr[d] += knot_iters[d] == knots_begin(d) ? 0
+                              : knot_iters[d] == knots_end(d)
+                                  ? control_points_.dim_size(d) - order - 1
+                                  : static_cast<size_type>(distance(
+                                        knots_begin(d), knot_iters[d])) -
+                                        order;
+
+                // check periodicity, put out-of-right-boundary index to left
+                if (periodicity_[d]) {
+                    ind_arr[d] %= control_points_.dim_size(d);
+                }
+            }
+
+            v += coef * control_points_(ind_arr);
+        }
+#endif
+
+        return v;
     }
 };
 
