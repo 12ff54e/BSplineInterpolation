@@ -300,21 +300,25 @@ class InterpolationFunction {
 
     // auxiliary methods
 
+    template <typename HintType = coord_type>
+    INTP_ALWAYS_INLINE size_type get_hint_for_spline(size_type dim_ind,
+                                                     coord_type c) const {
+        return uniform_[dim_ind] && !periodicity(dim_ind)
+                   ? std::min(spline_.knots_num(dim_ind) - order - 2,
+                              static_cast<size_type>(std::ceil(std::max(
+                                  HintType{0.},
+                                  (c - range(dim_ind).first) / dx_[dim_ind] -
+                                      (HintType{.5} *
+                                       static_cast<coord_type>(order + 1))))) +
+                                  order)
+                   : order;
+    }
+
     template <size_type... di>
     inline DimArray<std::pair<coord_type, size_type>> add_hint_for_spline(
         util::index_sequence<di...>,
         DimArray<coord_type> c) const {
-        return {std::make_pair(
-            c[di],
-            uniform_[di] && !periodicity(di)
-                ? std::min(spline_.knots_num(di) - order - 2,
-                           static_cast<size_type>(std::ceil(std::max(
-                               coord_type{0.},
-                               (c[di] - range(di).first) / dx_[di] -
-                                   (coord_type{.5} *
-                                    static_cast<coord_type>(order + 1))))) +
-                               order)
-                : order)...};
+        return {std::make_pair(c[di], get_hint_for_spline(di, c[di]))...};
     }
 
     inline val_type call_op_helper(DimArray<coord_type> c) const {
@@ -323,39 +327,22 @@ class InterpolationFunction {
     }
 
     template <size_type... di>
-    inline val_type derivative_helper(util::index_sequence<di...>,
+    inline val_type derivative_helper(util::index_sequence<di...> indices,
                                       DimArray<coord_type> c,
                                       DimArray<size_type> d) const {
-        return spline_.derivative_at({std::make_tuple(
-            static_cast<coord_type>(c[di]),
-            uniform_[di] && !periodicity(di)
-                ? std::min(
-                      spline_.knots_num(di) - order - 2,
-                      static_cast<size_type>(std::ceil(std::max(
-                          0., (c[di] - range(di).first) / dx_[di] -
-                                  (.5 * static_cast<coord_type>(order + 1))))) +
-                          order)
-                : order,
-            static_cast<size_type>(d[di]))...});
+        // Preserve double promotion in derivative hints for float coordinates.
+        return spline_.derivative_at(
+            add_derivative_hint_for_spline<double>(indices, c, d));
     }
 
-    template <size_type... di>
+    template <typename HintType = coord_type, size_type... di>
     inline DimArray<std::tuple<coord_type, size_type, size_type>>
     add_derivative_hint_for_spline(util::index_sequence<di...>,
                                    DimArray<coord_type> c,
                                    DimArray<size_type> d) const {
-        return {std::make_tuple(
-            static_cast<coord_type>(c[di]),
-            uniform_[di] && !periodicity(di)
-                ? std::min(spline_.knots_num(di) - order - 2,
-                           static_cast<size_type>(std::ceil(std::max(
-                               coord_type{0.},
-                               (c[di] - range(di).first) / dx_[di] -
-                                   (coord_type{.5} *
-                                    static_cast<coord_type>(order + 1))))) +
-                               order)
-                : order,
-            static_cast<size_type>(d[di]))...};
+        return {std::make_tuple(static_cast<coord_type>(c[di]),
+                                get_hint_for_spline<HintType>(di, c[di]),
+                                static_cast<size_type>(d[di]))...};
     }
 
     // overload for uniform knots
