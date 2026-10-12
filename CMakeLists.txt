@@ -46,9 +46,11 @@ install(
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-message(STATUS "Entering test directory ...")
-add_subdirectory(test)
-message(STATUS "Leaving test directory ...")
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    message(STATUS "Entering test directory ...")
+    add_subdirectory(test)
+    message(STATUS "Leaving test directory ...")
+endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
