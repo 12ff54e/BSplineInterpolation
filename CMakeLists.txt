@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12.0)
 project(
     BSplineInterpolation
-    VERSION 2.1.2
+    VERSION 2.1.3
     HOMEPAGE_URL "https://github.com/12ff54e/BSplineInterpolation.git"
     LANGUAGES CXX)
 include(CTest)
@@ -46,9 +46,11 @@ install(
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-message(STATUS "Entering test directory ...")
-add_subdirectory(test)
-message(STATUS "Leaving test directory ...")
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    message(STATUS "Entering test directory ...")
+    add_subdirectory(test)
+    message(STATUS "Leaving test directory ...")
+endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
