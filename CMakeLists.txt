@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12.0)
 project(
     BSplineInterpolation
-    VERSION 2.1.2
+    VERSION 2.1.3
     HOMEPAGE_URL "https://github.com/12ff54e/BSplineInterpolation.git"
     LANGUAGES CXX)
 include(CTest)
