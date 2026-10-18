@@ -43,8 +43,7 @@ endif()
 add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:INTP_DEBUG>
                         $<$<CONFIG:Release>:INTP_MULTITHREAD>)
 
-add_compile_definitions(INTP_PERIODIC_NO_DUMMY_POINT
-                        INTP_CELL_LAYOUT)
+add_compile_definitions(INTP_PERIODIC_NO_DUMMY_POINT)
 
 #add_compile_definitions(INTP_TRACE)
 
@@ -59,6 +58,7 @@ enable_testing()
 foreach(test ${regular_tests})
     string(JOIN "" test_src_file src/ ${test} .cpp)
     add_executable(${test} ${test_src_file})
+    target_compile_definitions(${test} PRIVATE INTP_CELL_LAYOUT)
     target_include_directories(
         ${test} PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
     target_include_directories(
@@ -70,6 +70,26 @@ foreach(test ${regular_tests})
     message(STATUS ${test} " from source file " ${test_src_file})
 endforeach(test ${regular_tests})
 
+# Exercise both layouts in C++11 even though the other tests use C++20.
+foreach(layout cell row)
+    set(test cxx11-${layout}-test)
+    add_executable(${test} src/cxx11-test.cpp)
+    set_target_properties(${test} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF)
+    target_link_libraries(${test} PRIVATE BSplineInterpolation)
+    target_include_directories(${test} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
+    if(layout STREQUAL cell)
+        target_compile_definitions(${test} PRIVATE INTP_CELL_LAYOUT)
+    endif()
+    if(NOT MSVC AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${test} PRIVATE -pedantic-errors)
+    endif()
+    add_test(NAME intp-${test} COMMAND ${test})
+    set_tests_properties(intp-${test} PROPERTIES LABELS "intp-regular;intp-cxx11")
+endforeach()
+
 if(CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL RelWithDebInfo)
     message(STATUS)
     list(LENGTH speed_tests test_num)
@@ -77,6 +97,7 @@ if(CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL RelWithDebInfo
     foreach(test ${speed_tests})
         string(JOIN "" test_src_file src/ ${test} .cpp)
         add_executable(${test} ${test_src_file} src/Timer.cpp)
+        target_compile_definitions(${test} PRIVATE INTP_CELL_LAYOUT)
         target_include_directories(
             ${test} PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
         target_include_directories(
