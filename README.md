@@ -50,11 +50,11 @@ Note: this project follows [Semantic Version 2.0.0](https://semver.org/) so the 
 ### Optional polynomial coefficients
 
 `BSpline` and `InterpolationFunction` evaluate from control points by default.
-Call `calc_spline_poly_coef()` after construction to compute and store
+Call `generate_polynomial_form()` after construction to compute and store
 polynomial coefficients for each cell:
 
 ```cpp
-func.calc_spline_poly_coef();
+func.generate_polynomial_form();
 ```
 
 Values and derivatives then use these coefficients. This can speed up evaluation
@@ -64,7 +64,7 @@ including `INTP_CELL_LAYOUT`. `spline.has_polynomial()` reports whether a
 `func.spline().has_polynomial()`.
 
 Loading new knots or control points clears the polynomial coefficients. Call
-`calc_spline_poly_coef()` again to rebuild them. Scaling control points also
+`generate_polynomial_form()` again to rebuild them. Scaling control points also
 scales any stored polynomial coefficients.
 
 ### Modify Library's Behavior
