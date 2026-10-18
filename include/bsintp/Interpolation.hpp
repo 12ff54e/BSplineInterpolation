@@ -267,6 +267,11 @@ class InterpolationFunction {
      */
     const spline_type& spline() const { return spline_; }
 
+    /**
+     * @brief Compute polynomial coefficients for values and derivatives.
+     */
+    void generate_polynomial_form() { spline_.generate_polynomial_form(); }
+
     // Scale the already solved B-spline coefficients. This does not change
     // knots or the interpolation domain.
     void scale_coefficients(coord_type factor) {

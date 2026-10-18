@@ -132,7 +132,7 @@ void check_bspline_edges(Assertion& assertion) {
     std::fill(knots.begin() + degree + 1, knots.end(), T{1});
     typename Spline::ControlPointContainer cp(degree + 1);
     for (std::size_t i = 0; i <= degree; ++i) { cp(i) = i % 2 ? T{-1} : T{1}; }
-    const Spline bezier(cp, intp::util::get_range(knots));
+    Spline bezier(cp, intp::util::get_range(knots));
     std::vector<T> points{T{-.25}, T{.25}, T{.5}, T{.75}, T{1.25}};
     add_neighbors(points, T{});
     add_neighbors(points, T{1});
@@ -163,6 +163,9 @@ void check_bspline_edges(Assertion& assertion) {
     }
     check_spline_edges(
         bezier, points, [&](std::size_t i) { return cp(i); }, assertion);
+    bezier.generate_polynomial_form();
+    check_spline_edges(
+        bezier, points, [&](std::size_t i) { return cp(i); }, assertion);
 
     if constexpr (degree > 0) {
         // Multiplicity p leaves only C0 continuity at the interior knot.
@@ -173,9 +176,12 @@ void check_bspline_edges(Assertion& assertion) {
         for (std::size_t i = 0; i < cp.size(); ++i) {
             cp(i) = static_cast<T>(i % 2 ? -2 : 1);
         }
-        const Spline repeated(cp, intp::util::get_range(knots));
+        Spline repeated(cp, intp::util::get_range(knots));
         points.clear();
         for (const T x : {T{}, T{.5}, T{1}}) { add_neighbors(points, x); }
+        check_spline_edges(
+            repeated, points, [&](std::size_t i) { return cp(i); }, assertion);
+        repeated.generate_polynomial_form();
         check_spline_edges(
             repeated, points, [&](std::size_t i) { return cp(i); }, assertion);
     }
@@ -219,6 +225,10 @@ void check_bspline_edges(Assertion& assertion) {
                     degree, x);
             }
         }
+        check_spline_edges(
+            periodic, points, [&](std::size_t i) { return cp(i % count); },
+            assertion);
+        periodic.generate_polynomial_form();
         check_spline_edges(
             periodic, points, [&](std::size_t i) { return cp(i % count); },
             assertion);

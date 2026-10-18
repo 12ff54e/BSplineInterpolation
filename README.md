@@ -47,6 +47,26 @@ InterpolationFunction<double, 2, 3, double> func(
 ```
 Note: this project follows [Semantic Version 2.0.0](https://semver.org/) so the interface will be compatible within one major version.
 
+### Optional polynomial coefficients
+
+`BSpline` and `InterpolationFunction` evaluate from control points by default.
+Call `calc_spline_poly_coef()` after construction to compute and store
+polynomial coefficients for each cell:
+
+```cpp
+func.calc_spline_poly_coef();
+```
+
+Values and derivatives then use these coefficients. This can speed up evaluation
+at the cost of setup time and memory. It supports both control-point layouts,
+including `INTP_CELL_LAYOUT`. `spline.has_polynomial()` reports whether a
+`BSpline` stores polynomial coefficients; for an interpolation function, use
+`func.spline().has_polynomial()`.
+
+Loading new knots or control points clears the polynomial coefficients. Call
+`calc_spline_poly_coef()` again to rebuild them. Scaling control points also
+scales any stored polynomial coefficients.
+
 ### Modify Library's Behavior
 
 You can control the bahavior of this library by defining the following macros:

@@ -44,7 +44,7 @@ void check_polynomial(const Template& interpolation_template,
             for (const auto scale : {1., -2.}) {
                 auto scaled = values;
                 for (auto& value : scaled) { value *= scale; }
-                const auto interpolation = interpolation_template.interpolate(
+                auto interpolation = interpolation_template.interpolate(
                     intp::util::get_range(scaled));
 
                 const auto value = value_proxy(interpolation);
@@ -60,6 +60,18 @@ void check_polynomial(const Template& interpolation_template,
                     std::format("Template derivative proxy failed, derivative "
                                 "order {}, expect {}, get {}",
                                 derivative, real_deriv, deriv));
+                assertion(!interpolation.spline().has_polynomial(),
+                          "Interpolation must leave polynomial conversion "
+                          "optional");
+                interpolation.generate_polynomial_form();
+                assertion(interpolation.spline().has_polynomial(),
+                          "Interpolation must support explicit conversion");
+                assertion(std::abs(interpolation(x) - real_value) < 1e-11 &&
+                              std::abs(interpolation.derivative_at(
+                                           {{x}}, {{derivative}}) -
+                                       real_deriv) < 1e-10,
+                          "Polynomial interpolation must match the analytic "
+                          "value and derivative");
             }
         }
         bool rejected = false;
@@ -108,7 +120,7 @@ int main() {
                                        {{3, 0}}}) {
             const auto derivative_proxy =
                 template_2d.derivative_eval_proxy(coord, derivatives);
-            const auto interpolation = template_2d.interpolate(values);
+            auto interpolation = template_2d.interpolate(values);
             assertion(std::abs(value_proxy(interpolation) -
                                interpolation(coord)) < 1e-12,
                       "2D template value proxy must match direct evaluation");
@@ -117,6 +129,23 @@ int main() {
                                    coord, derivatives)) < 1e-10,
                       "2D template derivative proxy must match direct "
                       "evaluation, including periodic wrapping");
+            const auto value = interpolation(coord);
+            const auto derivative =
+                interpolation.derivative_at(coord, derivatives);
+            interpolation.generate_polynomial_form();
+            assertion(
+                std::abs(interpolation(coord) - value) < 1e-12 &&
+                    std::abs(interpolation.derivative_at(coord, derivatives) -
+                             derivative) < 1e-10,
+                "2D polynomial interpolation must match the B-spline "
+                "basis, including even-order periodic padding");
+            interpolation.scale_coefficients(-2.);
+            assertion(
+                std::abs(interpolation(coord) + 2. * value) < 1e-12 &&
+                    std::abs(interpolation.derivative_at(coord, derivatives) +
+                             2. * derivative) < 1e-10,
+                "Scaling must update interpolation polynomial "
+                "coefficients");
         }
     }
     return assertion.status();

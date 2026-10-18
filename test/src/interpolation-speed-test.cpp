@@ -99,6 +99,11 @@ int main() {
         InterpolationFunction<double, dimension, order> interpND(
             {(dim % 2 == 0)...}, mesh, (dim, std::make_pair(-M_PI, M_PI))...);
 
+        constexpr auto poly_name = "Polynomialize";
+        timer.pause_and_start(poly_name);
+
+        interpND.generate_polynomial_form();
+
         constexpr auto eval_rand_name = "Evaluation (Random)";
         timer.pause_and_start(eval_rand_name);
 
@@ -124,10 +129,10 @@ int main() {
         std::cout << '\n';
 #endif
 
-        std::array result{timer.get_duration(mesh_name),
-                          timer.get_duration(interp_name),
-                          timer.get_duration(eval_rand_name),
-                          timer.get_duration(eval_seq_name)};
+        std::array result{
+            timer.get_duration(mesh_name), timer.get_duration(interp_name),
+            timer.get_duration(poly_name), timer.get_duration(eval_rand_name),
+            timer.get_duration(eval_seq_name)};
 
         return result;
     };
@@ -150,16 +155,17 @@ int main() {
         };
         return std::array{([&]<auto d>(std::integral_constant<std::size_t, d>) {
             return ([&]<auto... order>(std::index_sequence<order...>) {
-                std::vector<
-                    std::array<std::array<high_resolution_clock::duration, 4>,
-                               sizeof...(order)>>
+                std::array<
+                    std::array<std::array<high_resolution_clock::duration, 5>,
+                               sizeof...(order)>,
+                    max_len_power - min_len_power + 1>
                     time_consumption;
                 // 2^p = point number
                 for (std::size_t p = min_len_power; p <= max_len_power; ++p) {
                     // expand order
-                    time_consumption.push_back({func(
+                    time_consumption[p - min_len_power] = {func(
                         std::make_index_sequence<d>{},
-                        std::integral_constant<std::size_t, order>{}, p)...});
+                        std::integral_constant<std::size_t, order>{}, p)...};
                 }
                 return time_consumption;
             })(spline_orders{});
@@ -216,7 +222,7 @@ int main() {
     for (auto& dimensional_result : time_consumptions) {
         std::cout << "\n"
                   << dim
-                  << "D mesh construction and interpolation from template time "
+                  << "D interpolation and generate polynomial form time "
                      "consumption(ms)\n";
         // table head
         constexpr std::size_t col_width_interp_time = 16;
@@ -229,10 +235,10 @@ int main() {
                 std::cout
                     << "|" << std::setw(col_width_interp_time / 2 - 1)
                     << std::right
-                    << duration<double, milliseconds::period>(ts[0]).count()
+                    << duration<double, milliseconds::period>(ts[1]).count()
                     << ',' << std::setw((col_width_interp_time - 1) / 2)
                     << std::right
-                    << duration<double, milliseconds::period>(ts[1]).count();
+                    << duration<double, milliseconds::period>(ts[2]).count();
             }
             std::cout << "|\n";
         }
@@ -252,11 +258,11 @@ int main() {
                 std::cout
                     << "|" << std::setw(col_width_eval_time / 2 - 1)
                     << std::right
-                    << duration<double, nanoseconds::period>(ts[2]).count() /
+                    << duration<double, nanoseconds::period>(ts[3]).count() /
                            eval_count
                     << ',' << std::setw((col_width_eval_time - 1) / 2)
                     << std::right
-                    << duration<double, nanoseconds::period>(ts[3]).count() /
+                    << duration<double, nanoseconds::period>(ts[4]).count() /
                            eval_count;
             }
             std::cout << "|\n";

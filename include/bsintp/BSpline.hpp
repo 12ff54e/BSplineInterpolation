@@ -309,11 +309,10 @@ class BSpline {
               KnotContainer(knot_iter_pairs.first, knot_iter_pairs.second)...},
 #ifdef INTP_CELL_LAYOUT
           control_points_(generate_cell_layout(ctrl_pts)),
-          poly_coefs_(calc_spline_poly_coef(ctrl_pts)),
 #else
           control_points_(std::move(ctrl_pts)),
-          poly_coefs_(calc_spline_poly_coef(control_points_)),
 #endif
+          poly_coefs_(size_type{}),
           range_{std::make_pair(
               (knot_iter_pairs.first)[order],
               (knot_iter_pairs.second)[-static_cast<int>(order) - 1])...} {
@@ -338,10 +337,13 @@ class BSpline {
         void>::type
     load_knots(size_type dim_ind, C&& _knots) {
         knots_[dim_ind] = std::forward<C>(_knots);
+        uniform_[dim_ind] = false;
+        knot_spacing_inv_[dim_ind] = knot_type{};
         range_[dim_ind].first = knots_[dim_ind][order];
         range_[dim_ind].second =
             knots_[dim_ind][knots_[dim_ind].size() - order -
                             (periodicity(dim_ind) && order % 2 == 0 ? 2 : 1)];
+        poly_coefs_ = poly_type(size_type{});
     }
 
     /**
@@ -362,7 +364,7 @@ class BSpline {
 #ifdef INTP_CELL_LAYOUT
     void load_ctrlPts(const ControlPointContainer& control_points) {
         control_points_ = generate_cell_layout(control_points);
-        poly_coefs_ = calc_spline_poly_coef(control_points);
+        poly_coefs_ = poly_type(size_type{});
     }
 #else
     template <typename C>
@@ -371,9 +373,18 @@ class BSpline {
                      ControlPointContainer>::value,
         void>::type load_ctrlPts(C&& control_points) {
         control_points_ = std::forward<C>(control_points);
-        poly_coefs_ = calc_spline_poly_coef(control_points_);
+        poly_coefs_ = poly_type(size_type{});
     }
 #endif
+
+    /**
+     * @brief Compute polynomial coefficients from the stored control points.
+     * Values and derivatives use these coefficients until knots or control
+     * points are replaced. Calling this on an empty spline has no effect.
+     */
+    void generate_polynomial_form() {
+        poly_coefs_ = calc_spline_poly_coef(control_points_);
+    }
 
     // Multiplying every control point scales the spline and all of its
     // derivatives by the same factor without re-interpolating the mesh.
@@ -384,6 +395,10 @@ class BSpline {
         auto* cp = control_points_.data();
         for (size_type i = 0; i < control_points_.size(); ++i) {
             cp[i] = factor * cp[i];
+        }
+        auto* poly = poly_coefs_.data();
+        for (size_type i = 0; i < poly_coefs_.size(); ++i) {
+            poly[i] = factor * poly[i];
         }
     }
 
@@ -826,13 +841,18 @@ class BSpline {
      * evaluating the spline function, using polynomial should be faster,
      * especially for low dimension case.
      */
-    poly_type calc_spline_poly_coef(
-        const ControlPointContainer& ctrl_pts) const {
+    poly_type calc_spline_poly_coef(const control_point_type& ctrl_pts) const {
+        if (ctrl_pts.size() == 0) { return poly_type(size_type{}); }
+
         // Determine the dimension
         MeshDimension<dim + 1> coef_dim(buf_size_);
         for (size_type d = 0; d < dim; ++d) {
             coef_dim.dim_size(d) =
+#ifdef INTP_CELL_LAYOUT
+                ctrl_pts.dim_size(d) - (d == dim - 1 ? order : 0);
+#else
                 ctrl_pts.dim_size(d) - (periodicity(d) ? 0 : order);
+#endif
         }
         poly_type polynomial_coef(coef_dim);
 
@@ -849,16 +869,21 @@ class BSpline {
             // polynomial
             for (size_type i = begin; i < end; i += coef_dim.dim_size(dim)) {
                 auto indices = coef_dim.dimwise_indices(i);
-                typename ControlPointContainer::index_type cp_indices;
                 // gather control points needed
+#ifdef INTP_CELL_LAYOUT
+                // A cell stores its local block with dimension 0 fastest.
+                std::copy_n(ctrl_pts.begin(dim, indices), local_cp.size(),
+                            local_cp.begin());
+#else
                 {
+                    typename ControlPointContainer::index_type cp_indices;
                     DimArray<size_type> local_indices{};
                     for (size_type j = 0; j < coef_dim.dim_size(dim);
                          ++j, ++local_indices[dim - 1]) {
                         for (size_type d = dim - 1; d < dim; --d) {
                             if (local_indices[d] > order) {
                                 local_indices[d] = 0;
-                                local_indices[d - 1]++;
+                                if (d > 0) { local_indices[d - 1]++; }
                             }
                             cp_indices[d] = (indices[d] + local_indices[d]) %
                                             ctrl_pts.dimension().dim_size(d);
@@ -866,6 +891,7 @@ class BSpline {
                         local_cp[j] = ctrl_pts(cp_indices);
                     }
                 }
+#endif
 
                 // 1D base spline polynomial coefficients of each dimension
                 for (size_type d = 0; d < dim; ++d) {
@@ -889,7 +915,7 @@ class BSpline {
                      ++j, ++local_poly_order[0]) {
                     // dimension index get swapped here, the polynomial
                     // coefficients are stored in a column-major manner
-                    for (size_type d = 0; d < dim; ++d) {
+                    for (size_type d = 0; d + 1 < dim; ++d) {
                         if (local_poly_order[d] > order) {
                             local_poly_order[d] = 0;
                             local_poly_order[d + 1]++;
@@ -907,16 +933,26 @@ class BSpline {
                     // of each dimension
                     DimArray<size_type> local_indices{};
                     for (size_type k = 0; k < local_cp.size(); k += order + 1) {
+#ifdef INTP_CELL_LAYOUT
+                        constexpr size_type first_dim = 0;
+#else
+                        constexpr size_type first_dim = dim - 1;
+#endif
                         // unroll 1st dimension by hand, help auto vectorization
                         for (size_type l = 0; l < order + 1; ++l) {
-                            buffer[0] +=
-                                local_cp[k + l] *
-                                poly_1d[dim - 1][l][local_poly_order[dim - 1]];
+                            buffer[0] += local_cp[k + l] *
+                                         poly_1d[first_dim][l]
+                                                [local_poly_order[first_dim]];
                         }
                         for (size_type d = 1; d < dim; ++d) {
+#ifdef INTP_CELL_LAYOUT
+                            const auto base_dim = d;
+#else
+                            const auto base_dim = dim - d - 1;
+#endif
                             buffer[d] += buffer[d - 1] *
-                                         poly_1d[dim - d - 1][local_indices[d]]
-                                                [local_poly_order[dim - d - 1]];
+                                         poly_1d[base_dim][local_indices[d]]
+                                                [local_poly_order[base_dim]];
                             buffer[d - 1] = val_type{};
                             if (local_indices[d]++ != order) { break; }
                             local_indices[d] = 0;
