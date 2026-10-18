@@ -130,8 +130,10 @@ int main() {
                   << "), order " << order.value << " complete..." << std::flush;
 #ifdef INTP_DEBUG
         std::cout << "\nEvaluate " << eval_coord.size()
-                  << " times, unsorted and sorted. The diffreence is " << diff
-                  << ". (Due to float point arithmetic error if it is not 0)\n";
+                  << " times, unsorted and sorted. The differences are";
+        for (const auto value : diff) { std::cout << ' ' << value; }
+        std::cout
+            << ". (Due to floating point arithmetic error if they are not 0)\n";
 
         timer.print();
         std::cout << '\n';

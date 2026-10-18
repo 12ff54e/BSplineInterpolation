@@ -1054,12 +1054,15 @@ class BSpline {
         for (size_type i = 0; i < poly_size; i += order + 1 - deri_order[0]) {
             // unroll 1st dimension by hand
             for (size_type j = 0; j < order + 1 - deri_order[0]; ++j) {
-                buffer[0] = factorial(order - j, deri_order[0]) * *--poly_iter +
+                buffer[0] = static_cast<knot_type>(
+                                factorial(order - j, deri_order[0])) *
+                                *--poly_iter +
                             buffer[0] * ts[0];
             }
             poly_iter -= deri_order[0];
             for (size_type d = 1; d < dim; ++d) {
-                buffer[d] = factorial(order - local_indices[d], deri_order[d]) *
+                buffer[d] = static_cast<knot_type>(factorial(
+                                order - local_indices[d], deri_order[d])) *
                                 buffer[d - 1] +
                             buffer[d] * ts[d];
                 buffer[d - 1] = val_type{};

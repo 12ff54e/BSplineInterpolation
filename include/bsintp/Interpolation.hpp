@@ -281,7 +281,7 @@ class InterpolationFunction {
     static constexpr size_type get_order() { return order; }
 
 #ifdef INTP_CELL_LAYOUT
-    spline_type::PrecalculatedEvaluator eval_proxy(
+    typename spline_type::PrecalculatedEvaluator eval_proxy(
         DimArray<coord_type> coords) const {
         DimArray<size_type> derivatives;
         derivatives.fill(0);
@@ -289,7 +289,7 @@ class InterpolationFunction {
             util::make_index_sequence<dim>{}, coords, derivatives));
     }
 
-    spline_type::PrecalculatedEvaluator derivative_eval_proxy(
+    typename spline_type::PrecalculatedEvaluator derivative_eval_proxy(
         DimArray<coord_type> coords,
         DimArray<size_type> derivatives) const {
         return spline().pre_calc_coef_helper(add_derivative_hint_for_spline(
