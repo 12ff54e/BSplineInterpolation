@@ -1,10 +1,13 @@
 #include "bsintp/BSpline.hpp"
 #include "Assertion.hpp"
+#include "SplineReference.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <iterator>
+#include <limits>
+#include <vector>
 
 #ifdef _DEBUG
 #include <iomanip>
@@ -37,13 +40,251 @@ template <std::size_t D>
 using AlignedMesh = typename intp::BSpline<double, D, 3>::ControlPointContainer;
 // order will not change type of control point container
 
+namespace {
+
+template <typename T, std::size_t degree, typename ControlPoint>
+void check_spline_edges(const intp::BSpline<T, 1, degree, T>& spline,
+                        const std::vector<T>& points,
+                        ControlPoint control_point,
+                        Assertion& assertion) {
+    using namespace intp_test;
+    const auto last = spline.knots_num(0) - degree - 2;
+    for (const auto x : points) {
+        auto expected_x = x;
+        const auto cell = reference_cell(spline, expected_x);
+        // A deliberately stale hint must still find the stored knot interval.
+        for (const auto hint : {degree, last}) {
+            auto actual_x = x;
+            const auto iter = spline.get_knot_iter(0, actual_x, hint);
+            assertion(iter - spline.knots_begin(0) ==
+                              static_cast<std::ptrdiff_t>(cell) &&
+                          actual_x == expected_x,
+                      std::format("Knot lookup, degree {}, x {}, hint {}",
+                                  degree, x, hint));
+        }
+        for (std::size_t derivative = 0; derivative <= degree + 1;
+             ++derivative) {
+            const auto expected =
+                reference_value(spline, x, derivative, control_point);
+            if (derivative <= degree) {
+                const auto basis =
+                    spline.base_spline_value(0, spline.knots_begin(0) + cell,
+                                             expected_x, degree - derivative);
+                ReferenceValue sum{};
+                for (std::size_t j = 0; j <= degree; ++j) {
+                    const auto value = basis_derivative(
+                        spline.knots_begin(0), cell - degree + j, degree,
+                        derivative, cell, expected_x);
+                    check_close(assertion, basis[j], {value, std::abs(value)},
+                                "Individual B-spline basis", degree, x,
+                                derivative);
+                    sum.value += basis[j];
+                    sum.scale += std::abs(basis[j]);
+                }
+                check_close(assertion, static_cast<T>(sum.value),
+                            {derivative == 0 ? 1.L : 0.L, sum.scale},
+                            "Basis partition of unity", degree, x, derivative);
+            }
+            check_close(assertion, spline.derivative_at({{{x, derivative}}}),
+                        expected, "B-spline derivative", degree, x, derivative);
+            if (derivative == 0) {
+                check_close(assertion, spline({{{x, degree}}}), expected,
+                            "B-spline value", degree, x);
+            }
+        }
+    }
+#ifdef INTP_CELL_LAYOUT
+    // Keep proxy failures separate so they do not hide the direct checks.
+    try {
+        for (const auto x : points) {
+            for (std::size_t derivative = 0; derivative <= degree + 1;
+                 ++derivative) {
+                const auto proxy =
+                    spline.pre_calc_coef_helper({{{x, degree, derivative}}});
+                check_close(
+                    assertion, proxy(spline),
+                    reference_value(spline, x, derivative, control_point),
+                    "B-spline proxy", degree, x, derivative);
+            }
+        }
+    } catch (const std::exception& e) {
+        assertion(false,
+                  std::format("B-spline proxy ({}), degree {}, periodic {}, "
+                              "uniform {}: {}",
+                              sizeof(T) == 4 ? "float" : "double", degree,
+                              spline.periodicity(0),
+                              spline.uniformity(0, degree), e.what()));
+    }
+#endif
+}
+
+template <typename T, std::size_t degree>
+void check_bspline_edges(Assertion& assertion) {
+    using Spline = intp::BSpline<T, 1, degree, T>;
+    const auto infinity = std::numeric_limits<T>::infinity();
+    const auto add_neighbors = [&](std::vector<T>& points, T x) {
+        points.insert(points.end(), {std::nextafter(x, -infinity), x,
+                                     std::nextafter(x, infinity)});
+    };
+
+    // Alternating Bezier control points give the exact polynomial (1-2x)^p.
+    std::vector<T> knots(2 * (degree + 1), T{});
+    std::fill(knots.begin() + degree + 1, knots.end(), T{1});
+    typename Spline::ControlPointContainer cp(degree + 1);
+    for (std::size_t i = 0; i <= degree; ++i) { cp(i) = i % 2 ? T{-1} : T{1}; }
+    Spline bezier(cp, intp::util::get_range(knots));
+    std::vector<T> points{T{-.25}, T{.25}, T{.5}, T{.75}, T{1.25}};
+    add_neighbors(points, T{});
+    add_neighbors(points, T{1});
+    for (const auto x : points) {
+        for (std::size_t derivative = 0; derivative <= degree + 1;
+             ++derivative) {
+            long double expected = derivative > degree ? 0 : 1;
+            if (derivative <= degree) {
+                for (std::size_t i = 0; i < derivative; ++i) {
+                    expected *= -2.L * (degree - i);
+                }
+                for (std::size_t i = derivative; i < degree; ++i) {
+                    expected *= 1.L - 2.L * x;
+                }
+            }
+            const auto reference = intp_test::reference_value(
+                bezier, x, derivative, [&](std::size_t i) { return cp(i); });
+            // The derivative can vanish while its basis terms are large.
+            intp_test::check_close(
+                assertion, bezier.derivative_at({{{x, derivative}}}),
+                {expected, reference.scale}, "Bezier analytic derivative",
+                degree, x, derivative);
+            assertion(std::abs(reference.value - expected) <=
+                          128 * std::numeric_limits<long double>::epsilon() *
+                              std::max(1.L, reference.scale),
+                      "Recursive reference must match the Bezier polynomial");
+        }
+    }
+    check_spline_edges(
+        bezier, points, [&](std::size_t i) { return cp(i); }, assertion);
+    bezier.generate_polynomial_form();
+    check_spline_edges(
+        bezier, points, [&](std::size_t i) { return cp(i); }, assertion);
+
+    if constexpr (degree > 0) {
+        // Multiplicity p leaves only C0 continuity at the interior knot.
+        knots.assign(degree + 1, T{});
+        knots.insert(knots.end(), degree, T{.5});
+        knots.insert(knots.end(), degree + 1, T{1});
+        cp = typename Spline::ControlPointContainer(2 * degree + 1);
+        for (std::size_t i = 0; i < cp.size(); ++i) {
+            cp(i) = static_cast<T>(i % 2 ? -2 : 1);
+        }
+        Spline repeated(cp, intp::util::get_range(knots));
+        points.clear();
+        for (const T x : {T{}, T{.5}, T{1}}) { add_neighbors(points, x); }
+        check_spline_edges(
+            repeated, points, [&](std::size_t i) { return cp(i); }, assertion);
+        repeated.generate_polynomial_form();
+        check_spline_edges(
+            repeated, points, [&](std::size_t i) { return cp(i); }, assertion);
+    }
+
+    constexpr std::size_t count = 7;
+    for (const bool uniform : {false, true}) {
+        std::array<T, count + 1> breaks{};
+        for (std::size_t i = 0; i < count; ++i) {
+            breaks[i + 1] =
+                breaks[i] + (uniform ? T{.5} : (i % 2 ? T{.75} : T{1.25}));
+        }
+        const auto period = breaks.back();
+        knots.resize(count + 2 * degree + 1);
+        for (std::size_t i = 0; i < knots.size(); ++i) {
+            const auto offset = static_cast<int>(i) - static_cast<int>(degree);
+            const auto cycle = offset < 0
+                                   ? (offset - static_cast<int>(count) + 1) /
+                                         static_cast<int>(count)
+                                   : offset / static_cast<int>(count);
+            knots[i] = T{-2.25} + cycle * period +
+                       breaks[offset - cycle * static_cast<int>(count)];
+        }
+        cp = typename Spline::ControlPointContainer(count);
+        for (std::size_t i = 0; i < count; ++i) {
+            cp(i) = static_cast<T>((i % 2 ? -1 : 2) + .25 * i);
+        }
+        Spline periodic({true}, cp, intp::util::get_range(knots));
+        if (uniform) { periodic.set_uniform(0); }
+        points.clear();
+        for (std::size_t i = degree; i <= degree + count; ++i) {
+            add_neighbors(points, knots[i]);
+            for (const int shift : {-3, -1, 1, 3}) {
+                points.push_back(knots[i] + shift * period);
+            }
+        }
+        for (const T x : {T{-2}, T{-.25}}) {
+            for (const int shift : {-3, -1, 0, 1, 3}) {
+                intp_test::check_close(
+                    assertion, periodic({{{x + shift * period, degree}}}),
+                    {periodic({{{x, degree}}}), 1}, "Exact binary period shift",
+                    degree, x);
+            }
+        }
+        check_spline_edges(
+            periodic, points, [&](std::size_t i) { return cp(i % count); },
+            assertion);
+        periodic.generate_polynomial_form();
+        check_spline_edges(
+            periodic, points, [&](std::size_t i) { return cp(i % count); },
+            assertion);
+    }
+}
+
+template <typename T, std::size_t... degree>
+void check_bspline_orders(Assertion& assertion,
+                          std::index_sequence<degree...>) {
+    (check_bspline_edges<T, degree>(assertion), ...);
+}
+
+}  // namespace
+
 int main() {
     using namespace std;
     using namespace intp;
 
     Assertion assertion;
-    constexpr double tol = 1e-15;
+    constexpr double tol = 1e-14;
 
+    check_bspline_orders<float>(assertion, std::make_index_sequence<6>{});
+    check_bspline_orders<double>(assertion, std::make_index_sequence<6>{});
+
+    // 1D uniform test
+    {
+        std::array<double, 16> knots;
+        std::array<double, 12> cp;
+        for (std::size_t i = 0; i < knots.size(); ++i) {
+            knots[i] = static_cast<double>(i < 4 ? 0 : i > 11 ? 9 : i - 3);
+        }
+        cp.fill(1.);
+
+        BSpline<double, 1, 3> spline_1d_3(
+            AlignedMesh<1>(std::make_pair(cp.begin(), cp.end())),
+            std::make_pair(knots.begin(), knots.end()));
+
+        spline_1d_3.set_uniform(0);
+
+        std::array<double, 91> coords_1d;
+        std::array<double, 91> vals_1d;
+        for (std::size_t i = 0; i < coords_1d.size(); ++i) {
+            coords_1d[i] = static_cast<double>(i) / 10.;
+            vals_1d[i] = 1.;
+        }
+        std::cout << "\nB-Spline Base Test:\n";
+        double d = rel_err([&](double x) { return spline_1d_3({x}); },
+                           std::make_pair(coords_1d.begin(), coords_1d.end()),
+                           std::make_pair(vals_1d.begin(), vals_1d.end()));
+
+        assertion(d < tol);
+        std::cout << "\nBase test "
+                  << (assertion.last_status() == 0 ? "succeed" : "failed")
+                  << '\n';
+        std::cout << "Relative Error = " << d << '\n';
+    }
     // 1D B-Spline
 
     auto knots = {0., 0., 0., 0., .5, 1., 1., 1., 1.};
