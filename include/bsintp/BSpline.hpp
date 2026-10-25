@@ -869,9 +869,9 @@ class BSpline {
             // polynomial
             for (size_type i = begin; i < end; i += coef_dim.dim_size(dim)) {
                 auto indices = coef_dim.dimwise_indices(i);
-                // gather control points needed
+                // gather control points needed into a cell storing its local
+                // block with dimension 0 fastest. (dimension reversed)
 #ifdef INTP_CELL_LAYOUT
-                // A cell stores its local block with dimension 0 fastest.
                 std::copy_n(ctrl_pts.begin(dim, indices), local_cp.size(),
                             local_cp.begin());
 #else
@@ -879,14 +879,16 @@ class BSpline {
                     typename ControlPointContainer::index_type cp_indices;
                     DimArray<size_type> local_indices{};
                     for (size_type j = 0; j < coef_dim.dim_size(dim);
-                         ++j, ++local_indices[dim - 1]) {
-                        for (size_type d = dim - 1; d < dim; --d) {
+                         ++j, ++local_indices[0]) {
+                        for (size_type d = 0; d < dim; ++d) {
                             if (local_indices[d] > order) {
                                 local_indices[d] = 0;
-                                if (d > 0) { local_indices[d - 1]++; }
+                                local_indices[d + 1]++;
                             }
-                            cp_indices[d] = (indices[d] + local_indices[d]) %
-                                            ctrl_pts.dimension().dim_size(d);
+                            const size_type cp_d = dim - d - 1;
+                            cp_indices[cp_d] =
+                                (indices[cp_d] + local_indices[d]) %
+                                ctrl_pts.dimension().dim_size(cp_d);
                         }
                         local_cp[j] = ctrl_pts(cp_indices);
                     }
@@ -908,59 +910,37 @@ class BSpline {
                 }
 
                 DimArray<size_type> local_poly_order{};
-                // Below j is the combined indices of coefficient of polynomial
-                // representation, k is the combined indices of local control
-                // points
-                for (size_type j = 0; j < coef_dim.dim_size(dim);
-                     ++j, ++local_poly_order[0]) {
-                    // dimension index get swapped here, the polynomial
-                    // coefficients are stored in a column-major manner
-                    for (size_type d = 0; d + 1 < dim; ++d) {
-                        if (local_poly_order[d] > order) {
-                            local_poly_order[d] = 0;
-                            local_poly_order[d + 1]++;
+                // Calculating polynomial coefficients T from control points
+                // C is done by performing a contraction between a rank-dim
+                // tensor and dim rank-2 tensor, i.e. T_{lmn...} =
+                // \sum_{abc...}{C_{abc...}*P_{1al}*P_{2bm}*P_{3cn}*...}
+
+                // Per advice of GPT-6-Astra, transform control points as a
+                // whole, one contraction in a time, rather than calculating
+                // each component of T one by one, reducing work from
+                // approximately O((order+1)^(2*dim)) to
+                // O(dim*(order+1)^(dim+1))
+                DimArray<size_type> local_indices{};
+                decltype(local_cp) poly_buffer;
+                constexpr auto local_step = util::pow(order + 1, dim - 1);
+                for (size_type d = 0; d < dim; ++d) {
+                    // ping-pong buffer
+                    auto& before = d % 2 == 0 ? local_cp : poly_buffer;
+                    auto& after = d % 2 == 0 ? poly_buffer : local_cp;
+                    after.fill(0);
+                    for (size_type j = 0; j < local_step; ++j) {
+                        for (size_type k = 0; k < order + 1; ++k) {
+                            for (size_type l = 0; l < order + 1; ++l) {
+                                after[j + k * local_step] +=
+                                    before[j * (order + 1) + l] *
+                                    poly_1d[d][l][k];
+                            }
                         }
                     }
-                    // sum over all base spline polynomial, weighted by control
-                    // points, buffer is used to adopt a modified Horner's
-                    // scheme
-                    DimArray<val_type> buffer{};
-                    // Original design loops over a combined index and calculate
-                    // index of each dimension on-the-fly, but it comes out
-                    // integer division is so expensive to be written casually.
-                    // New method is to use local_indices to store each digit of
-                    // a (order+1) radix number, essentially the same as index
-                    // of each dimension
-                    DimArray<size_type> local_indices{};
-                    for (size_type k = 0; k < local_cp.size(); k += order + 1) {
-#ifdef INTP_CELL_LAYOUT
-                        constexpr size_type first_dim = 0;
-#else
-                        constexpr size_type first_dim = dim - 1;
-#endif
-                        // unroll 1st dimension by hand, help auto vectorization
-                        for (size_type l = 0; l < order + 1; ++l) {
-                            buffer[0] += local_cp[k + l] *
-                                         poly_1d[first_dim][l]
-                                                [local_poly_order[first_dim]];
-                        }
-                        for (size_type d = 1; d < dim; ++d) {
-#ifdef INTP_CELL_LAYOUT
-                            const auto base_dim = d;
-#else
-                            const auto base_dim = dim - d - 1;
-#endif
-                            buffer[d] += buffer[d - 1] *
-                                         poly_1d[base_dim][local_indices[d]]
-                                                [local_poly_order[base_dim]];
-                            buffer[d - 1] = val_type{};
-                            if (local_indices[d]++ != order) { break; }
-                            local_indices[d] = 0;
-                        }
-                    }
-                    indices[dim] = j;
-                    polynomial_coef(indices) = buffer.back();
                 }
+                std::copy_n((dim % 2 == 0 ? local_cp : poly_buffer).begin(),
+                            local_cp.size(),
+                            polynomial_coef.begin(dim, indices));
             }
         };
 
@@ -976,8 +956,8 @@ class BSpline {
             res.push_back(thread_pool.queue_task(
                 [=]() { fill_cell(i * block_size, (i + 1) * block_size); }));
         }
-        // main thread deals with the remaining part in case hyper_surface_size
-        // not divisible by thread_num
+        // main thread deals with the remaining part in case
+        // hyper_surface_size not divisible by thread_num
         fill_cell(block_num * block_size, polynomial_coef.size());
         // wait for all tasks are complete
         for (auto&& f : res) { f.get(); }
@@ -1085,7 +1065,8 @@ class BSpline {
         const auto base_spline_values_1d =
             calc_base_spline_vals(Indices{}, knot_iters, spline_order, coords);
 
-        // combine control points and basic spline values to get spline value
+        // combine control points and basic spline values to get spline
+        // value
         val_type v{};
 #ifdef INTP_CELL_LAYOUT
         ext_ind_type ind_arr{};
@@ -1112,11 +1093,11 @@ class BSpline {
             for (size_type d = 0; d < dim; ++d) {
                 coef *= base_spline_values_1d[d][ind_arr[d]];
 
-                // Shift index array according to knot iter of each dimension.
-                // When the coordinate is out of range in some dimensions, the
-                // corresponding iterator was set to be begin or end iterator of
-                // knot vector in `get_knot_iters` method and it will be treated
-                // separately.
+                // Shift index array according to knot iter of each
+                // dimension. When the coordinate is out of range in some
+                // dimensions, the corresponding iterator was set to be
+                // begin or end iterator of knot vector in `get_knot_iters`
+                // method and it will be treated separately.
                 ind_arr[d] += knot_iters[d] == knots_begin(d) ? 0
                               : knot_iters[d] == knots_end(d)
                                   ? control_points_.dim_size(d) - order - 1
@@ -1124,7 +1105,8 @@ class BSpline {
                                         knots_begin(d), knot_iters[d])) -
                                         order;
 
-                // check periodicity, put out-of-right-boundary index to left
+                // check periodicity, put out-of-right-boundary index to
+                // left
                 if (periodicity_[d]) {
                     ind_arr[d] %= control_points_.dim_size(d);
                 }
