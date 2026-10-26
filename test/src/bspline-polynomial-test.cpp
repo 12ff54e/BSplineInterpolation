@@ -174,11 +174,19 @@ int main() {
     Assertion assertion;
     check_layout<1, 0>(assertion);
     check_layout<1, 3>(assertion);
+    check_layout<1, 4>(assertion);
+    check_layout<1, 5>(assertion);
     check_layout<2, 0>(assertion);
     check_layout<2, 2>(assertion);
     check_layout<2, 3>(assertion);
+    check_layout<2, 4>(assertion);
+    check_layout<2, 5>(assertion);
+    check_layout<3, 0>(assertion);
+    check_layout<3, 1>(assertion);
     check_layout<3, 2>(assertion);
     check_layout<3, 3>(assertion);
+    check_layout<3, 4>(assertion);
+    check_layout<3, 5>(assertion);
     check_updates(assertion);
     return assertion.status();
 }

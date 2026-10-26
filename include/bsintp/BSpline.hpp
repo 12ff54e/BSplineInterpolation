@@ -855,92 +855,112 @@ class BSpline {
 #endif
         }
         poly_type polynomial_coef(coef_dim);
+        const auto& uniform_poly = uniform_poly_coef();
 
-        auto fill_cell = [this, &polynomial_coef, &ctrl_pts, coef_dim](
-                             size_type begin, size_type end) {
-            // Storage for control points needed for local polynomial
-            // coefficient calculation
+        auto fill_cell = [this, &polynomial_coef, &ctrl_pts, coef_dim,
+                          &uniform_poly](size_type begin, size_type end) {
+            // Scratch storage for intermediate contractions and row-layout
+            // control points.
             std::array<val_type, buf_size_> local_cp;
             // Storage for 1D polynomial coefficient of each dimension, the
             // layout is (dim, base_index, order)
             DimArray<base_poly_mat_type> poly_1d;
-            // loop over hypercube, each "point" in hypercube store
-            // (order+1)^dim coefficients (flattened) of a dim dimensional
-            // polynomial
-            for (size_type i = begin; i < end; i += coef_dim.dim_size(dim)) {
-                auto indices = coef_dim.dimwise_indices(i);
-                // gather control points needed into a cell storing its local
-                // block with dimension 0 fastest. (dimension reversed)
+            DimArray<const base_poly_mat_type*> poly_1d_ptr{};
+            DimArray<size_type> previous_indices{};
+            // Each cell stores (order+1)^dim polynomial coefficients.
+            auto indices = coef_dim.dimwise_indices(begin);
+            std::array<size_type, dim + 1> acc_size{1};
+            for (size_type d = 1; d < dim + 1; ++d) {
+                acc_size[d] = acc_size[d - 1] * (order + 1);
+            }
+            for (size_type i = begin; i < end; i += buf_size_) {
+                // The local control-point block has dimension 0 fastest.
 #ifdef INTP_CELL_LAYOUT
-                std::copy_n(ctrl_pts.begin(dim, indices), local_cp.size(),
-                            local_cp.begin());
+                const auto* before_ptr =
+                    ctrl_pts.data() + ctrl_pts.dimension().indexing(indices);
 #else
                 {
                     typename ControlPointContainer::index_type cp_indices;
                     DimArray<size_type> local_indices{};
-                    for (size_type j = 0; j < coef_dim.dim_size(dim);
-                         ++j, ++local_indices[0]) {
+
+                    for (size_type j = 0, local_cp_ind = 0;
+                         j < coef_dim.dim_size(dim); ++j, ++local_indices[0],
+                                   local_cp_ind += acc_size[dim - 1]) {
                         for (size_type d = 0; d < dim; ++d) {
+                            const size_type r_d = dim - d - 1;
                             if (local_indices[d] > order) {
                                 local_indices[d] = 0;
                                 local_indices[d + 1]++;
+                                local_cp_ind = local_cp_ind -
+                                               acc_size[r_d + 1] +
+                                               acc_size[r_d - 1];
                             }
-                            const size_type cp_d = dim - d - 1;
-                            cp_indices[cp_d] =
-                                (indices[cp_d] + local_indices[d]) %
-                                ctrl_pts.dimension().dim_size(cp_d);
+                            cp_indices[r_d] =
+                                (indices[r_d] + local_indices[d]) %
+                                ctrl_pts.dim_size(r_d);
                         }
-                        local_cp[j] = ctrl_pts(cp_indices);
+                        // Read in row-major order; store in
+                        // column-major order
+                        local_cp[local_cp_ind] = ctrl_pts(cp_indices);
                     }
                 }
+                const auto* before_ptr = local_cp.data();
 #endif
 
-                // 1D base spline polynomial coefficients of each dimension
                 for (size_type d = 0; d < dim; ++d) {
+                    // Reuse each dimension's basis until its cell index
+                    // changes, since most of time only the last dimension
+                    // increases
+                    if (i != begin && indices[d] == previous_indices[d]) {
+                        continue;
+                    }
+                    previous_indices[d] = indices[d];
                     if (uniformity(d, indices[d] + order)) {
-#if __cplusplus >= 201703L
-                        poly_1d[d] = calc_uniform_poly_coef();
-#else
-                        poly_1d[d] = uniform_poly_coef();
-#endif
+                        poly_1d_ptr[d] = &uniform_poly;
                     } else {
                         poly_1d[d] = calc_local_poly_coef(knots_begin(d) +
                                                           indices[d] + order);
+                        poly_1d_ptr[d] = &poly_1d[d];
                     }
                 }
 
-                DimArray<size_type> local_poly_order{};
-                // Calculating polynomial coefficients T from control points
-                // C is done by performing a contraction between a rank-dim
-                // tensor and dim rank-2 tensor, i.e. T_{lmn...} =
+                // Calculating polynomial coefficients T from control
+                // points C is done by performing a contraction between
+                // a rank-dim tensor and dim rank-2 tensor, i.e.
+                // T_{lmn...} =
                 // \sum_{abc...}{C_{abc...}*P_{1al}*P_{2bm}*P_{3cn}*...}
 
-                // Per advice of GPT-6-Astra, transform control points as a
-                // whole, one contraction in a time, rather than calculating
-                // each component of T one by one, reducing work from
-                // approximately O((order+1)^(2*dim)) to
-                // O(dim*(order+1)^(dim+1))
-                DimArray<size_type> local_indices{};
+                // Per advice of GPT-6-Astra, transform control points
+                // as a whole, one contraction in a time, rather than
+                // calculating each component of T one by one, reducing
+                // work from approximately O((order+1)^(2*dim)) to
                 decltype(local_cp) poly_buffer;
                 constexpr auto local_step = util::pow(order + 1, dim - 1);
                 for (size_type d = 0; d < dim; ++d) {
-                    // ping-pong buffer
-                    auto& before = d % 2 == 0 ? local_cp : poly_buffer;
-                    auto& after = d % 2 == 0 ? poly_buffer : local_cp;
-                    after.fill(0);
+                    // write to polynomial_coef directly in last step
+                    auto* after_ptr = d + 1 == dim
+                                          ? polynomial_coef.data() + i
+                                          : (d % 2 == 0 ? poly_buffer.data()
+                                                        : local_cp.data());
+                    const auto& basis = *poly_1d_ptr[d];
                     for (size_type j = 0; j < local_step; ++j) {
+                        std::array<val_type, order + 1> coefs{};
                         for (size_type k = 0; k < order + 1; ++k) {
                             for (size_type l = 0; l < order + 1; ++l) {
-                                after[j + k * local_step] +=
-                                    before[j * (order + 1) + l] *
-                                    poly_1d[d][l][k];
+                                coefs[l] += before_ptr[j * (order + 1) + k] *
+                                            basis[k][l];
                             }
                         }
+                        for (size_type k = 0; k < order + 1; ++k) {
+                            after_ptr[j + k * local_step] = coefs[k];
+                        }
                     }
+                    before_ptr = after_ptr;
                 }
-                std::copy_n((dim % 2 == 0 ? local_cp : poly_buffer).begin(),
-                            local_cp.size(),
-                            polynomial_coef.begin(dim, indices));
+                for (size_type d = dim; d-- > 0;) {
+                    if (++indices[d] < coef_dim.dim_size(d)) { break; }
+                    indices[d] = 0;
+                }
             }
         };
 

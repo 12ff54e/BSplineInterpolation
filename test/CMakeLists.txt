@@ -70,6 +70,15 @@ foreach(test ${regular_tests})
     message(STATUS ${test} " from source file " ${test_src_file})
 endforeach(test ${regular_tests})
 
+add_executable(bspline-polynomial-row-test src/bspline-polynomial-test.cpp)
+target_link_libraries(bspline-polynomial-row-test PRIVATE BSplineInterpolation)
+target_include_directories(bspline-polynomial-row-test PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/include)
+add_test(NAME intp-bspline-polynomial-row-test
+    COMMAND bspline-polynomial-row-test)
+set_tests_properties(intp-bspline-polynomial-row-test PROPERTIES
+    LABELS intp-regular)
+
 # Exercise both layouts in C++11 even though the other tests use C++20.
 foreach(layout cell row)
     set(test cxx11-${layout}-test)
