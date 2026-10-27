@@ -867,16 +867,17 @@ class BSpline {
             DimArray<base_poly_mat_type> poly_1d;
             DimArray<const base_poly_mat_type*> poly_1d_ptr{};
             DimArray<size_type> previous_indices{};
-            // Each cell stores (order+1)^dim polynomial coefficients.
-            auto indices = coef_dim.dimwise_indices(begin);
+            // Each cell stores buf_size_ = (order+1)^dim polynomial
+            // coefficients.
+            auto indices = coef_dim.dimwise_indices(begin * buf_size_);
             std::array<size_type, dim + 1> acc_size{1};
             for (size_type d = 1; d < dim + 1; ++d) {
                 acc_size[d] = acc_size[d - 1] * (order + 1);
             }
-            for (size_type i = begin; i < end; i += buf_size_) {
+            for (size_type i = begin; i < end; ++i) {
                 // The local control-point block has dimension 0 fastest.
 #ifdef INTP_CELL_LAYOUT
-                const auto* before_ptr =
+                const auto* source_ptr =
                     ctrl_pts.data() + ctrl_pts.dimension().indexing(indices);
 #else
                 {
@@ -904,8 +905,10 @@ class BSpline {
                         local_cp[local_cp_ind] = ctrl_pts(cp_indices);
                     }
                 }
-                const auto* before_ptr = local_cp.data();
+                const auto* source_ptr = local_cp.data();
 #endif
+                auto* target_poly_coef_ptr =
+                    polynomial_coef.data() + i * buf_size_;
 
                 for (size_type d = 0; d < dim; ++d) {
                     // Reuse each dimension's basis until its cell index
@@ -935,15 +938,20 @@ class BSpline {
                 // calculating each component of T one by one, reducing
                 // work from approximately O((order+1)^(2*dim)) to
                 decltype(local_cp) poly_buffer;
-                constexpr auto local_step = util::pow(order + 1, dim - 1);
+                // ping-ping buffer named before-after
+                const auto* before_ptr = source_ptr;
                 for (size_type d = 0; d < dim; ++d) {
                     // write to polynomial_coef directly in last step
                     auto* after_ptr = d + 1 == dim
-                                          ? polynomial_coef.data() + i
+                                          ? target_poly_coef_ptr
                                           : (d % 2 == 0 ? poly_buffer.data()
                                                         : local_cp.data());
                     const auto& basis = *poly_1d_ptr[d];
-                    for (size_type j = 0; j < local_step; ++j) {
+                    // The non-contract indices is called a "group" (formally
+                    // speaking, a linear subspace) here. The last index get
+                    // contracted first
+                    constexpr auto group_size = util::pow(order + 1, dim - 1);
+                    for (size_type j = 0; j < group_size; ++j) {
                         std::array<val_type, order + 1> coefs{};
                         for (size_type k = 0; k < order + 1; ++k) {
                             for (size_type l = 0; l < order + 1; ++l) {
@@ -951,12 +959,15 @@ class BSpline {
                                             basis[k][l];
                             }
                         }
+                        // Indices are rotated to the right, contracted index
+                        // become the first
                         for (size_type k = 0; k < order + 1; ++k) {
-                            after_ptr[j + k * local_step] = coefs[k];
+                            after_ptr[j + k * group_size] = coefs[k];
                         }
                     }
                     before_ptr = after_ptr;
                 }
+                // go to next cell
                 for (size_type d = dim; d-- > 0;) {
                     if (++indices[d] < coef_dim.dim_size(d)) { break; }
                     indices[d] = 0;
@@ -964,25 +975,35 @@ class BSpline {
             }
         };
 
+        // "cell" is a set of buf_size_ coefficients that being calculated
+        // together
+        const auto cell_num = polynomial_coef.size() / buf_size_;
 #ifdef INTP_MULTITHREAD
-        const auto block_size =
-            polynomial_coef.size() / coef_dim.dim_size(0) * (order + 1) * 2;
-        const auto block_num = polynomial_coef.size() / block_size;
-
         auto& thread_pool = DedicatedThreadPool<void>::get_instance(8);
+        // Cap maximum task number to reduce packaged_task overhead
+        const auto max_task_num = 32 * thread_pool.thread_num();
+        // Each task contains at least 4096 coefficients, except the last one.
+        // This is effectively another maximum task number cap.
+        // Thus "cell" per task has two minimum, take the larger one
+        const auto cell_per_tasks =
+            std::max<size_type>((1 << 12) / buf_size_,
+                                (cell_num + max_task_num - 1) / max_task_num);
+        const auto task_num = (cell_num + cell_per_tasks - 1) / cell_per_tasks;
         std::vector<std::future<void>> res;
+        res.reserve(task_num - 1);
 
-        for (size_type i = 0; i < block_num; ++i) {
-            res.push_back(thread_pool.queue_task(
-                [=]() { fill_cell(i * block_size, (i + 1) * block_size); }));
+        for (size_type i = 1; i < task_num; ++i) {
+            res.push_back(thread_pool.queue_task([=]() {
+                fill_cell(i * cell_per_tasks,
+                          std::min((i + 1) * cell_per_tasks, cell_num));
+            }));
         }
-        // main thread deals with the remaining part in case
-        // hyper_surface_size not divisible by thread_num
-        fill_cell(block_num * block_size, polynomial_coef.size());
-        // wait for all tasks are complete
+        fill_cell(0, std::min(cell_per_tasks, cell_num));
+        // Wait for every task before returning its coefficient
+        // storage.
         for (auto&& f : res) { f.get(); }
 #else
-        fill_cell(0, polynomial_coef.size());
+        fill_cell(0, cell_num);
 #endif
 
         return polynomial_coef;
