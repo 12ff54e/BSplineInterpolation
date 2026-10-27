@@ -1,11 +1,15 @@
 #ifndef INTP_THREAD_POOL
 #define INTP_THREAD_POOL
 
-#include <future>   //unique_lock, packaged_task
-#include <mutex>    // mutex
-#include <queue>    // deque
+#include <condition_variable>
+#include <deque>
+#include <future>  // packaged_task
+#include <memory>
+#include <mutex>  // unique_lock, mutex
+#include <queue>
 #include <thread>   // hardware_concurrency
 #include <utility>  // move
+#include <vector>
 
 #ifdef INTP_DEBUG
 #include <iostream>
@@ -285,6 +289,20 @@ thread_local std::size_t DedicatedThreadPool<T>::thread_idx{};
 template <typename T>
 thread_local typename DedicatedThreadPool<T>::shared_working_queue*
     DedicatedThreadPool<T>::worker_queue_ptr{};
+#endif
+
+#ifndef INTP_CUSTOM_PARALLEL_BACKEND
+/** Submit one void task to the default worker pool. */
+template <typename Func>
+std::future<void> parallel_submit(Func&& task) {
+    return DedicatedThreadPool<void>::get_instance(8).queue_task(
+        std::forward<Func>(task));
+}
+
+/** Finish one task and propagate its exception, if any. */
+inline void parallel_wait(std::future<void>& task) {
+    task.get();
+}
 #endif
 
 }  // namespace intp

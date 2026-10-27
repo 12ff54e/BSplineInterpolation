@@ -72,13 +72,61 @@ scales any stored polynomial coefficients.
 You can control the bahavior of this library by defining the following macros:
 
 - `INTP_TRACE`, `INTP_DEBUG`: Defines levels of logging, with decreasing verbosity.
-- `INTP_MULTITHREAD`: Multi-threading in solving control points.
+- `INTP_MULTITHREAD`: Parallel control-point solving, cell-layout construction,
+  and polynomial coefficient generation.
+- `INTP_CUSTOM_PARALLEL_BACKEND`: The consumer supplies `intp::parallel_submit`
+  and `intp::parallel_wait` instead of the default worker-pool wrappers.
 - `INTP_ENABLE_ASSERTION`: Add assertion to ensure data to be interplolated is valid.
 - `INTP_PERIODIC_NO_DUMMY_POINT`: Whether to accept dummy point when interpolating periodic data. If this macro is defined, number of data point is one less than the specified dimension, since the last point is implicitly set as the same of the first one.
 - `INTP_STACK_ALLOCATOR`: Use stack allocator in some small dynamic memory allocation scenario.
 - `INTP_CELL_LAYOUT`: Store weights in cell layout redundantly to speed up evaluation.
 
 By default all of the above macros is not defined.
+
+### Custom parallel backend
+
+Define both `INTP_MULTITHREAD` and `INTP_CUSTOM_PARALLEL_BACKEND`, then define
+these hooks in namespace `intp` before including the spline headers:
+
+```cpp
+template <typename Func>
+std::future<void> parallel_submit(Func&& task);
+
+void parallel_wait(std::future<void>& task);
+```
+
+For example, an adapter header can provide the definitions:
+
+```cpp
+#define INTP_MULTITHREAD
+#define INTP_CUSTOM_PARALLEL_BACKEND
+#include "my_parallel_backend.hpp"
+#include <bsintp/Interpolation.hpp>
+```
+
+Use the same configuration and hook definitions in every translation unit.
+Mark a header-defined `parallel_wait` as `inline`. An adapter may include
+`bsintp/DedicatedThreadPool.hpp` before defining the hooks; the macro suppresses
+only the default wrappers. The pool class remains available, and including it
+does not create workers.
+
+`parallel_submit` must return a valid `std::future<void>`, or throw without
+leaving untracked work. `parallel_wait` must finish that task before returning
+or propagating its error. It may consume the future. For nested work on a
+shared pool, the wait hook must let the scheduler make progress, for example
+by executing queued tasks. Waiting for the whole pool to become idle can
+include the waiting parent itself and deadlock.
+
+The library waits for all accepted tasks before releasing their buffers,
+including when submission or work on the calling thread throws. Polynomial
+construction uses at most 256 chunks, independent of the backend's worker
+count. This is a task cap, not a concurrency limit.
+
+Without `INTP_CUSTOM_PARALLEL_BACKEND`, the hooks use
+`DedicatedThreadPool<void>::get_instance(8)` and `future.get()`. This preserves
+the default pool's blocking waits; it does not make that backend safe for
+nested waits on its own workers. Defining only `INTP_CUSTOM_PARALLEL_BACKEND`
+does not enable parallel execution.
 
 ### Matlab Interface
 

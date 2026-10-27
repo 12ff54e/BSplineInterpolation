@@ -7,7 +7,7 @@
 #include "util.hpp"
 
 #ifdef INTP_MULTITHREAD
-#include "DedicatedThreadPool.hpp"
+#include "Parallel.hpp"
 #endif
 
 #if __cplusplus >= 201703L
@@ -561,22 +561,21 @@ class InterpolationFunctionTemplate {
             const size_type task_per_block =
                 block_num == 0 ? hyperplane_size : hyperplane_size / block_num;
 
-            auto& thread_pool = DedicatedThreadPool<void>::get_instance(8);
-            std::vector<std::future<void>> res;
+            detail::ParallelTasks tasks(block_num);
 
             for (size_type i = 0; i < block_num; ++i) {
                 // use thread pool here may seem to be a bit overhead
-                res.push_back(thread_pool.queue_task([=]() {
+                tasks.submit([=]() {
                     solve_and_rearrange_block(i * task_per_block,
                                               (i + 1) * task_per_block);
-                }));
+                });
             }
             // main thread deals with the remaining part in case hyperplane_size
             // not divisible by thread_num
             solve_and_rearrange_block(block_num * task_per_block,
                                       hyperplane_size);
             // wait for all tasks are complete
-            for (auto&& f : res) { f.get(); }
+            tasks.wait();
 #else
             solve_and_rearrange_block(0, hyperplane_size);
 #endif  // INTP_MULTITHREAD

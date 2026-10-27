@@ -11,7 +11,7 @@
 #include <vector>
 
 #ifdef INTP_MULTITHREAD
-#include "DedicatedThreadPool.hpp"
+#include "Parallel.hpp"
 #endif
 
 #ifdef INTP_DEBUG
@@ -816,19 +816,18 @@ class BSpline {
                                              ? hyper_surface_size
                                              : hyper_surface_size / block_num;
 
-        auto& thread_pool = DedicatedThreadPool<void>::get_instance(8);
-        std::vector<std::future<void>> res;
+        detail::ParallelTasks tasks(block_num);
 
         for (size_type i = 0; i < block_num; ++i) {
-            res.push_back(thread_pool.queue_task([=]() {
+            tasks.submit([=]() {
                 fill_cell(i * task_per_block, (i + 1) * task_per_block);
-            }));
+            });
         }
         // main thread deals with the remaining part in case hyper_surface_size
         // not divisible by thread_num
         fill_cell(block_num * task_per_block, hyper_surface_size);
         // wait for all tasks are complete
-        for (auto&& f : res) { f.get(); }
+        tasks.wait();
 #else
         fill_cell(0, hyper_surface_size);
 #endif  // INTP_MULTITHREAD
@@ -979,9 +978,8 @@ class BSpline {
         // together
         const auto cell_num = polynomial_coef.size() / buf_size_;
 #ifdef INTP_MULTITHREAD
-        auto& thread_pool = DedicatedThreadPool<void>::get_instance(8);
-        // Cap maximum task number to reduce packaged_task overhead
-        const auto max_task_num = 32 * thread_pool.thread_num();
+        // Bound task overhead independently of the selected backend's workers.
+        constexpr size_type max_task_num = 256;
         // Each task contains at least 4096 coefficients, except the last one.
         // This is effectively another maximum task number cap.
         // Thus "cell" per task has two minimum, take the larger one
@@ -989,19 +987,18 @@ class BSpline {
             std::max<size_type>((1 << 12) / buf_size_,
                                 (cell_num + max_task_num - 1) / max_task_num);
         const auto task_num = (cell_num + cell_per_tasks - 1) / cell_per_tasks;
-        std::vector<std::future<void>> res;
-        res.reserve(task_num - 1);
+        detail::ParallelTasks tasks(task_num - 1);
 
         for (size_type i = 1; i < task_num; ++i) {
-            res.push_back(thread_pool.queue_task([=]() {
+            tasks.submit([=]() {
                 fill_cell(i * cell_per_tasks,
                           std::min((i + 1) * cell_per_tasks, cell_num));
-            }));
+            });
         }
         fill_cell(0, std::min(cell_per_tasks, cell_num));
         // Wait for every task before returning its coefficient
         // storage.
-        for (auto&& f : res) { f.get(); }
+        tasks.wait();
 #else
         fill_cell(0, cell_num);
 #endif
