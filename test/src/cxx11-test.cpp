@@ -80,6 +80,39 @@ void check_interpolation(bool uniform, Assertion& assertion) {
             }
         }
     }
+#ifdef INTP_CELL_LAYOUT
+    const auto old_proxy = interpolation.eval_proxy({{.37}});
+#endif
+    interpolation.release_control_points();
+    interpolation.release_control_points();
+    interpolation.generate_polynomial_form();
+    assertion(interpolation.spline().control_points().size() == 0 &&
+                  interpolation.spline().has_polynomial(),
+              "C++11 interpolation must release only control points");
+    for (const auto x : {0., .17, .5, .93, 1.}) {
+        assertion(std::abs(interpolation(x) - cubic(x, 0)) < 1e-11,
+                  "Released interpolation must reproduce a cubic");
+        for (std::size_t derivative = 0; derivative <= 4; ++derivative) {
+            assertion(
+                std::abs(interpolation.derivative_at({{x}}, {{derivative}}) -
+                         cubic(x, derivative)) < 1e-10,
+                "Released derivatives must match the analytic cubic");
+        }
+    }
+    interpolation.scale_coefficients(-2.);
+    assertion(std::abs(interpolation(.37) + 2. * cubic(.37, 0)) < 1e-11,
+              "Scaling must work after releasing control points");
+#ifdef INTP_CELL_LAYOUT
+    const auto new_proxy = interpolation.eval_proxy({{.37}});
+    for (const auto& proxy : {old_proxy, new_proxy}) {
+        bool rejected = false;
+        try {
+            proxy(interpolation.spline());
+        } catch (const std::invalid_argument&) { rejected = true; }
+        assertion(rejected,
+                  "Control-point proxies must reject a released spline");
+    }
+#endif
 }
 
 void check_complex_derivatives(Assertion& assertion) {
@@ -102,6 +135,8 @@ void check_complex_derivatives(Assertion& assertion) {
         if (polynomial) {
             spline1.generate_polynomial_form();
             spline2.generate_polynomial_form();
+            spline1.release_control_points();
+            spline2.release_control_points();
         }
         const double x = .37;
         const double y = .61;

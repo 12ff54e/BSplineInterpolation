@@ -67,6 +67,22 @@ Loading new knots or control points clears the polynomial coefficients. Call
 `generate_polynomial_form()` again to rebuild them. Scaling control points also
 scales any stored polynomial coefficients.
 
+After generating the polynomial form, release control-point storage if only
+polynomial evaluation is needed:
+
+```cpp
+func.generate_polynomial_form();
+func.release_control_points();  // Also available directly on BSpline.
+```
+
+This frees the control-point allocation, rather than only setting its size to
+zero. Values, derivatives and scaling still work. Repeating either call keeps
+the polynomial coefficients. Releasing nonempty controls without polynomial
+coefficients throws `std::logic_error`; releasing an empty spline does nothing.
+Control-point evaluation proxies cannot evaluate a spline after release. To
+change its knots, first load new control points with `load_ctrlPts()`; a rejected
+knot change leaves the spline intact.
+
 ### Modify Library's Behavior
 
 You can control the bahavior of this library by defining the following macros:

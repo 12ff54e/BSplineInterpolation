@@ -6,7 +6,7 @@
 #include <cmath>        // fmod
 #include <functional>   // ref
 #include <iterator>     // distance
-#include <stdexcept>    // invalid_argument
+#include <stdexcept>    // invalid_argument, logic_error
 #include <type_traits>  // is_same, is_arithmatic
 #include <vector>
 
@@ -336,6 +336,10 @@ class BSpline {
                      KnotContainer>::value,
         void>::type
     load_knots(size_type dim_ind, C&& _knots) {
+        if (control_points_.size() == 0 && has_polynomial()) {
+            throw std::logic_error(
+                "Load control points before changing knots after release");
+        }
         knots_[dim_ind] = std::forward<C>(_knots);
         uniform_[dim_ind] = false;
         knot_spacing_inv_[dim_ind] = knot_type{};
@@ -381,9 +385,29 @@ class BSpline {
      * @brief Compute polynomial coefficients from the stored control points.
      * Values and derivatives use these coefficients until knots or control
      * points are replaced. Calling this on an empty spline has no effect.
+     * Existing coefficients are kept if control points have been released.
      */
     void generate_polynomial_form() {
+        if (control_points_.size() == 0) { return; }
         poly_coefs_ = calc_spline_poly_coef(control_points_);
+    }
+
+    /**
+     * @brief Free control-point storage after generating polynomial
+     * coefficients. Values, derivatives and scaling keep using the polynomial
+     * form. Evaluation proxies require control points. Load new control points
+     * before changing knots. Repeated calls and empty splines have no effect.
+     * @throws std::logic_error if nonempty controls have no polynomial form.
+     */
+    void release_control_points() {
+        if (control_points_.size() == 0) { return; }
+        if (!has_polynomial()) {
+            throw std::logic_error(
+                "Generate polynomial coefficients before releasing control "
+                "points");
+        }
+        // resize(0) would retain the vector's allocation.
+        control_points_ = control_point_type(size_type{});
     }
 
     // Multiplying every control point scales the spline and all of its

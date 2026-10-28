@@ -120,6 +120,15 @@ void check_layout(Assertion& assertion) {
                           intp::util::pow(order + 1, dim),
                       "Each cell must store every polynomial coefficient");
             check_splines(spline, reference, assertion);
+            const auto* coefficients = spline.polynomial_coef().data();
+            spline.release_control_points();
+            spline.release_control_points();
+            spline.generate_polynomial_form();
+            assertion(spline.control_points().size() == 0 &&
+                          spline.has_polynomial() &&
+                          spline.polynomial_coef().data() == coefficients,
+                      "Release must keep the existing polynomial coefficients");
+            check_splines(spline, reference, assertion);
         }
     }
 }
@@ -128,17 +137,48 @@ void check_updates(Assertion& assertion) {
     using Spline = intp::BSpline<double, 1, 3>;
     Spline empty;
     empty.generate_polynomial_form();
+    empty.release_control_points();
     assertion(!empty.has_polynomial(),
               "An empty spline must not acquire polynomial coefficients");
 
     Spline::ControlPointContainer cp(16);
     for (std::size_t i = 0; i < cp.size(); ++i) { cp(i) = std::sin(.5 * i); }
     auto knots = make_knots(cp.size(), Spline::order, false, true);
+    empty.load_knots(0, knots);
+    assertion(empty.control_points().size() == 0 && !empty.has_polynomial() &&
+                  empty.knots_num(0) == knots.size(),
+              "An empty metadata spline must still accept knots");
     Spline spline(cp, intp::util::get_range(knots));
     spline.set_uniform(0);
     auto reference = spline;
+    bool rejected = false;
+    try {
+        spline.release_control_points();
+    } catch (const std::logic_error&) { rejected = true; }
+    assertion(rejected && spline.control_points().size() > 0,
+              "Release without coefficients must preserve control points");
+    check_splines(spline, reference, assertion);
     spline.generate_polynomial_form();
     spline.generate_polynomial_form();
+    spline.release_control_points();
+    check_splines(spline, reference, assertion);
+    auto copy = spline;
+    const auto moved = std::move(copy);
+    check_splines(moved, reference, assertion);
+
+    const auto saved_knots = knots;
+    const auto saved_range = spline.range(0);
+    auto new_knots = make_knots(cp.size(), Spline::order, false, false);
+    rejected = false;
+    try {
+        spline.load_knots(0, new_knots);
+    } catch (const std::logic_error&) { rejected = true; }
+    assertion(rejected && spline.has_polynomial() &&
+                  spline.range(0) == saved_range &&
+                  spline.knots_num(0) == saved_knots.size() &&
+                  std::equal(spline.knots_begin(0), spline.knots_end(0),
+                             saved_knots.begin()),
+              "Rejected knot replacement must preserve the spline");
     check_splines(spline, reference, assertion);
 
     spline.scale_control_points(-2.);
@@ -149,7 +189,7 @@ void check_updates(Assertion& assertion) {
 
     for (std::size_t i = 0; i < cp.size(); ++i) { cp(i) = std::cos(.3 * i); }
     spline.load_ctrlPts(cp);
-    assertion(!spline.has_polynomial(),
+    assertion(!spline.has_polynomial() && spline.control_points().size() > 0,
               "Replacing control points must clear polynomial coefficients");
     reference = Spline(cp, intp::util::get_range(knots));
     check_splines(spline, reference, assertion);

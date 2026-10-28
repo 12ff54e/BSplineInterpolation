@@ -272,6 +272,13 @@ class InterpolationFunction {
      */
     void generate_polynomial_form() { spline_.generate_polynomial_form(); }
 
+    /**
+     * @brief Free control-point storage; requires polynomial coefficients.
+     * Ordinary values and derivatives remain available; evaluation proxies do
+     * not. See BSpline::release_control_points().
+     */
+    void release_control_points() { spline_.release_control_points(); }
+
     // Scale the already solved B-spline coefficients. This does not change
     // knots or the interpolation domain.
     void scale_coefficients(coord_type factor) {
