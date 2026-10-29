@@ -559,23 +559,9 @@ class InterpolationFunctionTemplate {
             const size_type block_num = static_cast<size_type>(
                 std::sqrt(static_cast<double>(hyperplane_size)));
             const size_type task_per_block =
-                block_num == 0 ? hyperplane_size : hyperplane_size / block_num;
-
-            detail::ParallelTasks tasks(block_num);
-
-            for (size_type i = 0; i < block_num; ++i) {
-                // use thread pool here may seem to be a bit overhead
-                tasks.submit([=]() {
-                    solve_and_rearrange_block(i * task_per_block,
-                                              (i + 1) * task_per_block);
-                });
-            }
-            // main thread deals with the remaining part in case hyperplane_size
-            // not divisible by thread_num
-            solve_and_rearrange_block(block_num * task_per_block,
-                                      hyperplane_size);
-            // wait for all tasks are complete
-            tasks.wait();
+                block_num == 0 ? 1 : hyperplane_size / block_num;
+            intp::parallel_for(hyperplane_size, task_per_block,
+                               solve_and_rearrange_block);
 #else
             solve_and_rearrange_block(0, hyperplane_size);
 #endif  // INTP_MULTITHREAD

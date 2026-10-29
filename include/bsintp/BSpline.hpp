@@ -837,21 +837,9 @@ class BSpline {
         const size_type block_num = static_cast<size_type>(
             std::sqrt(static_cast<double>(hyper_surface_size)));
         const size_type task_per_block = block_num == 0
-                                             ? hyper_surface_size
+                                             ? 1
                                              : hyper_surface_size / block_num;
-
-        detail::ParallelTasks tasks(block_num);
-
-        for (size_type i = 0; i < block_num; ++i) {
-            tasks.submit([=]() {
-                fill_cell(i * task_per_block, (i + 1) * task_per_block);
-            });
-        }
-        // main thread deals with the remaining part in case hyper_surface_size
-        // not divisible by thread_num
-        fill_cell(block_num * task_per_block, hyper_surface_size);
-        // wait for all tasks are complete
-        tasks.wait();
+        intp::parallel_for(hyper_surface_size, task_per_block, fill_cell);
 #else
         fill_cell(0, hyper_surface_size);
 #endif  // INTP_MULTITHREAD
@@ -1002,27 +990,16 @@ class BSpline {
         // together
         const auto cell_num = polynomial_coef.size() / buf_size_;
 #ifdef INTP_MULTITHREAD
-        // Bound task overhead independently of the selected backend's workers.
+        // Default grain keeps task overhead bounded. Custom backends may
+        // repartition the range to suit their worker budget.
         constexpr size_type max_task_num = 256;
-        // Each task contains at least 4096 coefficients, except the last one.
-        // This is effectively another maximum task number cap.
-        // Thus "cell" per task has two minimum, take the larger one
+        // Aim for at least 4096 coefficients per default chunk, except the
+        // last one, and no more than max_task_num chunks.
         const auto cell_per_tasks =
             std::max<size_type>((1 << 12) / buf_size_,
                                 (cell_num + max_task_num - 1) / max_task_num);
-        const auto task_num = (cell_num + cell_per_tasks - 1) / cell_per_tasks;
-        detail::ParallelTasks tasks(task_num - 1);
-
-        for (size_type i = 1; i < task_num; ++i) {
-            tasks.submit([=]() {
-                fill_cell(i * cell_per_tasks,
-                          std::min((i + 1) * cell_per_tasks, cell_num));
-            });
-        }
-        fill_cell(0, std::min(cell_per_tasks, cell_num));
-        // Wait for every task before returning its coefficient
-        // storage.
-        tasks.wait();
+        intp::parallel_for(cell_num, std::max<size_type>(1, cell_per_tasks),
+                           fill_cell);
 #else
         fill_cell(0, cell_num);
 #endif

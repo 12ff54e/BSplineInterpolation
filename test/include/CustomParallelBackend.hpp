@@ -1,14 +1,17 @@
 #ifndef INTP_TEST_CUSTOM_PARALLEL_BACKEND
 #define INTP_TEST_CUSTOM_PARALLEL_BACKEND
 
-// This include order lets adapters reuse the pool type before defining hooks.
+// Adapters may include the pool type before defining the range hook.
 #include "bsintp/DedicatedThreadPool.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <deque>
+#include <exception>
 #include <future>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 #if !defined(INTP_MULTITHREAD) || !defined(INTP_CUSTOM_PARALLEL_BACKEND)
 #error "This adapter requires both parallel configuration macros"
@@ -17,7 +20,7 @@
 namespace parallel_test {
 
 // A single worker executes queued tasks only while waiting. A nested spline
-// construction would deadlock if any library join bypassed the wait hook.
+// construction would deadlock if a range join did not make progress.
 class Backend {
    public:
     std::size_t submitted = 0;
@@ -25,6 +28,39 @@ class Backend {
     std::size_t waited = 0;
     std::size_t fail_submission = 0;
     std::size_t fail_execution = 0;
+
+    template <typename Func>
+    void parallel_for(std::size_t count,
+                      std::size_t grain,
+                      const Func& function) {
+        if (grain == 0) {
+            throw std::invalid_argument("parallel_for grain must be positive");
+        }
+        if (count == 0) { return; }
+        // Deliberately ignore the hint and queue every range, including small
+        // ones. The spline must accept the backend's partition boundaries.
+        const std::size_t chunk_size = 7;
+        const auto task_num = 1 + (count - 1) / chunk_size;
+        std::vector<std::future<void>> tasks;
+        tasks.reserve(task_num);
+        std::exception_ptr error;
+        try {
+            for (std::size_t i = 0; i < task_num; ++i) {
+                const auto begin = i * chunk_size;
+                const auto end = begin + std::min(chunk_size, count - begin);
+                tasks.push_back(
+                    submit([&function, begin, end] { function(begin, end); }));
+            }
+        } catch (...) { error = std::current_exception(); }
+        for (auto& task : tasks) {
+            try {
+                wait(task);
+            } catch (...) {
+                if (!error) { error = std::current_exception(); }
+            }
+        }
+        if (error) { std::rethrow_exception(error); }
+    }
 
     template <typename Func>
     std::future<void> submit(Func&& func) {
@@ -83,12 +119,8 @@ inline Backend& backend() {
 namespace intp {
 
 template <typename Func>
-std::future<void> parallel_submit(Func&& task) {
-    return parallel_test::backend().submit(std::forward<Func>(task));
-}
-
-inline void parallel_wait(std::future<void>& task) {
-    parallel_test::backend().wait(task);
+void parallel_for(std::size_t count, std::size_t grain, const Func& function) {
+    parallel_test::backend().parallel_for(count, grain, function);
 }
 
 }  // namespace intp

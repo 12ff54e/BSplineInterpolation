@@ -99,7 +99,20 @@ foreach(layout cell row)
     set_tests_properties(intp-${test} PROPERTIES LABELS "intp-regular;intp-cxx11")
 endforeach()
 
-# Custom hooks must work in C++11, in either layout and across translation units.
+add_executable(parallel-test src/parallel-test.cpp)
+set_target_properties(parallel-test PROPERTIES
+    CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+target_link_libraries(parallel-test PRIVATE BSplineInterpolation)
+target_include_directories(parallel-test PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
+target_compile_definitions(parallel-test PRIVATE INTP_MULTITHREAD)
+if(NOT MSVC AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(parallel-test PRIVATE -pedantic-errors)
+endif()
+add_test(NAME intp-parallel-test COMMAND parallel-test)
+set_tests_properties(intp-parallel-test PROPERTIES
+    LABELS "intp-regular;intp-cxx11;intp-parallel" TIMEOUT 30)
+
+# The custom hook must work in C++11, both layouts and across translation units.
 foreach(layout cell row)
     set(test custom-parallel-${layout}-test)
     add_executable(${test} src/custom-parallel-test.cpp

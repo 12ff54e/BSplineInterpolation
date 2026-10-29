@@ -291,20 +291,6 @@ thread_local typename DedicatedThreadPool<T>::shared_working_queue*
     DedicatedThreadPool<T>::worker_queue_ptr{};
 #endif
 
-#ifndef INTP_CUSTOM_PARALLEL_BACKEND
-/** Submit one void task to the default worker pool. */
-template <typename Func>
-std::future<void> parallel_submit(Func&& task) {
-    return DedicatedThreadPool<void>::get_instance(8).queue_task(
-        std::forward<Func>(task));
-}
-
-/** Finish one task and propagate its exception, if any. */
-inline void parallel_wait(std::future<void>& task) {
-    task.get();
-}
-#endif
-
 }  // namespace intp
 
 #endif  // INTP_THREAD_POOL
