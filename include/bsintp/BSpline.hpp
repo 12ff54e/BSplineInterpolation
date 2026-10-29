@@ -18,8 +18,8 @@
 #include <iostream>
 #endif
 
+#include "Allocator.hpp"
 #include "Mesh.hpp"
-#include "aligned-allocator.hpp"
 #include "util.hpp"
 
 namespace intp {
@@ -48,14 +48,14 @@ class BSpline {
              dim,
              util::default_init_allocator<
                  val_type,
-                 AlignedAllocator<val_type, Alignment::AVX>>>;
+                 BufferAllocator<val_type>>>;
 #ifdef INTP_CELL_LAYOUT
     using ControlPointCellContainer =
         Mesh<val_type,
              dim + 1,
              util::default_init_allocator<
                  val_type,
-                 AlignedAllocator<val_type, Alignment::AVX>>>;
+                 BufferAllocator<val_type>>>;
     using control_point_type = ControlPointCellContainer;
 #else
     using control_point_type = ControlPointContainer;
@@ -65,7 +65,7 @@ class BSpline {
              dim + 1,
              util::default_init_allocator<
                  val_type,
-                 AlignedAllocator<val_type, Alignment::AVX>>>;
+                 BufferAllocator<val_type>>>;
     using poly_type = SplinePoynomialCoefficientContainer;
 
     using BaseSpline = std::array<knot_type, order + 1>;

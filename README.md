@@ -92,6 +92,8 @@ You can control the bahavior of this library by defining the following macros:
   and polynomial coefficient generation.
 - `INTP_CUSTOM_PARALLEL_BACKEND`: The consumer supplies `intp::parallel_for`
   instead of the default worker-pool wrapper.
+- `INTP_CUSTOM_ALLOCATOR`: The consumer supplies `intp::BufferAllocator<T>`
+  for control-point and polynomial coefficient buffers.
 - `INTP_ENABLE_ASSERTION`: Add assertion to ensure data to be interplolated is valid.
 - `INTP_PERIODIC_NO_DUMMY_POINT`: Whether to accept dummy point when interpolating periodic data. If this macro is defined, number of data point is one less than the specified dimension, since the last point is implicitly set as the same of the first one.
 - `INTP_STACK_ALLOCATOR`: Use stack allocator in some small dynamic memory allocation scenario.
@@ -145,6 +147,46 @@ Without `INTP_CUSTOM_PARALLEL_BACKEND`, `parallel_for` uses those hints,
 waits. It computes the first chunk on the caller and submits the rest. This
 default backend remains unsuitable for nested waits on its own workers.
 Defining only `INTP_CUSTOM_PARALLEL_BACKEND` does not enable parallel execution.
+
+### Custom buffer allocator
+
+Define `INTP_CUSTOM_ALLOCATOR` and the allocator alias before including the
+spline headers, using the same definition in every translation unit:
+
+```cpp
+#define INTP_CUSTOM_ALLOCATOR
+#include "my_allocator.hpp"
+namespace intp {
+template <typename T>
+using BufferAllocator = MyAllocator<T>;
+}
+#include <bsintp/Interpolation.hpp>
+```
+
+Without this macro, `BufferAllocator<T>` is
+`AlignedAllocator<T, Alignment::AVX>`, preserving the default container types.
+The hook does not depend on `INTP_MULTITHREAD` or change the template parameters
+of `BSpline`, `InterpolationFunction`, or `InterpolationFunctionTemplate`.
+
+The allocator supplies the two control-point solve buffers, cell-layout
+storage, and polynomial coefficient storage. It does not replace allocators
+for input meshes, knots, solver matrices, or scheduler tasks. Small fixed-size
+scratch arrays remain on the stack. The existing initialization behavior and
+`util::default_init_allocator` adaptor remain unchanged.
+
+Supply a default-constructible standard allocator with copy, rebind, equality,
+and propagation behavior appropriate to its ownership. Preserve the default
+32-byte alignment (or a greater alignment required by the value type).
+Allocation may occur concurrently in separate spline constructions.
+Deallocation must not throw and must use the resource captured by the
+allocator, even on another thread or after the current resource changes.
+
+These are not all temporary allocations: the solve result becomes the retained
+control points in row layout; cell controls and polynomial coefficients also
+outlive construction. A stateful allocator must keep its resource valid until
+the last owning container releases it. A constructor-local arena cannot be
+reset while any of these buffers remain live. Both solve buffers use the hook
+because either one can become the result, depending on dimension.
 
 ### Matlab Interface
 

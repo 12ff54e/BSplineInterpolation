@@ -295,6 +295,25 @@ struct default_init_allocator : public A {
 
     using A::A;
 
+    default_init_allocator() = default;
+    default_init_allocator(const A& alloc) noexcept(
+        std::is_nothrow_copy_constructible<A>::value)
+        : A(alloc) {}
+    default_init_allocator(A&& alloc) noexcept(
+        std::is_nothrow_move_constructible<A>::value)
+        : A(std::move(alloc)) {}
+
+    template <typename U, typename B>
+    default_init_allocator(const default_init_allocator<U, B>& alloc) noexcept(
+        std::is_nothrow_constructible<A, const B&>::value)
+        : A(static_cast<const B&>(alloc)) {}
+
+    default_init_allocator select_on_container_copy_construction() const {
+        return default_init_allocator(
+            std::allocator_traits<A>::select_on_container_copy_construction(
+                *this));
+    }
+
     // default initialization
     template <typename U>
     void construct(U* ptr) noexcept(

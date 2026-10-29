@@ -10,6 +10,11 @@
 static_assert(__cplusplus == 201103L, "This test must compile in C++11 mode");
 #endif
 
+static_assert(
+    std::is_same<intp::BufferAllocator<double>,
+                 intp::AlignedAllocator<double, intp::Alignment::AVX>>::value,
+    "The default buffer allocator must preserve the original type");
+
 namespace {
 
 double cubic(double x, std::size_t derivative) {

@@ -136,6 +136,32 @@ foreach(layout cell row)
         LABELS "intp-regular;intp-cxx11;intp-parallel" TIMEOUT 30)
 endforeach()
 
+# Stateful allocation must work through the default-initialization adaptor in
+# C++11, with either layout and with or without the parallel wrapper.
+foreach(layout cell row)
+    foreach(execution serial parallel)
+        set(test custom-allocator-${layout}-${execution}-test)
+        add_executable(${test} src/custom-allocator-test.cpp)
+        set_target_properties(${test} PROPERTIES
+            CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+        target_link_libraries(${test} PRIVATE BSplineInterpolation)
+        if(layout STREQUAL cell)
+            target_compile_definitions(${test} PRIVATE INTP_CELL_LAYOUT)
+        endif()
+        if(execution STREQUAL serial)
+            target_compile_definitions(${test} PRIVATE INTP_ALLOCATOR_TEST_SERIAL)
+        else()
+            target_compile_definitions(${test} PRIVATE INTP_MULTITHREAD)
+        endif()
+        if(NOT MSVC AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            target_compile_options(${test} PRIVATE -pedantic-errors)
+        endif()
+        add_test(NAME intp-${test} COMMAND ${test})
+        set_tests_properties(intp-${test} PROPERTIES
+            LABELS "intp-regular;intp-cxx11;intp-allocator" TIMEOUT 30)
+    endforeach()
+endforeach()
+
 if(CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL RelWithDebInfo)
     message(STATUS)
     list(LENGTH speed_tests test_num)
