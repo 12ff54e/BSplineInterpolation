@@ -39,9 +39,14 @@ template <typename T>
 class TestAllocator {
    public:
     using value_type = T;
+#ifdef INTP_ALLOCATOR_TEST_NONPROPAGATING
+    using propagate_on_container_move_assignment = std::false_type;
+    using propagate_on_container_swap = std::false_type;
+#else
     using propagate_on_container_move_assignment = std::true_type;
-    using propagate_on_container_copy_assignment = std::false_type;
     using propagate_on_container_swap = std::true_type;
+#endif
+    using propagate_on_container_copy_assignment = std::false_type;
 
     template <typename U>
     struct rebind {
@@ -165,15 +170,25 @@ void check_lifetime() {
                       32 ==
                   0,
               "polynomial coefficients lost their alignment");
+        const auto* coefficients = function.spline().polynomial_coef().data();
         function.release_control_points();
-        check(first->live.empty(), "release used the current resource");
+        check(first->live.size() + second->live.size() == 1,
+              "release retained the control-point allocation");
+        function.release_control_points();
+        function.generate_polynomial_form();
+        check(function.spline().control_points().size() == 0 &&
+                  function.spline().polynomial_coef().data() == coefficients,
+              "repeated release changed the polynomial coefficients");
         check_value(function);
 
         // Exercise the adaptor, including a base allocator that returns a
         // different resource from select_on_container_copy_construction().
-        second->copy_target = first;
+        const auto coefficient_resource = first->live.empty() ? second : first;
+        const auto copy_resource = first->live.empty() ? first : second;
+        coefficient_resource->copy_target = copy_resource;
         auto copy = function;
-        check(!first->live.empty(), "copy selection lost allocator state");
+        check(!copy_resource->live.empty(),
+              "copy selection lost allocator state");
         copy.scale_coefficients(2.);
         check_value(function);
         Function moved;

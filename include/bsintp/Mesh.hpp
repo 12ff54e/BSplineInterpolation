@@ -285,6 +285,8 @@ class Mesh {
 
     size_type size() const { return storage_.size(); }
 
+    allocator_type get_allocator() const { return storage_.get_allocator(); }
+
     size_type dim_size(size_type dim_ind) const {
         return dimension_.dim_size(dim_ind);
     }

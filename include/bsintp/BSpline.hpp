@@ -46,16 +46,12 @@ class BSpline {
     using ControlPointContainer =
         Mesh<val_type,
              dim,
-             util::default_init_allocator<
-                 val_type,
-                 BufferAllocator<val_type>>>;
+             util::default_init_allocator<val_type, BufferAllocator<val_type>>>;
 #ifdef INTP_CELL_LAYOUT
     using ControlPointCellContainer =
         Mesh<val_type,
              dim + 1,
-             util::default_init_allocator<
-                 val_type,
-                 BufferAllocator<val_type>>>;
+             util::default_init_allocator<val_type, BufferAllocator<val_type>>>;
     using control_point_type = ControlPointCellContainer;
 #else
     using control_point_type = ControlPointContainer;
@@ -63,9 +59,7 @@ class BSpline {
     using SplinePoynomialCoefficientContainer =
         Mesh<val_type,
              dim + 1,
-             util::default_init_allocator<
-                 val_type,
-                 BufferAllocator<val_type>>>;
+             util::default_init_allocator<val_type, BufferAllocator<val_type>>>;
     using poly_type = SplinePoynomialCoefficientContainer;
 
     using BaseSpline = std::array<knot_type, order + 1>;
@@ -406,8 +400,9 @@ class BSpline {
                 "Generate polynomial coefficients before releasing control "
                 "points");
         }
-        // resize(0) would retain the vector's allocation.
-        control_points_ = control_point_type(size_type{});
+        // Reuse the allocator so move assignment releases the old allocation.
+        control_points_ =
+            control_point_type(size_type{}, control_points_.get_allocator());
     }
 
     // Multiplying every control point scales the spline and all of its
@@ -836,9 +831,8 @@ class BSpline {
 #ifdef INTP_MULTITHREAD
         const size_type block_num = static_cast<size_type>(
             std::sqrt(static_cast<double>(hyper_surface_size)));
-        const size_type task_per_block = block_num == 0
-                                             ? 1
-                                             : hyper_surface_size / block_num;
+        const size_type task_per_block =
+            block_num == 0 ? 1 : hyper_surface_size / block_num;
         intp::parallel_for(hyper_surface_size, task_per_block, fill_cell);
 #else
         fill_cell(0, hyper_surface_size);
